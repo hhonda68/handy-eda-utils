@@ -71,48 +71,36 @@ struct rhs {
   rhs(value_type value_, const loc<LINE>& loc_) : value(value_), m_loc(loc_) {}
 };
 
-#ifdef FX_CHECK_OVERFLOW
-extern void overflow_error(const char *file, int line);
-#endif
-
-template <bool Signed, int W, int LINE> struct wrapper;
-template <int W, int LINE>
-struct wrapper<false,W,LINE> {
-  static value_type wraparound(value_type value, const loc<LINE>& loc_ = loc<LINE>()) {
-    value_type ans = value & ~(static_cast<value_type>(-1) << W);
-#ifdef FX_CHECK_OVERFLOW
-    if (ans != value)  overflow_error(loc_.file, LINE);
-#endif
-    return ans;
-  }
-};
-template <int W, int LINE>
-struct wrapper<true,W,LINE> {
-  static value_type wraparound(value_type value, const loc<LINE>& loc_ = loc<LINE>()) {
-    value_type ans = (value << (sizeof(value_type)*8-W)) >> (sizeof(value_type)*8-W);
-#ifdef FX_CHECK_OVERFLOW
-    if (ans != value)  overflow_error(loc_.file, LINE);
-#endif
-    return ans;
-  }
-};
-
-template <bool Signed, int W> struct complementer;
+template <bool Signed, int W> struct traits;
 template <int W>
-struct complementer<false,W> {
-  static value_type bwnot(value_type value) {
-    return value ^ ~(static_cast<value_type>(-1) << W);
+struct traits<false,W> {
+  static const value_type min_value = 0;
+  static const value_type max_value = (static_cast<value_type>(1)<<W)-1;
+  static value_type wrap(value_type value) {
+    return value & max_value;
+  }
+  static value_type complement(value_type value) {
+    return value ^ max_value;
   }
 };
 template <int W>
-struct complementer<true,W> {
-  static value_type bwnot(value_type value) {
+struct traits<true,W> {
+  static const value_type min_value = static_cast<value_type>(-1)<<(W-1);
+  static const value_type max_value = (static_cast<value_type>(1)<<(W-1))-1;
+  static value_type wrap(value_type value) {
+    return (value << (sizeof(value_type)*8-W)) >> (sizeof(value_type)*8-W);
+  }
+  static value_type complement(value_type value) {
     return ~value;
   }
 };
 
 template <bool Signed, int W>
 struct fx {
+  static const bool is_signed = Signed;
+  static const int width = W;
+  static const value_type min_value = traits<Signed,W>::min_value;
+  static const value_type max_value = traits<Signed,W>::max_value;
   value_type value;
   fx() {}
   fx(const fx& other) : value(other.value) {}
@@ -181,7 +169,18 @@ struct fx {
   }
   template <int LINE>
   rhs<LINE> bwnot(const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(complementer<Signed,W>::bwnot(value), loc_);
+    return rhs<LINE>(traits<Signed,W>::complement(value), loc_);
+  }
+  template <int LINE>
+  rhs<LINE> wrap(const loc<LINE>& loc_ = loc<LINE>()) {
+    return rhs<LINE>(traits<Signed,W>::wrap(value), loc_);
+  }
+  template <int LINE>
+  rhs<LINE> clamp(const loc<LINE>& loc_ = loc<LINE>()) {
+    value_type ans = ((value < min_value)
+		      ? min_value
+		      : ((value > max_value) ? max_value : value));
+    return rhs<LINE>(ans, loc_);
   }
 
   template <bool S2, int W2>
@@ -219,13 +218,15 @@ struct fx {
   bool operator< (const fx<S2,W2>& other) { return value <  other.value; }
 
 private:
-  void assign(value_type value_) {
-    value = wrapper<Signed,W,0>::wraparound(value_);
-  }
   template <int LINE>
   void assign(const rhs<LINE>& rhs_) {
-    value = wrapper<Signed,W,LINE>::wraparound(rhs_.value, rhs_.m_loc);
+    value = traits<Signed,W>::wrap(rhs_.value);
+#ifdef FX_CHECK_OVERFLOW
+    extern void overflow_error(const char *file, int line);
+    if (value != rhs_.value)  overflow_error(rhs_.m_loc.file, LINE);
+#endif
   }
+  void assign(value_type value_) { assign<0>(rhs<0>(value_, loc<0>())); }
 };
 
 };
