@@ -60,8 +60,12 @@ typedef int value_type;   // or "long long"
 
 template <int LINE>
 struct loc {
+#ifdef FX_CHECK_OVERFLOW
   const char * const file;
   loc(const char *file_ = 0) : file(file_) {}
+#else
+  loc(const char *file_ = 0) {}
+#endif
 };
 
 template <int LINE>
