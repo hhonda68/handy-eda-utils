@@ -311,6 +311,8 @@ typedef fx::fx<false,31>   uint31;
 #define fx_squ(a)     ((a).squ(fx::loc<__LINE__>(__FILE__)))
 #define fx_not(a)     ((a).bwnot(fx::loc<__LINE__>(__FILE__)))
 #define fx_cnv(a)     ((a).cnv(fx::loc<__LINE__>(__FILE__)))
+#define fx_wrap(a)    ((a).wrap(fx::loc<__LINE__>(__FILE__)))
+#define fx_clamp(a)   ((a).clamp(fx::loc<__LINE__>(__FILE__)))
 
 #endif
 
