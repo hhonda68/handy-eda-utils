@@ -37,5 +37,18 @@ std::string convert_to_hexadecimal_string(value_type val, int width)
   return strm.str();
 }
 
+std::string convert_to_binary_string(value_type val, int width)
+{
+  char buf[sizeof(value_type)*8+1];
+  int ix = sizeof(value_type)*8 - width;
+  int i = sizeof(value_type)*8;
+  buf[i] = '\0';
+  do {
+    buf[--i] = '0' + (val&1);
+    val >>= 1;
+  } while (i != ix);
+  return std::string(&buf[ix]);
+}
+
 };
 
