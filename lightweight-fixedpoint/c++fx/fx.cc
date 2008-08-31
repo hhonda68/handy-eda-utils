@@ -9,6 +9,8 @@
 
 #include "fx.h"
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 
 namespace fx {
 
@@ -26,6 +28,14 @@ void overflow_error(const char *file, int line)
 }
 
 #endif
+
+std::string convert_to_hexadecimal_string(value_type val, int width)
+{
+  std::ostringstream strm;
+  strm << std::setbase(16) << std::setw((width+3)>>2) << std::setfill('0')
+       << (val & ((static_cast<value_type>(1)<<width)-1));
+  return strm.str();
+}
 
 };
 
