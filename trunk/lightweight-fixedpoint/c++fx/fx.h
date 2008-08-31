@@ -17,6 +17,7 @@
 //   int6  c1 = fx_wrap(a+b);    // wraparound w/o overflow warning
 //   int6  c2 = fx_clamp(a+b);   // saturate
 //   std::cout << a.hex();       // same as write("%h",a) in Verilog
+//   std::cout << a.bin();       // same as write("%b",a) in Verilog
 //
 // Unrecommended Examples:
 //
@@ -119,6 +120,10 @@ struct fxint {
   std::string hex() const {
     extern std::string convert_to_hexadecimal_string(value_type, int);
     return convert_to_hexadecimal_string(value, W);
+  }
+  std::string bin() const {
+    extern std::string convert_to_binary_string(value_type, int);
+    return convert_to_binary_string(value, W);
   }
 
   // unrecommended features which issue unfriendly warning messages upon overflow
