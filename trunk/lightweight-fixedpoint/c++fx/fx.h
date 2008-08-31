@@ -11,38 +11,23 @@
 
 // Examples:
 //
-//   int10 a = fx_imm(-123);     // set immediate constant
-//   uint10 b = fx_imm(999);
-//   int10 c0 = fx_add(a,b);
-//   int10 c1 = fx_sub(a,b);
-//   int10 c2 = fx_mul(a,b);
-//   int10 c3 = fx_div(a,b);
-//   int10 c4 = fx_rem(a,b);
-//   int10 c5 = fx_and(a,b);     // bitwise and
-//   int10 c6 = fx_or(a,b);      // bitwise or
-//   int10 c7 = fx_xor(a,b);     // bitwise xor
-//   int10 d0 = fx_lsft(a,3);    // left shift
-//   int10 d1 = fx_rsft(a,3);    // right shift
-//   int10 d2 = fx_neg(a);       // sign negation
-//   int10 d3 = fx_squ(a);       // square
-//   int10 d4 = fx_not(a);       // bitwise complement
-//   int12 d5 = fx_cnv(a);       // format conversion
-//   int7  d6 = fx_wrap(a);      // wraparound w/o overflow warning
-//   int7  d7 = fx_clamp(a);     // saturate
-//   int7  d8 = fx_wrap(a+b);
-//   int7  d9 = fx_clamp(a+b);
-//   bool j0 = (a == b);
-//   bool j1 = (a != b);
-//   bool j2 = (a >= b);
-//   bool j3 = (a <= b);
-//   bool j4 = (a > b);
-//   bool j5 = (a < b);
+//   int10 a = fx(-123);
+//   uint10 b = fx(999);
+//   int10 c0 = fx(a+b);
+//   int6  c1 = fx_wrap(a+b);    // wraparound w/o overflow warning
+//   int6  c2 = fx_clamp(a+b);   // saturate
 //
 // Unrecommended Examples:
+//
 //   int8 a = -12345;
 //   int4 c = a + b;
-//   int16 d = a + int4(99);
-//   This coding style results in unfriendly error messages upon overflow.
+//   int6 d = a;       // implicit conversion between different formats
+//   a ++;
+//   a += b;
+//     These five coding styles result in unfriendly error messages upon overflow.
+//
+//   int10 e = fx(a+b+c);
+//     Format of the intermediate calculation result is undefined.
 //
 // Customization:
 //
@@ -64,12 +49,8 @@ typedef int value_type;   // or "long long"
 
 template <int LINE>
 struct loc {
-#ifdef FX_CHECK_OVERFLOW
   const char * const file;
   loc(const char *file_ = 0) : file(file_) {}
-#else
-  loc(const char *file_ = 0) {}
-#endif
 };
 
 enum rhs_tag { Wrap, Clamp };
@@ -81,12 +62,10 @@ struct rhs_tagged {
 };
 
 template <int LINE>
-struct rhs {
+struct rhs_loc {
   const value_type value;
   const loc<LINE>& m_loc;
-  rhs(value_type value_, const loc<LINE>& loc_) : value(value_), m_loc(loc_) {}
-  rhs_tagged<Wrap>  wrap()  { return rhs_tagged<Wrap> (value); }
-  rhs_tagged<Clamp> clamp() { return rhs_tagged<Clamp>(value); }
+  rhs_loc(value_type value_, const char *file) : value(value_), m_loc(file) {}
 };
 
 template <bool Signed, int W> struct traits;
@@ -114,226 +93,142 @@ struct traits<true,W> {
 };
 
 template <bool Signed, int W>
-struct fx {
+struct fxint {
   static const bool is_signed = Signed;
   static const int width = W;
   static const value_type min_value = traits<Signed,W>::min_value;
   static const value_type max_value = traits<Signed,W>::max_value;
   value_type value;
-  fx() {}
-  fx(const fx& other) : value(other.value) {}
-  fx(value_type value_) { assign(value_); }
+  fxint() {}
+  fxint(const fxint& other) : value(other.value) {}
+  fxint(value_type val) { assign(val); }
   template <int LINE>
-  fx(const rhs<LINE>& rhs_) { assign(rhs_); }
+  fxint(const rhs_loc<LINE>& rhs) { assign(rhs); }
   template <rhs_tag TAG>
-  fx(const rhs_tagged<TAG>& rhs_) { assign(rhs_); }
-  fx& operator=(const fx& other) {
+  fxint(const rhs_tagged<TAG>& rhs) { assign(rhs); }
+  fxint& operator=(const fxint& other) {
     if (this != &other)  value = other.value;
     return *this;
   }
-  fx& operator=(value_type value_) { assign(value_); return *this; }
-  template <int LINE>
-  fx& operator=(const rhs<LINE>& rhs_) { assign(rhs_); return *this; }
-  template <rhs_tag TAG>
-  fx& operator=(const rhs_tagged<TAG>& rhs_) { assign(rhs_); return *this; }
-  template <bool S2, int W2, int LINE>
-  rhs<LINE> add(const fx<S2,W2>& other, const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(value + other.value, loc_);
-  }
-  template <bool S2, int W2, int LINE>
-  rhs<LINE> sub(const fx<S2,W2>& other, const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(value - other.value, loc_);
-  }
-  template <bool S2, int W2, int LINE>
-  rhs<LINE> mul(const fx<S2,W2>& other, const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(value * other.value, loc_);
-  }
-  template <bool S2, int W2, int LINE>
-  rhs<LINE> div(const fx<S2,W2>& other, const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(value / other.value, loc_);
-  }
-  template <bool S2, int W2, int LINE>
-  rhs<LINE> rem(const fx<S2,W2>& other, const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(value % other.value, loc_);
-  }
-  template <bool S2, int W2, int LINE>
-  rhs<LINE> bwand(const fx<S2,W2>& other, const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(value & other.value, loc_);
-  }
-  template <bool S2, int W2, int LINE>
-  rhs<LINE> bwor(const fx<S2,W2>& other, const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(value | other.value, loc_);
-  }
-  template <bool S2, int W2, int LINE>
-  rhs<LINE> bwxor(const fx<S2,W2>& other, const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(value ^ other.value, loc_);
-  }
 
-  template <int LINE>
-  rhs<LINE> rsft(int other, const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(value >> other, loc_);
-  }
-  template <int LINE>
-  rhs<LINE> lsft(int other, const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(value << other, loc_);
-  }
-  template <int LINE>
-  rhs<LINE> neg(const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(-value, loc_);
-  }
-  template <int LINE>
-  rhs<LINE> squ(const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(value*value, loc_);
-  }
-  template <int LINE>
-  rhs<LINE> cnv(const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(value, loc_);
-  }
-  template <int LINE>
-  rhs<LINE> bwnot(const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(traits<Signed,W>::complement(value), loc_);
-  }
-  rhs_tagged<Wrap>  wrap()  { return rhs_tagged<Wrap> (value); }
-  rhs_tagged<Clamp> clamp() { return rhs_tagged<Clamp>(value); }
+  operator value_type() const { return value; }
 
-  template <bool S2, int W2>
-  rhs<0> operator+(const fx<S2,W2>& other) { return add<S2,W2,0>(other); }
-  template <bool S2, int W2>
-  rhs<0> operator-(const fx<S2,W2>& other) { return sub<S2,W2,0>(other); }
-  template <bool S2, int W2>
-  rhs<0> operator*(const fx<S2,W2>& other) { return mul<S2,W2,0>(other); }
-  template <bool S2, int W2>
-  rhs<0> operator/(const fx<S2,W2>& other) { return div<S2,W2,0>(other); }
-  template <bool S2, int W2>
-  rhs<0> operator%(const fx<S2,W2>& other) { return rem<S2,W2,0>(other); }
-  template <bool S2, int W2>
-  rhs<0> operator&(const fx<S2,W2>& other) { return bwand<S2,W2,0>(other); }
-  template <bool S2, int W2>
-  rhs<0> operator|(const fx<S2,W2>& other) { return bwor<S2,W2,0>(other); }
-  template <bool S2, int W2>
-  rhs<0> operator^(const fx<S2,W2>& other) { return bwxor<S2,W2,0>(other); }
-  rhs<0> operator>>(int other) { return rsft<0>(other); }
-  rhs<0> operator<<(int other) { return lsft<0>(other); }
-  rhs<0> operator-() { return neg<0>(); }
-  rhs<0> operator~() { return bwnot<0>(); }
-
-  template <bool S2, int W2>
-  bool operator==(const fx<S2,W2>& other) { return value == other.value; }
-  template <bool S2, int W2>
-  bool operator!=(const fx<S2,W2>& other) { return value != other.value; }
-  template <bool S2, int W2>
-  bool operator>=(const fx<S2,W2>& other) { return value >= other.value; }
-  template <bool S2, int W2>
-  bool operator<=(const fx<S2,W2>& other) { return value <= other.value; }
-  template <bool S2, int W2>
-  bool operator> (const fx<S2,W2>& other) { return value >  other.value; }
-  template <bool S2, int W2>
-  bool operator< (const fx<S2,W2>& other) { return value <  other.value; }
+  // unrecommended features which issue unfriendly warning messages upon overflow
+  template <bool S2, int W2> fxint(const fxint<S2,W2>& rhs) { assign(rhs.value); }
+  template <bool S2, int W2> operator fxint<S2,W2>() const { return fxint<S2,W2>(value); }
+  template <typename T> fxint& operator+=(T other) { assign(value + other); return *this; }
+  template <typename T> fxint& operator-=(T other) { assign(value - other); return *this; }
+  template <typename T> fxint& operator*=(T other) { assign(value * other); return *this; }
+  template <typename T> fxint& operator/=(T other) { assign(value / other); return *this; }
+  template <typename T> fxint& operator%=(T other) { assign(value % other); return *this; }
+  template <typename T> fxint& operator&=(T other) { assign(value & other); return *this; }
+  template <typename T> fxint& operator|=(T other) { assign(value | other); return *this; }
+  template <typename T> fxint& operator^=(T other) { assign(value ^ other); return *this; }
+  template <typename T> fxint& operator<<=(T other) { assign(value << other); return *this; }
+  template <typename T> fxint& operator>>=(T other) { assign(value >> other); return *this; }
+  fxint& operator++() { assign(value+1);  return *this; }
+  fxint operator++(int) { fxint ret = *this;  assign(value+1);  return ret; }
+  fxint& operator--() { assign(value-1);  return *this; }
+  fxint operator--(int) { fxint ret = *this;  assign(value-1);  return ret; }
 
 private:
   template <int LINE>
-  void assign(const rhs<LINE>& rhs_) {
-    value = traits<Signed,W>::wrap(rhs_.value);
-#ifdef FX_CHECK_OVERFLOW
+  void assign(const rhs_loc<LINE>& rhs) {
+    value = traits<Signed,W>::wrap(rhs.value);
     extern void overflow_error(const char *file, int line);
-    if (value != rhs_.value)  overflow_error(rhs_.m_loc.file, LINE);
+    if (value != rhs.value)  overflow_error(rhs.m_loc.file, LINE);
+  }
+  void assign(value_type val) {
+#ifdef FX_CHECK_OVERFLOW
+    assign(rhs_loc<0>(val,0));
+#else
+    value = traits<Signed,W>::wrap(val);
 #endif
   }
-  void assign(value_type value_) { assign<0>(rhs<0>(value_, loc<0>())); }
-  void assign(const rhs_tagged<Wrap>& rhs_) {
-    value = traits<Signed,W>::wrap(rhs_.value);
+  void assign(const rhs_tagged<Wrap>& rhs) {
+    value = traits<Signed,W>::wrap(rhs.value);
   }
-  void assign(const rhs_tagged<Clamp>& rhs_) {
-    value = ((rhs_.value < min_value)
+  void assign(const rhs_tagged<Clamp>& rhs) {
+    value = ((rhs.value < min_value)
 	     ? min_value
-	     : (rhs_.value > max_value) ? max_value : rhs_.value);
+	     : (rhs.value > max_value) ? max_value : rhs.value);
   }
 };
 
 };
 
-typedef fx::fx<true, 1>   int1;
-typedef fx::fx<true, 2>   int2;
-typedef fx::fx<true, 3>   int3;
-typedef fx::fx<true, 4>   int4;
-typedef fx::fx<true, 5>   int5;
-typedef fx::fx<true, 6>   int6;
-typedef fx::fx<true, 7>   int7;
-typedef fx::fx<true, 8>   int8;
-typedef fx::fx<true, 9>   int9;
-typedef fx::fx<true,10>   int10;
-typedef fx::fx<true,11>   int11;
-typedef fx::fx<true,12>   int12;
-typedef fx::fx<true,13>   int13;
-typedef fx::fx<true,14>   int14;
-typedef fx::fx<true,15>   int15;
-typedef fx::fx<true,16>   int16;
-typedef fx::fx<true,17>   int17;
-typedef fx::fx<true,18>   int18;
-typedef fx::fx<true,19>   int19;
-typedef fx::fx<true,20>   int20;
-typedef fx::fx<true,21>   int21;
-typedef fx::fx<true,22>   int22;
-typedef fx::fx<true,23>   int23;
-typedef fx::fx<true,24>   int24;
-typedef fx::fx<true,25>   int25;
-typedef fx::fx<true,26>   int26;
-typedef fx::fx<true,27>   int27;
-typedef fx::fx<true,28>   int28;
-typedef fx::fx<true,29>   int29;
-typedef fx::fx<true,30>   int30;
-typedef fx::fx<true,31>   int31;
-typedef fx::fx<true,32>   int32;
+typedef fx::fxint<true, 1>   int1;
+typedef fx::fxint<true, 2>   int2;
+typedef fx::fxint<true, 3>   int3;
+typedef fx::fxint<true, 4>   int4;
+typedef fx::fxint<true, 5>   int5;
+typedef fx::fxint<true, 6>   int6;
+typedef fx::fxint<true, 7>   int7;
+typedef fx::fxint<true, 8>   int8;
+typedef fx::fxint<true, 9>   int9;
+typedef fx::fxint<true,10>   int10;
+typedef fx::fxint<true,11>   int11;
+typedef fx::fxint<true,12>   int12;
+typedef fx::fxint<true,13>   int13;
+typedef fx::fxint<true,14>   int14;
+typedef fx::fxint<true,15>   int15;
+typedef fx::fxint<true,16>   int16;
+typedef fx::fxint<true,17>   int17;
+typedef fx::fxint<true,18>   int18;
+typedef fx::fxint<true,19>   int19;
+typedef fx::fxint<true,20>   int20;
+typedef fx::fxint<true,21>   int21;
+typedef fx::fxint<true,22>   int22;
+typedef fx::fxint<true,23>   int23;
+typedef fx::fxint<true,24>   int24;
+typedef fx::fxint<true,25>   int25;
+typedef fx::fxint<true,26>   int26;
+typedef fx::fxint<true,27>   int27;
+typedef fx::fxint<true,28>   int28;
+typedef fx::fxint<true,29>   int29;
+typedef fx::fxint<true,30>   int30;
+typedef fx::fxint<true,31>   int31;
+typedef fx::fxint<true,32>   int32;
 
-typedef fx::fx<false, 1>   uint1;
-typedef fx::fx<false, 2>   uint2;
-typedef fx::fx<false, 3>   uint3;
-typedef fx::fx<false, 4>   uint4;
-typedef fx::fx<false, 5>   uint5;
-typedef fx::fx<false, 6>   uint6;
-typedef fx::fx<false, 7>   uint7;
-typedef fx::fx<false, 8>   uint8;
-typedef fx::fx<false, 9>   uint9;
-typedef fx::fx<false,10>   uint10;
-typedef fx::fx<false,11>   uint11;
-typedef fx::fx<false,12>   uint12;
-typedef fx::fx<false,13>   uint13;
-typedef fx::fx<false,14>   uint14;
-typedef fx::fx<false,15>   uint15;
-typedef fx::fx<false,16>   uint16;
-typedef fx::fx<false,17>   uint17;
-typedef fx::fx<false,18>   uint18;
-typedef fx::fx<false,19>   uint19;
-typedef fx::fx<false,20>   uint20;
-typedef fx::fx<false,21>   uint21;
-typedef fx::fx<false,22>   uint22;
-typedef fx::fx<false,23>   uint23;
-typedef fx::fx<false,24>   uint24;
-typedef fx::fx<false,25>   uint25;
-typedef fx::fx<false,26>   uint26;
-typedef fx::fx<false,27>   uint27;
-typedef fx::fx<false,28>   uint28;
-typedef fx::fx<false,29>   uint29;
-typedef fx::fx<false,30>   uint30;
-typedef fx::fx<false,31>   uint31;
+typedef fx::fxint<false, 1>   uint1;
+typedef fx::fxint<false, 2>   uint2;
+typedef fx::fxint<false, 3>   uint3;
+typedef fx::fxint<false, 4>   uint4;
+typedef fx::fxint<false, 5>   uint5;
+typedef fx::fxint<false, 6>   uint6;
+typedef fx::fxint<false, 7>   uint7;
+typedef fx::fxint<false, 8>   uint8;
+typedef fx::fxint<false, 9>   uint9;
+typedef fx::fxint<false,10>   uint10;
+typedef fx::fxint<false,11>   uint11;
+typedef fx::fxint<false,12>   uint12;
+typedef fx::fxint<false,13>   uint13;
+typedef fx::fxint<false,14>   uint14;
+typedef fx::fxint<false,15>   uint15;
+typedef fx::fxint<false,16>   uint16;
+typedef fx::fxint<false,17>   uint17;
+typedef fx::fxint<false,18>   uint18;
+typedef fx::fxint<false,19>   uint19;
+typedef fx::fxint<false,20>   uint20;
+typedef fx::fxint<false,21>   uint21;
+typedef fx::fxint<false,22>   uint22;
+typedef fx::fxint<false,23>   uint23;
+typedef fx::fxint<false,24>   uint24;
+typedef fx::fxint<false,25>   uint25;
+typedef fx::fxint<false,26>   uint26;
+typedef fx::fxint<false,27>   uint27;
+typedef fx::fxint<false,28>   uint28;
+typedef fx::fxint<false,29>   uint29;
+typedef fx::fxint<false,30>   uint30;
+typedef fx::fxint<false,31>   uint31;
 
-#define fx_imm(v)     (fx::rhs<__LINE__>((v),fx::loc<__LINE__>(__FILE__)))
-#define fx_add(a,b)   ((a).add((b), fx::loc<__LINE__>(__FILE__)))
-#define fx_sub(a,b)   ((a).sub((b), fx::loc<__LINE__>(__FILE__)))
-#define fx_mul(a,b)   ((a).mul((b), fx::loc<__LINE__>(__FILE__)))
-#define fx_div(a,b)   ((a).div((b), fx::loc<__LINE__>(__FILE__)))
-#define fx_rem(a,b)   ((a).rem((b), fx::loc<__LINE__>(__FILE__)))
-#define fx_and(a,b)   ((a).bwand((b), fx::loc<__LINE__>(__FILE__)))
-#define fx_or(a,b)    ((a).bwor((b), fx::loc<__LINE__>(__FILE__)))
-#define fx_xor(a,b)   ((a).bwxor((b), fx::loc<__LINE__>(__FILE__)))
-#define fx_lsft(a,b)  ((a).lsft((b), fx::loc<__LINE__>(__FILE__)))
-#define fx_rsft(a,b)  ((a).rsft((b), fx::loc<__LINE__>(__FILE__)))
-#define fx_neg(a)     ((a).neg(fx::loc<__LINE__>(__FILE__)))
-#define fx_squ(a)     ((a).squ(fx::loc<__LINE__>(__FILE__)))
-#define fx_not(a)     ((a).bwnot(fx::loc<__LINE__>(__FILE__)))
-#define fx_cnv(a)     ((a).cnv(fx::loc<__LINE__>(__FILE__)))
-#define fx_wrap(x)    ((x).wrap())   // "x" may be fx<> or rhs<>
-#define fx_clamp(x)   ((x).clamp())  // "x" may be fx<> or rhs<>
+#ifdef FX_CHECK_OVERFLOW
+#define fx(v)                      (fx::rhs_loc<__LINE__>((v),__FILE__))
+#else
+#define fx(v)                      (static_cast<fx::value_type>(v))
+#endif
+typedef fx::rhs_tagged<fx::Wrap>   fx_wrap;
+typedef fx::rhs_tagged<fx::Clamp>  fx_clamp;
 
 #endif
 
