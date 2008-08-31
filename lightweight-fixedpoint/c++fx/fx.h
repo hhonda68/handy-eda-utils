@@ -27,6 +27,10 @@
 //   int10 d3 = fx_squ(a);       // square
 //   int10 d4 = fx_not(a);       // bitwise complement
 //   int12 d5 = fx_cnv(a);       // format conversion
+//   int7  d6 = fx_wrap(a);      // wraparound w/o overflow warning
+//   int7  d7 = fx_clamp(a);     // saturate
+//   int7  d8 = fx_wrap(a+b);
+//   int7  d9 = fx_clamp(a+b);
 //   bool j0 = (a == b);
 //   bool j1 = (a != b);
 //   bool j2 = (a >= b);
@@ -68,11 +72,21 @@ struct loc {
 #endif
 };
 
+enum rhs_tag { Wrap, Clamp };
+
+template <rhs_tag TAG>
+struct rhs_tagged {
+  const value_type value;
+  rhs_tagged(value_type value_) : value(value_) {}
+};
+
 template <int LINE>
 struct rhs {
   const value_type value;
   const loc<LINE>& m_loc;
   rhs(value_type value_, const loc<LINE>& loc_) : value(value_), m_loc(loc_) {}
+  rhs_tagged<Wrap>  wrap()  { return rhs_tagged<Wrap> (value); }
+  rhs_tagged<Clamp> clamp() { return rhs_tagged<Clamp>(value); }
 };
 
 template <bool Signed, int W> struct traits;
@@ -111,6 +125,8 @@ struct fx {
   fx(value_type value_) { assign(value_); }
   template <int LINE>
   fx(const rhs<LINE>& rhs_) { assign(rhs_); }
+  template <rhs_tag TAG>
+  fx(const rhs_tagged<TAG>& rhs_) { assign(rhs_); }
   fx& operator=(const fx& other) {
     if (this != &other)  value = other.value;
     return *this;
@@ -118,6 +134,8 @@ struct fx {
   fx& operator=(value_type value_) { assign(value_); return *this; }
   template <int LINE>
   fx& operator=(const rhs<LINE>& rhs_) { assign(rhs_); return *this; }
+  template <rhs_tag TAG>
+  fx& operator=(const rhs_tagged<TAG>& rhs_) { assign(rhs_); return *this; }
   template <bool S2, int W2, int LINE>
   rhs<LINE> add(const fx<S2,W2>& other, const loc<LINE>& loc_ = loc<LINE>()) {
     return rhs<LINE>(value + other.value, loc_);
@@ -175,17 +193,8 @@ struct fx {
   rhs<LINE> bwnot(const loc<LINE>& loc_ = loc<LINE>()) {
     return rhs<LINE>(traits<Signed,W>::complement(value), loc_);
   }
-  template <int LINE>
-  rhs<LINE> wrap(const loc<LINE>& loc_ = loc<LINE>()) {
-    return rhs<LINE>(traits<Signed,W>::wrap(value), loc_);
-  }
-  template <int LINE>
-  rhs<LINE> clamp(const loc<LINE>& loc_ = loc<LINE>()) {
-    value_type ans = ((value < min_value)
-		      ? min_value
-		      : ((value > max_value) ? max_value : value));
-    return rhs<LINE>(ans, loc_);
-  }
+  rhs_tagged<Wrap>  wrap()  { return rhs_tagged<Wrap> (value); }
+  rhs_tagged<Clamp> clamp() { return rhs_tagged<Clamp>(value); }
 
   template <bool S2, int W2>
   rhs<0> operator+(const fx<S2,W2>& other) { return add<S2,W2,0>(other); }
@@ -231,6 +240,14 @@ private:
 #endif
   }
   void assign(value_type value_) { assign<0>(rhs<0>(value_, loc<0>())); }
+  void assign(const rhs_tagged<Wrap>& rhs_) {
+    value = traits<Signed,W>::wrap(rhs_.value);
+  }
+  void assign(const rhs_tagged<Clamp>& rhs_) {
+    value = ((rhs_.value < min_value)
+	     ? min_value
+	     : (rhs_.value > max_value) ? max_value : rhs_.value);
+  }
 };
 
 };
@@ -315,8 +332,8 @@ typedef fx::fx<false,31>   uint31;
 #define fx_squ(a)     ((a).squ(fx::loc<__LINE__>(__FILE__)))
 #define fx_not(a)     ((a).bwnot(fx::loc<__LINE__>(__FILE__)))
 #define fx_cnv(a)     ((a).cnv(fx::loc<__LINE__>(__FILE__)))
-#define fx_wrap(a)    ((a).wrap(fx::loc<__LINE__>(__FILE__)))
-#define fx_clamp(a)   ((a).clamp(fx::loc<__LINE__>(__FILE__)))
+#define fx_wrap(x)    ((x).wrap())   // "x" may be fx<> or rhs<>
+#define fx_clamp(x)   ((x).clamp())  // "x" may be fx<> or rhs<>
 
 #endif
 
