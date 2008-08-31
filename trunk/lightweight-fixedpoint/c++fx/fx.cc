@@ -9,8 +9,6 @@
 
 #include "fx.h"
 #include <iostream>
-#include <sstream>
-#include <iomanip>
 
 namespace fx {
 
@@ -31,10 +29,16 @@ void overflow_error(const char *file, int line)
 
 std::string convert_to_hexadecimal_string(value_type val, int width)
 {
-  std::ostringstream strm;
-  strm << std::setbase(16) << std::setw((width+3)>>2) << std::setfill('0')
-       << (val & ((static_cast<value_type>(1)<<width)-1));
-  return strm.str();
+  char buf[sizeof(value_type)*2+1];
+  int ix = sizeof(value_type)*2 - ((width+3)>>2);
+  int i = sizeof(value_type)*2;
+  val &= ((static_cast<value_type>(1)<<width) - 1);
+  buf[i] = '\0';
+  do {
+    buf[--i] = "0123456789abcdef"[val&15];
+    val >>= 4;
+  } while (i != ix);
+  return std::string(&buf[ix]);
 }
 
 std::string convert_to_binary_string(value_type val, int width)
