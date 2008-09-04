@@ -110,6 +110,14 @@ struct fxint {
   static const int width = W;
   static const value_type min_value = traits<Signed,W>::min_value;
   static const value_type max_value = traits<Signed,W>::max_value;
+  typedef fxint<false,W> unsigned_type;
+  typedef fxint<true, W> signed_type;
+  template <int D>
+  struct widen {
+    typedef fxint<Signed,W+D> type;
+    typedef fxint<false, W+D> unsigned_type;
+    typedef fxint<true,  W+D> signed_type;
+  };
   value_type value;
   fxint() {}
   fxint(const fxint& other) : value(other.value) {}
