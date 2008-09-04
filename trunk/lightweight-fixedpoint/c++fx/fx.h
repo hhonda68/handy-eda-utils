@@ -96,8 +96,16 @@ struct traits<true,W> {
   }
 };
 
-template <bool Signed, int W>
+template <bool Signed, int W> struct width_check {
+  // "INVALID_WIDTH" is 0 when invalid.
+  enum { INVALID_WIDTH = (W>0)&&(W<=sizeof(value_type)*8-1+Signed) };
+  typedef char dummy[INVALID_WIDTH];   // cf. boost/static_assert
+  static const int corrected_width = (INVALID_WIDTH==0) ? 1 : W;
+};
+
+template <bool Signed, int W_>
 struct fxint {
+  static const int W = width_check<Signed,W_>::corrected_width;
   static const bool is_signed = Signed;
   static const int width = W;
   static const value_type min_value = traits<Signed,W>::min_value;
