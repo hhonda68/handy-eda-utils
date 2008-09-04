@@ -19,6 +19,12 @@
 //   std::cout << a.hex();       // same as write("%h",a) in Verilog
 //   std::cout << a.bin();       // same as write("%b",a) in Verilog
 //
+//   const int PIXEL_DEPTH = 8;
+//   typedef fx::fxint<unsigned,PIXEL_DEPTH>  pixel;
+//   pixel  pa, pb;
+//   pixel::widen<1>::type        psum = pa + pb;
+//   pixel::widen<1>::signed_type pdiff = pa - pb;
+//
 // Unrecommended Examples:
 //
 //   int8 a = -12345;
@@ -72,9 +78,9 @@ struct rhs_loc {
   rhs_loc(value_type value_, const char *file) : value(value_), m_loc(file) {}
 };
 
-template <bool Signed, int W> struct traits;
+template <typename S, int W> struct traits;
 template <int W>
-struct traits<false,W> {
+struct traits<unsigned,W> {
   static const value_type min_value = 0;
   static const value_type max_value = (static_cast<value_type>(1)<<W)-1;
   static value_type wrap(value_type value) {
@@ -85,7 +91,7 @@ struct traits<false,W> {
   }
 };
 template <int W>
-struct traits<true,W> {
+struct traits<signed,W> {
   static const value_type min_value = static_cast<value_type>(-1)<<(W-1);
   static const value_type max_value = (static_cast<value_type>(1)<<(W-1))-1;
   static value_type wrap(value_type value) {
@@ -96,6 +102,10 @@ struct traits<true,W> {
   }
 };
 
+template <typename S> struct sign_check;
+template <> struct sign_check<unsigned> { static const bool is_signed = false; };
+template <> struct sign_check<signed>   { static const bool is_signed = true;  };
+
 template <bool Signed, int W> struct width_check {
   // "INVALID_WIDTH" is 0 when invalid.
   enum { INVALID_WIDTH = (W>0)&&(W<=sizeof(value_type)*8-1+Signed) };
@@ -103,20 +113,20 @@ template <bool Signed, int W> struct width_check {
   static const int corrected_width = (INVALID_WIDTH==0) ? 1 : W;
 };
 
-template <bool Signed, int W_>
+template <typename S, int W_>
 struct fxint {
-  static const int W = width_check<Signed,W_>::corrected_width;
-  static const bool is_signed = Signed;
+  static const bool is_signed = sign_check<S>::is_signed;
+  static const int W = width_check<is_signed,W_>::corrected_width;
   static const int width = W;
-  static const value_type min_value = traits<Signed,W>::min_value;
-  static const value_type max_value = traits<Signed,W>::max_value;
-  typedef fxint<false,W> unsigned_type;
-  typedef fxint<true, W> signed_type;
+  static const value_type min_value = traits<S,W>::min_value;
+  static const value_type max_value = traits<S,W>::max_value;
+  typedef fxint<unsigned,W> unsigned_type;
+  typedef fxint<signed,  W> signed_type;
   template <int D>
   struct widen {
-    typedef fxint<Signed,W+D> type;
-    typedef fxint<false, W+D> unsigned_type;
-    typedef fxint<true,  W+D> signed_type;
+    typedef fxint<S,        W+D> type;
+    typedef fxint<unsigned, W+D> unsigned_type;
+    typedef fxint<signed,   W+D> signed_type;
   };
   value_type value;
   fxint() {}
@@ -143,8 +153,8 @@ struct fxint {
   }
 
   // unrecommended features which issue unfriendly warning messages upon overflow
-  template <bool S2, int W2> fxint(const fxint<S2,W2>& rhs) { assign(rhs.value); }
-  template <bool S2, int W2> operator fxint<S2,W2>() const { return fxint<S2,W2>(value); }
+  template <typename S2, int W2> fxint(const fxint<S2,W2>& rhs) { assign(rhs.value); }
+  template <typename S2, int W2> operator fxint<S2,W2>() const { return fxint<S2,W2>(value); }
   template <typename T> fxint& operator+=(T other) { assign(value + other); return *this; }
   template <typename T> fxint& operator-=(T other) { assign(value - other); return *this; }
   template <typename T> fxint& operator*=(T other) { assign(value * other); return *this; }
@@ -163,7 +173,7 @@ struct fxint {
 private:
   template <int LINE>
   void assign(const rhs_loc<LINE>& rhs) {
-    value = traits<Signed,W>::wrap(rhs.value);
+    value = traits<S,W>::wrap(rhs.value);
     extern void overflow_error(const char *file, int line);
     if (value != rhs.value)  overflow_error(rhs.m_loc.file, LINE);
   }
@@ -171,11 +181,11 @@ private:
 #ifdef FX_CHECK_OVERFLOW
     assign(rhs_loc<0>(val,0));
 #else
-    value = traits<Signed,W>::wrap(val);
+    value = traits<S,W>::wrap(val);
 #endif
   }
   void assign(const rhs_tagged<Wrap>& rhs) {
-    value = traits<Signed,W>::wrap(rhs.value);
+    value = traits<S,W>::wrap(rhs.value);
   }
   void assign(const rhs_tagged<Clamp>& rhs) {
     value = ((rhs.value < min_value)
@@ -186,70 +196,70 @@ private:
 
 };
 
-typedef fx::fxint<true, 1>   int1;
-typedef fx::fxint<true, 2>   int2;
-typedef fx::fxint<true, 3>   int3;
-typedef fx::fxint<true, 4>   int4;
-typedef fx::fxint<true, 5>   int5;
-typedef fx::fxint<true, 6>   int6;
-typedef fx::fxint<true, 7>   int7;
-typedef fx::fxint<true, 8>   int8;
-typedef fx::fxint<true, 9>   int9;
-typedef fx::fxint<true,10>   int10;
-typedef fx::fxint<true,11>   int11;
-typedef fx::fxint<true,12>   int12;
-typedef fx::fxint<true,13>   int13;
-typedef fx::fxint<true,14>   int14;
-typedef fx::fxint<true,15>   int15;
-typedef fx::fxint<true,16>   int16;
-typedef fx::fxint<true,17>   int17;
-typedef fx::fxint<true,18>   int18;
-typedef fx::fxint<true,19>   int19;
-typedef fx::fxint<true,20>   int20;
-typedef fx::fxint<true,21>   int21;
-typedef fx::fxint<true,22>   int22;
-typedef fx::fxint<true,23>   int23;
-typedef fx::fxint<true,24>   int24;
-typedef fx::fxint<true,25>   int25;
-typedef fx::fxint<true,26>   int26;
-typedef fx::fxint<true,27>   int27;
-typedef fx::fxint<true,28>   int28;
-typedef fx::fxint<true,29>   int29;
-typedef fx::fxint<true,30>   int30;
-typedef fx::fxint<true,31>   int31;
-typedef fx::fxint<true,32>   int32;
+typedef fx::fxint<signed, 1>   int1;
+typedef fx::fxint<signed, 2>   int2;
+typedef fx::fxint<signed, 3>   int3;
+typedef fx::fxint<signed, 4>   int4;
+typedef fx::fxint<signed, 5>   int5;
+typedef fx::fxint<signed, 6>   int6;
+typedef fx::fxint<signed, 7>   int7;
+typedef fx::fxint<signed, 8>   int8;
+typedef fx::fxint<signed, 9>   int9;
+typedef fx::fxint<signed,10>   int10;
+typedef fx::fxint<signed,11>   int11;
+typedef fx::fxint<signed,12>   int12;
+typedef fx::fxint<signed,13>   int13;
+typedef fx::fxint<signed,14>   int14;
+typedef fx::fxint<signed,15>   int15;
+typedef fx::fxint<signed,16>   int16;
+typedef fx::fxint<signed,17>   int17;
+typedef fx::fxint<signed,18>   int18;
+typedef fx::fxint<signed,19>   int19;
+typedef fx::fxint<signed,20>   int20;
+typedef fx::fxint<signed,21>   int21;
+typedef fx::fxint<signed,22>   int22;
+typedef fx::fxint<signed,23>   int23;
+typedef fx::fxint<signed,24>   int24;
+typedef fx::fxint<signed,25>   int25;
+typedef fx::fxint<signed,26>   int26;
+typedef fx::fxint<signed,27>   int27;
+typedef fx::fxint<signed,28>   int28;
+typedef fx::fxint<signed,29>   int29;
+typedef fx::fxint<signed,30>   int30;
+typedef fx::fxint<signed,31>   int31;
+typedef fx::fxint<signed,32>   int32;
 
-typedef fx::fxint<false, 1>   uint1;
-typedef fx::fxint<false, 2>   uint2;
-typedef fx::fxint<false, 3>   uint3;
-typedef fx::fxint<false, 4>   uint4;
-typedef fx::fxint<false, 5>   uint5;
-typedef fx::fxint<false, 6>   uint6;
-typedef fx::fxint<false, 7>   uint7;
-typedef fx::fxint<false, 8>   uint8;
-typedef fx::fxint<false, 9>   uint9;
-typedef fx::fxint<false,10>   uint10;
-typedef fx::fxint<false,11>   uint11;
-typedef fx::fxint<false,12>   uint12;
-typedef fx::fxint<false,13>   uint13;
-typedef fx::fxint<false,14>   uint14;
-typedef fx::fxint<false,15>   uint15;
-typedef fx::fxint<false,16>   uint16;
-typedef fx::fxint<false,17>   uint17;
-typedef fx::fxint<false,18>   uint18;
-typedef fx::fxint<false,19>   uint19;
-typedef fx::fxint<false,20>   uint20;
-typedef fx::fxint<false,21>   uint21;
-typedef fx::fxint<false,22>   uint22;
-typedef fx::fxint<false,23>   uint23;
-typedef fx::fxint<false,24>   uint24;
-typedef fx::fxint<false,25>   uint25;
-typedef fx::fxint<false,26>   uint26;
-typedef fx::fxint<false,27>   uint27;
-typedef fx::fxint<false,28>   uint28;
-typedef fx::fxint<false,29>   uint29;
-typedef fx::fxint<false,30>   uint30;
-typedef fx::fxint<false,31>   uint31;
+typedef fx::fxint<unsigned, 1>   uint1;
+typedef fx::fxint<unsigned, 2>   uint2;
+typedef fx::fxint<unsigned, 3>   uint3;
+typedef fx::fxint<unsigned, 4>   uint4;
+typedef fx::fxint<unsigned, 5>   uint5;
+typedef fx::fxint<unsigned, 6>   uint6;
+typedef fx::fxint<unsigned, 7>   uint7;
+typedef fx::fxint<unsigned, 8>   uint8;
+typedef fx::fxint<unsigned, 9>   uint9;
+typedef fx::fxint<unsigned,10>   uint10;
+typedef fx::fxint<unsigned,11>   uint11;
+typedef fx::fxint<unsigned,12>   uint12;
+typedef fx::fxint<unsigned,13>   uint13;
+typedef fx::fxint<unsigned,14>   uint14;
+typedef fx::fxint<unsigned,15>   uint15;
+typedef fx::fxint<unsigned,16>   uint16;
+typedef fx::fxint<unsigned,17>   uint17;
+typedef fx::fxint<unsigned,18>   uint18;
+typedef fx::fxint<unsigned,19>   uint19;
+typedef fx::fxint<unsigned,20>   uint20;
+typedef fx::fxint<unsigned,21>   uint21;
+typedef fx::fxint<unsigned,22>   uint22;
+typedef fx::fxint<unsigned,23>   uint23;
+typedef fx::fxint<unsigned,24>   uint24;
+typedef fx::fxint<unsigned,25>   uint25;
+typedef fx::fxint<unsigned,26>   uint26;
+typedef fx::fxint<unsigned,27>   uint27;
+typedef fx::fxint<unsigned,28>   uint28;
+typedef fx::fxint<unsigned,29>   uint29;
+typedef fx::fxint<unsigned,30>   uint30;
+typedef fx::fxint<unsigned,31>   uint31;
 
 #ifdef FX_CHECK_OVERFLOW
 #define fx(v)                      (fx::rhs_loc<__LINE__>((v),__FILE__))
