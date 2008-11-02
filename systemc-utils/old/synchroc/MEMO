@@ -1,0 +1,375 @@
+#
+# Lightweight single-clock digital logic simulator library.
+#
+
+# Copyright (c) 2008 the handy-eda-utils develeper(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+
+# Last modified on August 2004.
+
+論理回路のビヘイビアシミュレーション用クラスライブラリ
+
+論理回路システムとは、回路シンボル (入力と出力をもつブロック) を接続し
+たものである、と考える。
+
+[A] PrimitiveCircuit
+  [A.1] メソッド、継承方法
+  [A.2] ゲートと FF を組み合わせてカウンターを作る例
+  [A.3] カウンターそのものを 1 つの回路クラスとして記述する例
+[B] CompoundCircuit
+  [B.1] メソッド
+  [B.2] Full Adder 構築例
+[C] ...(snip)...
+[D] ユーティリティ
+  [D.1] ConstantSignal
+  [D.2] Rng16
+  [D.3] RandomBitGenerator
+  [D.4] TestSignal
+  [D.5] Probe
+
+====================
+[A] PrimitiveCircuit
+====================
+
+PrimitiveCircuit は、論理回路シンボルを表す抽象ベースクラスである。
+
+------------------------
+[A.1] メソッド、継承方法
+------------------------
+
+  initialize(入力ピン数、出力ピン数)
+
+  connect(入力ピン番号、接続元回路オブジェクト、接続元回路の出力ピン番号 [、ビット数])
+
+  invalue(入力ピン番号 [、ビット数])   ← public でなく protected
+    入力ピンの値を調べる (memoize 機能付き)。
+    実装としては、接続元回路オブジェクトの outvalue() メソッドを呼ぶ。
+
+  outvalue(出力ピン番号 [、ビット数])
+    出力ピンの値を計算する (memoize 機能付き)。
+    実装としては、具体クラスが提供する calc_output_value() を呼ぶ。
+
+  evaluate
+    NOP
+
+  tick
+    新たなクロックサイクルに進むとみなして、memoize 結果を破棄する
+
+PrimitiveCircuit を継承する組合せ論理回路具体クラスで提供すべき処理
+
+  calc_output_value(出力ピン番号)   ← private
+    invalue() を活用して出力ピンの値を計算する。
+    outvalue() から呼ばれる。
+
+PrimitiveCircuit を継承する順序論理回路の具体クラスで提供すべき処理
+
+  calc_output_value(出力ピン番号)   ← private
+    invalue() と内部ステートをもとに、出力ピンの値を計算する。
+    outvalue() から呼ばれる。
+
+  evaluate
+    invalue() と内部ステートを元に、次サイクルの内部ステートを計算し、
+    スタンバイワーク(インスタンス変数)に記憶する。
+
+  tick
+    super() しつつ、内部ステートを更新する (スタンバイワークから
+    内部ステートワークに更新する)。この時点では invalue() 使用不可。
+
+現実問題としては、デバッグの便宜のため、内部の主要信号を outvalue() で
+読めるのが望ましい。そのためには、具体クラスでも outvalue() を定義し、
+「正規の出力信号なら super()、そうでなければ各具体クラス固有の内部信号」
+と処理させるとよい。outvalue() 引数の「ビット数」に 2 以上を指定された
+ときのことをサポートするのがチト面倒ではあるが。
+
+--------------------------------------------------
+[A.2] ゲートと FF を組み合わせてカウンターを作る例
+--------------------------------------------------
+
+                     ┌─┐  ┌──┐
+               ┌─→│X │  │    │
+               │    │O ├→│ FF ├┬─→ Bit1
+               │┌→│R │  │    ││
+               ││  └─┘  └──┘│
+               │└─────────┘
+               ├──────────┐
+               │    ┌─┐  ┌──┐│
+               │    │N │  │    ││
+               └─→│O ├→│ FF ├┴─→ Bit0
+                     │T │  │    │
+                     └─┘  └──┘
+
+  class Inverter < PrimitiveCircuit
+    def initialize
+      super(1,1)
+    end
+    def calc_output_value(ox)
+      invalue(0) ^ 1
+    end
+  end
+
+  class XorGate2 < PrimitiveCircuit
+    def initialize
+      super(2,1)
+    end
+    def calc_output_value(ox)
+      invalue(0) ^ invalue(1)
+    end
+  end
+
+  class DTypeFlipFlop < PrimitiveCircuit
+    def initialize
+      super(1,1)
+      @ff = 0
+      @next = 0
+    end
+    def calc_output_value(ox)
+      @ff
+    end
+    def evaluate
+      @next = invalue(0)
+    end
+    def tick
+      super
+      @ff = @next
+    end
+  end
+
+  bit0ff = DTypeFlipFlop.new
+  bit1ff = DTypeFlipFlop.new
+  bit0inv = Inverter.new
+  bit1xor = XorGate2.new
+  bit0ff.connect(0, bit0inv, 0)
+  bit0inv.connect(0, bit0ff, 0)
+  bit1ff.connect(0, bit1xor, 0)
+  bit1xor.connect(0, bit1ff, 0)
+  bit1xor.connect(1, bit0ff, 0)
+
+  components = [ bit0ff, bit1ff, bit0inv, bit1xor ]
+
+  1024.times do |clk|
+    printf("clk %d: count = %d %d\n", clk,
+           bit1ff.outvalue(0), bit0ff.outvalue(0))
+    components.each |x| do x.evaluate end
+    components.each |x| do x.tick end
+  end
+
+-----------------------------------------------------------
+[A.3] カウンターそのものを 1 つの回路クラスとして記述する例
+-----------------------------------------------------------
+
+大規模なカウンターも簡単に書ける。
+
+  class Counter < PrimitiveCircuit
+    def initialize(width)
+      super(0, width)
+      @mask = (1<<width)-1
+      @value = 0
+    end
+    def calc_output_value(ox)
+      (@value >> ox) & 1
+    end
+    def tick
+      super
+      @value = ((@value + 1) & @mask
+    end
+  end
+
+  cnt4 = Counter.new(4)
+  1024.times do |clk|
+    printf("clk %d: count = %d %d %d %d\n", clk,
+           cnt4.outvalue(3),cnt4.outvalue(2),cnt4.outvalue(1),cnt4.outvalue(0))
+    cnt4.evaluate
+    cnt4.tick
+  end
+
+本カウンターは入力ピンを持たないので、「evaluate() で次の内部ステー
+トを計算してスタンバイワークに記憶」する必要は無かった。単純に tick() 
+で内部ステートをインクリメントした。
+
+===================
+[B] CompoundCircuit
+===================
+
+回路を階層構造設計する際には、「PrimitiveCircuit をいくつか組み合わせ
+てひとつの大規模回路を構築し、それを新たな PrimitiveCircuit として上位
+設計に使う」というやりかたをしたい。
+
+そこで、CompoundCircuit という抽象ベースクラスの出番である。これは 
+PrimitiveCircuit の子クラスであり、上位設計の際には PrimitiveCircuit 
+と同じように使える。じゃあ PrimitiveCircuit と何が違うのかというと、具
+体クラスを作る際に便利なように具体クラス手続きとの約束事を拡張している
+点が異なる。
+
+--------------
+[B.1] メソッド
+--------------
+
+  initialize(入力ピン数、出力ピン数、内部コンポーネント配列)
+
+  forward_input(入力ピン番号、内部コンポーネント、
+                内部コンポーネント入力ピン番号 [、ビット数])
+    自身の入力ピンを内部コンポーネントに転送する、という接続情報を登録する。
+    同じ入力ピンに対して複数回呼んでよい (複数の内部入力へ転送)。
+
+  forward_output(出力ピン番号、内部コンポーネント、
+                 内部コンポーネント出力ピン番号 [、ビット数])
+    自身の出力ピンを内部コンポーネントに転送する、という接続情報を登録する。
+    こちらは当然 1 ピンに対して 1 度だけ。
+
+  evaluate
+    全ての内部コンポーネントを evaluate する。
+
+  tick
+    super() し、また、全ての内部コンポーネントを tick する。
+
+CompoundCircuit の具体クラスは、initialize 時に、内部コンポーネントイ
+ンスタンスを作って super() したあと、全ての forward_input(),
+forward_output() 接続情報を登録し、内部コンポーネント同士の接続も全て
+行う。
+
+CompoundCircuit の具体クラスは、forward_output しなかった出力ピンに
+関してだけ calc_output_value() を提供すればよい。
+
+CompoundCircuit の具体クラスは、evaluate(), tick() 時に内部コンポー
+ネントの evaluate(), tick() の面倒を見なくてよい。super() してから
+自身の内部ステートの面倒だけ見ればよい。
+
+-----------------------
+[B.2] Full Adder 構築例
+-----------------------
+
+Half Adder コンポーネントを 2 つ使って Full Adder を構築する。OR ゲー
+トも必要だが、それは内部コンポーネントとしてでなくFull Adder クラス自
+身の雑処理として記述する。
+
+              ┌───┐              ┌─┐
+        A ─→│Half  ├──────→│  │
+              │Adder │  ┌───┐  │OR├─→ Carry
+        B ─→│  1   ├→│Half  ├→│  │
+              └───┘  │Adder │  └─┘
+        C ───────→│  2   ├─────→ Sum
+                          └───┘
+
+  class HalfAdder < PrimitiveCircuit
+    def initialize
+      super(2, 2)
+    end
+    def calc_output_value(ox)
+      if (ox == 0) then
+        invalue(0) ^ invalue(1)   # sum
+      else
+        invalue(0) & invalue(1)   # carry
+      end
+    end
+  end
+
+  class FullAdder < CompoundCircuit
+    def initialize
+      @ha1 = HalfAdder.new
+      @ha2 = HalfAdder.new
+      super(3, 2, [@ha1, @ha2])
+      forward_input(0, @ha1, 0)   # A to HA1
+      forward_input(1, @ha1, 1)   # B to HA1
+      @ha2.connect(0, @ha1, 0)    # HA1 to HA2
+      forward_input(2, @ha2, 1)   # C to HA2
+      forward_output(0, @ha2, 0)  # HA2 to Sum output
+    end
+    def calc_output_value(ox)
+      (ox == 1)  or fatal
+      @ha1.outvalue(1) | @ha2.outvalue(1)   # Carry output
+    end
+  end
+
+Full Adder は内部ステートを持たないので、evaluate(), tick() は何も
+せずにすんだ (CompoundCircuit の「内部コンポーネント全てを
+evaluate(), tick() する」という共通処理だけですんだ)。
+
+
+==================
+[D] ユーティリティ
+==================
+
+回路シミュレーションのいろんな場面で使えるユーティリティをいくつか作った。
+
+--------------------
+[D.1] ConstantSignal
+--------------------
+
+定数出力回路。
+
+  initialize(width, value)
+    width ビットの定数信号出力回路 (0 入力 width 出力) を作る。
+    出力する定数は value。
+    出力ピン N 番に value の bit N を出力する。0 番は LSB。
+
+実装としては PrimitiveCircuit を継承するまでもなかったので、継承してい
+ない。利用者側は PrimitiveCircuit 扱いしてよい。
+
+-----------
+[D.2] Rng16
+-----------
+
+16bit 疑似乱数生成器オブジェクト (回路ではない)
+
+  initialize(seed)
+    32bit seed を元に線形合同疑似乱数生成器オブジェクトを作る。
+
+  get
+    16bit 疑似乱数値を得る。
+
+------------------------
+[D.3] RandomBitGenerator
+------------------------
+
+シミュレーション用の乱数発生回路 (PrimitiveCircuit)
+
+  initialize(width)
+    毎サイクル width ビットの疑似乱数を出力する回路を作る。
+    PrimitiveCircuit としては 0 入力 width 出力。
+
+内部的には「Rng16 をパラシリ変換する 1bit 乱数発生回路」を width 並列
+動かすので、大きな width にも対応可能。
+
+----------------
+[D.4] TestSignal
+----------------
+
+シミュレーション用のテスト信号発生回路 (PrimitiveCircuit)
+
+# こいつの出力をテスト対象回路の入力につないで、
+# テスト対象回路に信号を注入する。
+
+  initialize(width)
+    0 入力 width 出力のテスト信号出力回路を作る。
+
+  set(value)
+    出力値を value にする。value は 0 〜 ((1<<width)-1)。
+    出力ピン 0 番が value の LSB。
+
+  get
+    現在の value (width ビット整数値) を得る。
+
+TestSignal オブジェクト自身や接続先回路オブジェクトの outvalue(),
+invalue() の memoize 機能と整合性をとるため、set() 呼び出しは、tick() 
+で memoize クリアしてから outvalue() するまでの間に行うのが正解。
+
+-----------
+[D.5] Probe
+-----------
+
+シミュレーション用のプローブ入力回路 (PrimitiveCircuit)
+
+  initalize(width)
+    width 入力 0 出力のプローブ回路を作る。
+
+  value
+    全入力の invalue() 値を集計して width ビットの測定値とする。
+    0 番入力が LSB。
+
+  Probe.status  [クラスメソッド]
+
+    全インスタンスの value を配列にして返す。
+    要素の並びは、インスタンス生成順。
+

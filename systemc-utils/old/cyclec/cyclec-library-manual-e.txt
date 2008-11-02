@@ -1,0 +1,1485 @@
+#
+# Lightweight functional digital logic simulator library.
+#
+
+# Copyright (c) 2008 the handy-eda-utils develeper(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+
+# Last modified on October 2004.
+
+CycleC --- a class library for cycle-based circuit simulation (2004/10/18)
+
+[A] Overview
+[B] Basic Usage Examples
+  [B.1] Simulation of a NAND Gate
+    [B.1.1] Write a NAND Gate Class
+    [B.1.2] Write a Test Jig Class
+    [B.1.3] Write a Testbench Class
+    [B.1.4] Write a Simulation Main Routine
+    [B.1.5] Peek Internal Signals
+  [B.2] Simulation of a Counter
+    [B.2.1] Write a Counter Class
+    [B.2.2] Write a Test Jig Class
+    [B.2.3] Write a Testbench Class
+    [B.2.4] Write a Simulation Main Routine
+    [B.2.5] Peek Internal Signals
+[C] Reference for Circuit Users
+  [C.1] CycleC::Circuit
+    [C.1.1] InRange in(int ix, int n=1), OutRange out(int ox, int n=1)
+    [C.1.2] uint outvalue(int ox, int n=1) const
+    [C.1.3] uint invalue(int ix, int n=1) const
+    [C.1.4] void tick()
+    [C.1.5] void confirm_connection_sanity()
+    [C.1.6] void reset()
+    [C.1.7] void evaluate(), void update()
+    [C.1.8] std::string name() const
+    [C.1.9] Copy Constructors and Assignment Operators
+  [C.2] CycleC::CompoundCircuit
+  [C.3] CycleC::connection_error, CycleC::infinite_recursion_error
+[D] Reference for Circuit Implementers
+  [D.1] CycleC::Circuit
+    [D.1.1] Circuit(int nr_input, int nr_output)
+    [D.1.2] ~Circuit()
+    [D.1.3] uint calc_outvalue(int ox) const
+    [D.1.4] void evaluate(), void update()
+    [D.1.5] void reset()
+    [D.1.6] std::string myname() const
+  [D.2] CycleC::CompoundCircuit
+    [D.2.1] CompoundCircuit(int nr_input, int nr_output)
+    [D.2.2] ~CompoundCircuit()
+    [D.2.3] Stream-oriented << Operator
+    [D.2.4] InRange in(int ix, int n=1), OutRange out(int ox, int n=1)
+[E] Advanced Technique: How to Handle Multiple Clocks
+  [E.1] Dual Clocks
+  [E.2] Many Clocks
+
+============
+[A] Overview
+============
+
+CycleC is a C++ class library for zero-delay cycle-based single-clock
+two-valued circuit simulation.  It has far less features than, and
+hence it is far faster than, SystemC.  A measurement has shown that a
+prototype version of CycleC can simulate a one-million-gate circuit 10
+times faster than SystemC.
+
+Files:
+    cyclec.h      the header file (namespace "CycleC")
+    cyclec.cc     the library source code
+
+A CycleC user writes application circuit classes inheriting one of
+the two CycleC classes.
+    CycleC::Circuit             circuit without hierarchy
+    CycleC::CompoundCircuit     circuit with hierarchy
+
+                      +-----------------+
+                      | CycleC::Circuit |
+                      +-----------------+
+                               |
+        +-----------------+----+---------------+
+        |                 |                    |
++--------------+  +--------------+ +-------------------------+
+| UserCircuitA |  | UserCircuitB | | CycleC::CompoundCircuit |
++--------------+  +--------------+ +-------------------------+
+                                               |
+                                      +--------+--------+
+                                      |                 |
+                              +--------------+  +--------------+
+                              | UserCircuitC |  | UserCircuitD |
+                              +--------------+  +--------------+
+
+CycleC::Circuit is a skeleton to generate a combinatorial or
+sequential circuit without hierarchy.  When a programmer creates a
+sub-class of CycleC::Circuit and implements some virtual functions to
+describe how to calculate output port values, the sub-class becomes a
+concrete circuit class.  A simulation main routine can instantiate
+concrete circuit classes, connect the circuit instances each other,
+and simulate their functional behaviors cycle-by-cycle.
+
+CycleC::CompoundCircuit is a skeleton to generate a
+combinatorial/sequential circuit with hierarchy.  When a programmer
+creates a sub-class of CycleC::CompoundCircuit and declares some
+concrete circuit instances as member variables and connects those
+circuit instances each other in the sub-class constructor, the
+sub-class becomes a concrete compound circuit class.
+
+CycleC::CompoundCircuit itself is a sub-class of CycleC::Circuit.  A
+Concrete compound circuit instance can be used as a concrete circuit
+instance.  Therefore, a concrete compound circuit instance can be
+included in another big concrete compound circuit class as a member
+circuit, forming multi-level hierarchy.
+
+Users of a circuit class will not care whether or not the circuit has
+internal hierarchy.  So users will use all circuits as CycleC::Circuit
+instances.  On the other hand, implementers of a circuit class will
+care whether or not the circuit has internal hierarchy, and define the
+circuit class as a sub-class of CycleC::Circuit or
+CycleC::CompoundCircuit appropriately.
+
+# Consider a counter circuit.  An implementer can write it
+# behaviorally as a sub-class of CycleC::Circuit operating like
+# "next_cnt = cnt + 1", or write it structurally as a sub-class of
+# CycleC::CompoundCircuit holding gates and flip flops.  In any case,
+# a user will regard the counter as a sub-class of CycleC::Circuit.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# The author has found that the current design of CycleC::Circuit and
+# CycleC::CompoundCircuit is defective.  A better design will be:
+#
+#                          +-----------------+
+#                          | CycleC::Circuit |
+#                          +-----------------+
+#                                   |
+#                   +---------------+---------------+
+#                   |                               |
+#     +--------------------------+     +-------------------------+
+#     | CycleC::PrimitiveCircuit |     | CycleC::CompoundCircuit |
+#     +--------------------------+     +-------------------------+
+#                   |                               |
+#         +---------+-------+                +------+--------+
+#         |                 |                |               |
+# +--------------+ +--------------+  +--------------+ +--------------+
+# | UsercircuitA | | UserCircuitB |  | UserCircuitC | | UserCircuitD |
+# +--------------+ +--------------+  +--------------+ +--------------+
+#
+# This design insists that "CycleC::Circuit is for circuit users" and
+# "CycleC::PrimitiveCircuit and CycleC::CompoundCircuit are for
+# circuit implementers".  It distinguishes the API for users and the
+# API for implementers more clearly than the current design.  The next
+# version of CycleC will adopt this revised design.
+
+========================
+[B] Basic Usage Examples
+========================
+
+The basic usage of CycleC is as follows:
+
+  (1) Write an application circuit class as a sub-class of
+      CycleC::Circuit or CycleC::CompoundCircuit.
+  (2) Write a test-jig circuit class as a sub-class of
+      CycleC::Circuit or CycleC::CompoundCircuit.
+  (3) Write a testbench circuit class as a sub-class of
+      CycleC::CompoundCircuit holding the above two circuits.
+  (4) Write a simulation main routine to instantiate a testbench
+      circuit and simulate it.
+
+-------------------------------
+[B.1] Simulation of a NAND Gate
+-------------------------------
+
+The simplest example of CycleC usage is a simulation of a NAND gate.
+
+[B.1.1] Write a NAND Gate Class
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+First, we write a NAND gate class.
+
+    #include    "cyclec.h"
+    using CycleC::uint;
+
+    class NandGate : public CycleC::Circuit {
+    public:
+      NandGate() : Circuit(2, 1) {}    // 2 inputs, 1 output
+    protected:
+      virtual uint calc_outvalue(int ox) const {
+        // assert(ox == 0);
+        return (invalue(0) & invalue(1)) ^ 1;
+      }
+    };
+
+A pure combinatorial circuit can be easily written like this.  When
+the circuit has multiple outputs, calc_outvalue() should examine the
+"ox" parameter and calculate the corresponding output.  In that case,
+calc_outvalue() is likely to need "if" or "switch" statement which
+sometimes makes the circuit description less readable than SystemC.
+The lesser readability is a compensation for a simpler API.
+
+Note that the circuit definition style in CycleC is passive.  A
+circuit calculates its output values when the simulation main routine
+requests it.  This is contrary to the circuit definition style of
+SystemC, in which each circuit module has its own main loop.  The
+SystemC style requires a complicated co-routine based or multi-
+threaded event-driven simulation engine, while the CycleC style
+requires only a single-threaded cycle-driven simulation engine.  This
+difference leads to the 10 times performance advantage of CycleC
+simulation.
+
+[B.1.2] Write a Test Jig Class
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Next, we make a test jig circuit.  In this example, we make an ATPG
+(automatic test pattern generator) which generates random values for
+the NAND gate inputs and verifies the NAND gate output.
+
+        +------------+         +-------------+
+        |            |-------->|             |
+        |            |-------->|             |
+        |  Test Jig  |         |  NAND Gate  |
+        |            |<--------|             |
+        |            |         |             |
+        +------------+         +-------------+
+
+    class TestJig : public CycleC::Circuit {
+    public:
+      TestJig() : Circuit(1, 2) {
+        m_ff[0] = 0;
+        m_ff[1] = 0;
+        m_rng = 0x10130945;
+      }
+    protected:
+      virtual uint calc_outvalue(int ox) const {
+        // assert(ox >= 0 && ox < 2);
+        return m_ff[ox];
+      }
+      virtual void evaluate() {
+        Circuit::evaluate();
+        uint expect = (m_ff[0] & m_ff[1]) ^ 1;
+        uint actual = invalue(0);
+        if (actual != expect)   throw std::runtime_error("verify error");
+      }
+      virtual void update() {
+        Circuit::update();
+        m_rng = m_rng * 1103515245 + 12345;
+        m_ff[0] = (m_rng >> 13) & 1;
+        m_ff[1] = (m_rng >> 23) & 1;
+      }
+    private:
+      uint  m_rng;
+      uint  m_ff[2];
+    };
+
+This test jig is a sequential circuit, so its definition is more
+complex than the purely combinatorial NAND gate.
+
+# The simplest sequential circuit is the D-type flip flop in section
+# [B.2.1].
+
+A sequential circuit class should define three functions:
+calc_outvalue(), evaluate(), and update().
+
+The calc_outvalue() function should calculate a value of an output
+port.  In this TestJig class, calc_outvalue() simply returns the value
+of a member variable.  It means that this the jig outputs the values
+of internal flip flops to the corresponding output ports.
+
+The evaluate() function should describe what to do during a clock
+cycle.  In this TestJig class, evaluate() verifies its input (i.e.,
+the output of the connected NAND gate).
+
+The update() function should describe what to do at the transition
+edge between the current and the next clock cycle.  In this TestJig
+class, update() updates the state of its RNG (random number
+generator), and loads new random values to the internal flip flops.
+
+The evaluate() and update() functions should call its base-class
+counterparts, because CycleC::Circuit and CycleC::CompoundCircuit
+themselves have some housekeeping work.
+
+# Even the author often forgets to call the base-class counterparts,
+# sigh...  There might have been a better API design...
+
+[B.1.3] Write a Testbench Class
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Next, we combine a NAND gate instance and a TestJig instance to
+form a testbench circuit.
+
+    class TestBench : public CycleC::CompoundCircuit {
+    public:
+      TestBench() : CompoundCircuit(0, 0) {
+        *this << m_nand << m_jig;
+        m_nand.in(0, 2) = m_jig.out(0, 2);
+        m_jig.in(0) = m_nand.out(0);
+        confirm_connection_sanity();
+      }
+    private:
+      NandGate      m_nand;
+      TestJig       m_jig;
+    };
+
+A testbench circuit should be a CycleC::CompoundCircuit because it has
+hierarchy.  A concrete compound circuit class should:
+  * hold sub-circuit instances as member variables, and
+  * register all sub-circuit instances in the constructor, and
+  * connect all sub-circuit instances each other in the constructor.
+For example, this Testbench class
+  * holds two sub-circuit instances "m_nand" and "m_jig", and
+  * registers the two sub-circuit instances using the << operator, and
+  * connects the two m_nand inputs from the two m_jig outputs, and
+  * connects the m_jig input from the m_nand output.
+
+Connections between sub-circuit instances are written as assignments
+to signal destination ports from signal source ports.
+
+# These assignments have counter-intuitive semantics.  They do not
+# represent any "assignment" operations in a C++ sense.  They are
+# merely a syntax sugar to call an undocumented member function
+# "connect()" in CycleC::Circuit.
+
+The confirm_connection_sanity() function is a utility API to check
+whether or not all sub-circuit input ports have been connected.  When
+you write a testbench class, it is advisable to call
+confirm_connection_sanity() at the end of the constructor.
+
+[B.1.4] Write a Simulation Main Routine
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Finally, we write a simulation main routine to instantiate a testbench
+circuit and simulate it for 100 cycles.
+
+    #include <iostream>
+
+    int main() {
+      int the_cycle = -1;
+      try {
+        static TestBench tb;
+        std::cout << "Simulation start" << std::endl;
+        for (the_cycle=0; the_cycle<100; ++the_cycle) {
+          tb.tick();
+        }
+        std::cout << "Simulation end" << std::endl;
+        return 0;
+      } catch (std::exception& e) {
+        std::cout << std::flush;
+        std::cerr << "\nFatal Error at cycle " << the_cycle << ": "
+                  << e.what() << "." << std::endl;
+        return 2;
+      } catch (...) {
+        std::cout << std::flush;
+        std::cerr << "\nCurious exception occurred." << std::endl;
+        return 2;
+      }
+    }
+
+We declare the testbench instance as "static" to be conscious that a
+hardware circuit is by nature a static entity.  The "static" specifier
+is theoretically not necessary for correct simulation, but in reality,
+when the "static" specifier is not used, the testbench instance is
+allocated on the stack which may result in a stack overflow error.
+
+When the main routine calls tb.tick(), all sub-circuit instances
+execute evaluate() in unspecified order, and then all sub-circuit
+instances execute update() in unspecified order.  It means that the
+whole testbench circuit advances one clock cycle.  The simulation main
+routine may call tb.tick() any times.
+
+Code snippets in sections [B.1.1] to [B.1.4] together form a complete
+program.  When we compile and execute the program, it will print
+    Simulation start
+    Simulation end
+to the standard output.  It means that the simulation completed
+successfully, because no "verify error" exception occurred.
+
+[B.1.5] Peek Internal Signals
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+When the program reports a "verify error" exception, we need to debug
+our design by peeking internal signals.  Or, even when the program
+successfully completes, we may peek internal signals to confirm that
+the program really simulates our design correctly.
+
+We can peek only I/O ports of visible circuit instances.  Therefore,
+to peek the signals of m_nand,m_jig, we should change their visibility
+declaration from "private" to "public" in the TestBench class
+definition in section [B.1.3], Once "m_nand" and "m_jig" are made
+public, we can write the simulation loop of the simulation main
+routine as follows.
+
+        for (the_cycle=0; the_cycle<100; ++the_cycle) {
+          std::cout << "cycle " << the_cycle
+                    << ": jig.out " << tb.m_jig.outvalue(0)
+                    << " " << tb.m_jig.outvalue(1)
+                    << " -> nand.in " << tb.m_nand.invalue(0)
+                    << " " << tb.m_nand.invalue(1)
+                    << " -> nand.out " << tb.m_nand.outvalue(0)
+                    << " -> jig.in " << tb.m_jig.invalue(0)
+                    << "\n";
+          tb.tick();
+        }
+
+The modified program will print
+
+    Simulation start
+    cycle 0: jig.out 0 0 -> nand.in 0 0 -> nand.out 1 -> jig.in 1
+    cycle 1: jig.out 1 0 -> nand.in 1 0 -> nand.out 1 -> jig.in 1
+    cycle 2: jig.out 1 1 -> nand.in 1 1 -> nand.out 0 -> jig.in 0
+    cycle 3: jig.out 1 1 -> nand.in 1 1 -> nand.out 0 -> jig.in 0
+    cycle 4: jig.out 1 1 -> nand.in 1 1 -> nand.out 0 -> jig.in 0
+    cycle 5: jig.out 1 0 -> nand.in 1 0 -> nand.out 1 -> jig.in 1
+    cycle 6: jig.out 0 0 -> nand.in 0 0 -> nand.out 1 -> jig.in 1
+    cycle 7: jig.out 1 0 -> nand.in 1 0 -> nand.out 1 -> jig.in 1
+    cycle 8: jig.out 0 0 -> nand.in 0 0 -> nand.out 1 -> jig.in 1
+    cycle 9: jig.out 1 0 -> nand.in 1 0 -> nand.out 1 -> jig.in 1
+    cycle 10: jig.out 0 1 -> nand.in 0 1 -> nand.out 1 -> jig.in 1
+    cycle 11: jig.out 1 0 -> nand.in 1 0 -> nand.out 1 -> jig.in 1
+    cycle 12: jig.out 1 1 -> nand.in 1 1 -> nand.out 0 -> jig.in 0
+    cycle 13: jig.out 1 1 -> nand.in 1 1 -> nand.out 0 -> jig.in 0
+    cycle 14: jig.out 0 1 -> nand.in 0 1 -> nand.out 1 -> jig.in 1
+    cycle 15: jig.out 1 0 -> nand.in 1 0 -> nand.out 1 -> jig.in 1
+       ...snip...
+    Simulation end
+
+to the standard output.  Now we are confident that the program
+simulates our design correctly.
+
+-----------------------------
+[B.2] Simulation of a Counter
+-----------------------------
+
+This section shows a simulation of a simple sequential circuit,
+counter.  The TestBench class of Section [B.1.2] has already shown how
+to write a sequential circuit, but it was a behavioral description
+style, not a legitimate (synthesizable) style.  The section writes a
+counter in a synthesizable style to show the legitimate CycleC
+description style for sequential circuits.  In addition, this section
+uses CycleC features more aggressively than section [B.1].
+
+[B.2.1] Write a Counter Class
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+We combine gates and flip flops to form a 4-bit counter.  We adopt
+two-level hierarchy.
+
+   counter = 4 flip flops + incrementer
+   incrementer = combination of AND,XOR gates
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+First, we define the basic AND,XOR gate classes.
+
+    #include    "cyclec.h"
+    using CycleC::uint;
+
+    class AndGate : public CycleC::Circuit {
+    public:
+      AndGate() : Circuit(2, 1) {}
+    protected:
+      virtual uint calc_outvalue(int ox) const {
+        return invalue(0) & invalue(1);
+      }
+    };
+    
+    class XorGate : public CycleC::Circuit {
+    public:
+      XorGate() : Circuit(2, 1) {}
+    protected:
+      virtual uint calc_outvalue(int ox) const {
+        return invalue(0) ^ invalue(1);
+      }
+    };
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+Next, we define the 4-bit incrementer class.
+
+    class Incrementer4 : public CycleC::CompoundCircuit {
+    public:
+      Incrementer4() : CompoundCircuit(4, 4) {
+        *this << m_and1 << m_and2 << m_xor1 << m_xor2 << m_xor3;
+        // Y1 = A0^A1
+        // Y2 = (A0&A1)^A2
+        // Y3 = (A0&A1&A2)^A3
+        m_and1.in(0, 2) = in(0, 2);
+        m_and2.in(0) = m_and1.out(0);
+        m_and2.in(1) = in(2);
+        m_xor1.in(0, 2) = in(0, 2);
+        m_xor2.in(0) = m_and1.out(0);
+        m_xor2.in(1) = in(2);
+        m_xor3.in(0) = m_and2.out(0);
+        m_xor3.in(1) = in(3);
+        out(1) = m_xor1.out(0);
+        out(2) = m_xor2.out(0);
+        out(3) = m_xor3.out(0);
+      }
+    protected:
+      virtual uint calc_outvalue(int ox) const {
+        // assert(ox == 0);
+        return invalue(0) ^ 1;      // Y0 = !A0
+      }
+    private:
+      AndGate   m_and1, m_and2;
+      XorGate   m_xor1, m_xor2, m_xor3;
+    };
+
+Connections between a sub-circuit and another sub-circuit, or
+connections between a sub-circuit and the incrementer itself, are
+specified in the constructor, just like a HDL netlist description.
+
+The = operator for port connections allows only the following patterns:
+   * <sub-circuit input(s)> = <sub-circuit output(s)>
+   * <sub-circuit input(s)> = <self input(s)>
+   * <self output(s)> = <sub-circuit output(s)>
+In any case, the left-hand side is the signal destination, and the
+right-hand side is the signal source.
+
+The Incrementer4 class does not define the connection of its 0th
+output in the constructor.  The 0th output is calculated directly by
+calc_outvalue().  As is suggested by this code, "when an output port
+is connected in the constructor, its value is calculated following the
+connection; otherwise, an output value is calculated by
+calc_outvalue()".  Note that in this particular example a more natural
+description might be to hold an inverter sub-circuit instance and
+connect the 0th output from the inverter --- the above description is
+somewhat artificial.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+Next, we define the flip flop class.
+
+    class FlipFlop : public CycleC::Circuit {
+    public:
+      FlipFlop() : Circuit(1, 1), m_current(0), m_next(0) {}
+    protected:
+      virtual uint calc_outvalue(int ox) const { return m_current; }
+      virtual void evaluate() {
+        Circuit::evaluate();
+        m_next = invalue(0);
+      }
+      virtual void update() {
+        Circuit::update();
+        m_current = m_next;
+      }
+    private:
+      uint  m_current, m_next;
+    };
+
+This is the legitimate description style for a sequential circuit.
+The calc_outvalue() function calculates an output value based on the
+internal state and/or input signals.  The evaluate() function prepares
+the next value of the internal state.  The update() function loads the
+next value to the state variable.
+
+The evaluate() function may call invalue().  It must not change the
+state of the sequential circuit.
+
+The update() function must update the state of the sequential circuit.
+It must not call invalue().
+
+When evaluate() calls invalue(), the invalue() traverses the
+connection of the input port and calls outvalue() of the signal
+source circuit.  In short, invalue() asks another circuit's states.
+Therefore, to perform the functional simulation correctly,
+  * a circuit must be guaranteed that other circuits do not change
+    states while it is asking their states, and
+  * a circuit must guarantee that it does not change states
+    while other circuits are asking its states.
+The evaluate()/update() API separation establishes these
+cross-guarantees.  This is the essence of CycleC circuit simulation.
+
+# As described in section [B.1.4], a clock cycle of CycleC simulation
+# is a sequence to "evaluate all components in unspecified order and
+# then update all components in unspecified order".  Preparing the
+# next state values in evaluate() and loading them in udpate() ensure
+# correct functional simulation.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+Finally, we combine four flip flops and one incrementer to form the
+4-bit counter class.
+
+    class Counter4 : public CycleC::CompoundCircuit {
+    public:
+      Counter4() : CompoundCircuit(0, 4) {
+        *this << Components<FlipFlop*>(&m_ff[0], &m_ff[4]) << m_inc;
+        for (int i=0; i<4; ++i) {
+          m_ff[i].in(0) = m_inc.out(i);
+          m_inc.in(i) = m_ff[i].out(0);
+          out(i) = m_ff[i].out(0);
+        }
+      }
+    private:
+      FlipFlop      m_ff[4];
+      Incrementer4  m_inc;
+    };
+
+This is a fully structural description of a compound circuit.  All I/O
+ports are connected to/from its sub-circuits.  The calc_outvalue()
+function will never be called, so we need not define it.
+
+Note that the four flip flops are registered all at once by
+    *this << Components<FlipFlop*>(&m_ff[0], &m_ff[4])
+which is equivalent to
+    *this << m_ff[0] << m_ff[1] << m_ff[2] << m_ff[3]
+functionally.  This description [Components<Circuit*>(first,last)] can
+be used for circuit "iterator"s including circuit "pointer"s.
+
+[B.2.2] Write a Test Jig Class
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In this example, we write a behavioral reference model of the counter
+as a test jig class.  We leave the verification function to the
+testbench class.
+
+    class BehaviorCounter : public CycleC::Circuit {
+    public:
+      explicit BehaviorCounter(int nr_bits)
+        : Circuit(0, nr_bits), m_value(0), m_mask((1<<nr_bits)-1) {}
+    protected:
+      virtual uint calc_outvalue(int ox) const {
+        return (m_value >> ox) & 1;
+      }
+      virtual void update() {
+        Circuit::update();
+        m_value = (m_value + 1) & m_mask;
+      }
+    private:
+      uint        m_value;
+      const uint  m_mask;
+    };
+
+# This is not a "test jig" in a strict sense, because it lacks the
+# verification function.
+
+Whew!  Only about 15 lines for the behavioral code, compared to 70
+lines for the netlist-level code.  A difference of abstraction level
+does matter.
+
+# Current EDA technology might be able to synthesize the above
+# BehaviorCounter, insisting that it is a register-transfer level
+# description rather than a behavioral description.  However, in
+# CycleC, it is advisable to define that "in a (synthesizable)
+# register-transfer level description, evaluate() performs computation
+# and prepares the next state values, and update() simply loads them
+# without any computation".  If we keep this definition in mind, we
+# will be able to avoid writing a buggy update() which erroneously
+# calls invalue().
+
+The above BehaviorCounter class uses a constructor argument to
+determine the size of the counter.  BehaviorCounter instances can have
+different sizes with each other, while all Counter4 instances have the
+same size.  In general, behavioral descriptions can use this technique
+(parameterized circuit definition) easily.  Register-transfer level
+descriptions can also use this technique fairly easily.  Netlist level
+descriptions can sometimes use this technique, for circuits with a
+repetitive structure such as a ripple carry adder.
+
+[B.2.3] Write a Testbench Class
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+We write a testbench class which runs a netlist level counter and a
+behavioral counter in parallel and compares their outputs.
+
+    class TestBench : public CycleC::CompoundCircuit {
+    public:
+      TestBench() : CompoundCircuit(0, 0), m_ref(4) {
+        *this << m_cnt << m_ref;
+        confirm_connection_sanity();
+      }
+    protected:
+      virtual void evaluate() {
+        CompoundCircuit::evaluate();
+        uint actual = m_cnt.outvalue(0, 4);
+        uint expect = m_ref.outvalue(0, 4);
+        if (actual != expect)  throw std::runtime_error("verify error");
+      }
+    private:
+      Counter4              m_cnt;
+      BehaviorCounter       m_ref;
+    };
+
+In this example, we call confirm_connection_sanity() although there
+are no connections between the two sub-circuits.  We call it to
+confirm the connection sanity *inside* each sub-circuit (especially
+m_cnt).
+
+# We could have called confirm_connection_sanity() in the constructor
+# of Counter4, because Counter4 has no inputs and hence all
+# connections for its internal component inputs are established at the
+# time a Counter4 instance is created.
+
+The evaluate() function checks whether or not the 4-bit outputs of the
+two counters match.  The second parameter "4" for outvalue() indicates
+that we want to get the values of four output ports (#0 to #3) at once
+as a 4-bit unsigned integer.  We can get up to 32 output port values
+at once.  The value of the smallest numbered output port is set to the
+LSB of the return value.
+
+# The outvalue() function internally calls calc_outvalue() to get the
+# value of each port.  Because the calc_outvalue() function cannot
+# calculate values of multiple ports at once, outvalue() calls
+# calc_outvalue() multiple times if necessary.
+
+[B.2.4] Write a Simulation Main Routine
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+We can use the same simulation main routine as in section [B.1.4].
+When we compile and execute the program, it will print
+    Simulation start
+    Simulation end
+to the standard output.  It means that the simulation completed
+successfully, because no "verify error" exception occurred.
+
+[B.2.5] Peek Internal Signals
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+We can peek internal signal just as in section [B.1.5].  For example,
+after we change the visibility declaration of m_cnt and m_ref from
+"private" to "public", we can peek their outputs as follows.
+
+        for (the_cycle=0; the_cycle<100; ++the_cycle) {
+          std::cout << "cycle " << the_cycle
+                    << ": cnt=" << tb.m_cnt.outvalue(0, 4)
+                    << " ref=" << tb.m_ref.outvalue(0, 4)
+                    << "\n";
+          tb.tick();
+        }
+
+When we compile and execute the modified program, it will print
+
+    Simulation start
+    cycle 0: cnt=0 ref=0
+    cycle 1: cnt=1 ref=1
+    cycle 2: cnt=2 ref=2
+    cycle 3: cnt=3 ref=3
+    cycle 4: cnt=4 ref=4
+    cycle 5: cnt=5 ref=5
+    cycle 6: cnt=6 ref=6
+    cycle 7: cnt=7 ref=7
+    cycle 8: cnt=8 ref=8
+    cycle 9: cnt=9 ref=9
+    cycle 10: cnt=10 ref=10
+    cycle 11: cnt=11 ref=11
+    cycle 12: cnt=12 ref=12
+    cycle 13: cnt=13 ref=13
+    cycle 14: cnt=14 ref=14
+    cycle 15: cnt=15 ref=15
+    cycle 16: cnt=0 ref=0
+    cycle 17: cnt=1 ref=1
+    cycle 18: cnt=2 ref=2
+    cycle 19: cnt=3 ref=3
+       ...snip...
+    Simulation end
+
+to the standard output.  Now we are confident that the program
+simulates our design correctly.
+
+
+===============================
+[C] Reference for Circuit Users
+===============================
+
+---------------------
+[C.1] CycleC::Circuit
+---------------------
+
+[C.1.1] InRange in(int ix, int n=1), OutRange out(int ox, int n=1)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The in() function returns a proxy object which points the specified
+range of input ports, i.e., from the ix-th to the (ix+n-1)-th.  Ditto
+for the out() function and the output ports.  The port numbers are
+zero-based.
+
+We can use operator=() to specify connections between the pointed
+ports.
+
+Example:
+  class Adder : public Circuit { ... };
+  class Register : public Circuit { ... };
+  Register reg;
+  Adder    adder;
+  reg.in(0,8) = adder.out(0,8);
+
+In a connection definition expressed as an assignment, the left-hand
+side should be the signal destination, and the right-hand side should
+be the signal source.  An improper assignment such as "reg.in(0) =
+adder.in(0)" will result in a compilation error.
+
+A connection definition expressed as an assignment does not mean an
+"assignment" operation in a C++ sense.  It is a syntax sugar to call
+an undocumented member function "connect()" in CycleC::Circuit.  The
+return value of this operator=() is void, because chaining of these
+assignments makes no use.
+
+Connection definitions should be described in the constructors of
+concrete sub-classes of CycleC::CompoundCircuit.
+
+If the widths of the operands do not match in a connection definition,
+or if a connection definition tries to connect to already connected
+input ports, the operator=() function will throw a
+Cyclec::connection_error exception at runtime.
+
+The in(),out() functions themselves never throw exceptions.
+
+[C.1.2] uint outvalue(int ox, int n=1) const
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The outvalue() function returns the current value of the specified
+output ports, i.e., from the ox-th to the (ox+n-1)-th.  The values are
+returned as an unsigned integer, with its LSB showing the value of the
+ox-th output port.  The "n" parameter should be no greater than 32.
+
+The outvalue() function internally calls calc_outvalue(), once for
+each port.  It caches the return values of calc_outvalue() into an
+internal bit vector, so that it can return the value immediately
+when the same output port is inquired within the same clock cycle.
+
+# The cache is flushed by CycleC::Circuit::update().  Therefore, if
+# the update() function of a sub-class of CycleC::Circuit forgets to
+# call CycleC::Circuit::update(), the circuit cannot be simulated
+# correctly.
+
+The outvalue() function detects a gate-loop.  Without detection, a
+gate-loop will result in an infinite recursion like outvalue() ->
+calc_outvalue() -> invalue() -> outvalue().  The outvalue() function
+throws a CycleC::infinite_recursion_error exception when it detects a
+gate-loop.
+
+The outvalue() function may throw other exceptions.  Precisely, it
+forwards all exceptions thrown by calc_outvalue() to the caller,
+without trying to catch them.
+
+[C.1.3] uint invalue(int ix, int n=1) const
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The invalue() function returns the current value of the specified
+input ports just like the outvalue() function.
+
+Internally, invalue() traverses the connection definition and calls
+outvalue() of the signal source circuit.  It caches the return values
+of outvalue() just like the outvalue() function caches the return
+values of calc_outvalue().
+
+The invalue() function forwards all exceptions thrown by outvalue() to
+the caller, without trying to catch them.
+
+It is allowed to call invalue() for multiple input ports whose
+connections have been independently defined.  It is also allowed to
+call invalue() for an input port whose connection has been defined
+together with other ports.
+
+[C.1.4] void tick()
+^^^^^^^^^^^^^^^^^^^
+The tick() function advances the circuit simulation for one cycle.
+
+Internally, tick() calls evaluate() and then update().
+
+The tick() function forwards all exceptions thrown by evaluate() and
+update() to the caller, without trying to catch them.
+
+This function is intended to be called by a simulation main routine.
+
+[C.1.5] void confirm_connection_sanity()
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The confirm_connection_sanity() function checks whether or not all
+input ports have been connected.
+
+If some input ports are left unconnected, the
+confirm_connection_sanity() function throws a CycleC::connection_error
+exception.
+
+This function is intended to be called by the constructor of a
+testbench circuit class, or the constructor of a compound circuit
+class with no input ports.
+
+[C.1.6] void reset()
+^^^^^^^^^^^^^^^^^^^^
+The reset() function is a virtual function to reset the circuit.
+
+This function is not absolutely necessary for CycleC simulation.  A
+circuit implementer may leave this function undefined, if the
+simulation main routine guarantees that it never uses reset().
+
+# For example, basic usage examples in section [B] leave reset()
+# undefined because their simulation main routines do not use reset().
+
+[C.1.7] void evaluate(), void update()
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The evaluate(),update() functions are the essential functions for
+CycleC simulation.  The evaluate() function examines internal and
+environmental conditions of the circuit and prepares for the internal
+state updating operation at the ending edge of that clock cycle.  The
+update() function updates the internal states of the circuit using the
+information prepared by evaluate(), without examining environmental
+conditions.
+
+Circuit users rarely need to call these functions, because the wrapper
+function "tick()" suffices for normal cases.  When a user want to
+simulate multiple-clock circuits (an advanced CycleC usage), the
+simulation main routine needs to call evaluate(),update() instead of
+tick().
+
+[C.1.8] std::string name() const
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The name() function returns the name of the circuit.
+
+By default, it returns a list of class names in the circuit design
+hierarchy, concatenated with periods.
+
+This function may throw exceptions (e.g., std::bad_alloc) originating
+std::string.
+
+The circuit name is included in the return string of the what()
+function of CycleC::connection_error and
+CycleC::infinite_recursion_error.
+
+Be aware that we cannot distinguish circuit instances each other by
+the default name.  To address this issue, a circuit class implementer
+may provide an API to set an instance name.  In that case, a circuit
+user can use that API so that the name() function returns a unique
+name for each instance.
+
+# Unfortunately, the circuit classes in section [B] do not provide
+# APIs to set instance names.  Those classes are user-unfriendly.
+
+[C.1.9] Copy Constructors and Assignment Operators
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The CycleC::Circuit class disables the copy constructor and the
+assignment operator.  Because hardware circuits are static entities by
+nature, a circuit user should neither create a circuit instance by
+copying another nor assign a circuit instance to another.
+
+# The disabled operator=() is that of the CycleC::Circuit class.  The
+# operator=() of InRange,OutRange class can be legitimately used to
+# connect circuits (section [C.1.1]).
+
+-----------------------------
+[C.2] CycleC::CompoundCircuit
+-----------------------------
+
+A circuit user should treat all circuits as a sub-class of
+CycleC::Circuit.  A user should not care whether or not a circuit has
+internal hierarchy.
+
+Therefore, the CycleC::CompoundCircuit class itself does not provide
+APIs for users.
+
+Just note that CycleC::CompoundCircuit implements some of the user
+APIs of CycleC::Circuit differently.  Below are the brief description
+of the differences.
+
+The outvalue() function internally checks the connection definition:
+if the output port is connected from an output port of a sub-circuit,
+the outvalue() function calls outvalue() of the sub-circuit;
+otherwise, the outvalue() function calls calc_outvalue().
+
+The confirm_connection_sanity() function internally calls
+confirm_connection_sanity() of its base-class (CycleC::Circuit) and
+all sub-circuits, in unspecified order.
+
+Ditto for the reset(),evaluate(),update() functions.
+
+----------------------------------------------------------------
+[C.3] CycleC::connection_error, CycleC::infinite_recursion_error
+----------------------------------------------------------------
+
+CycleC::connection_error and CycleC::infinite_recursion_error are
+exception classes specific to CycleC.  They are both sub-classes
+of std::logic_error.
+
+CycleC::connection_error indicates an invalid connection between
+circuit instances.  It is thrown upon circuit creation.
+
+CycleC::infinite_recursion_error indicates a gate-loop in the circuit.
+It is thrown when a gate-loop is detected during a simulation.  Even a
+stable gate-loop such as cross-coupled NAND gates (i.e., an RS flip
+flop) will throw CycleC::infinite_recursion_error.
+
+CycleC::infinite_recursion_error is thrown only when the simulation
+execution reaches a gate-loop.  For example, consider the following
+implementation of a selector.
+    uint calc_outvalue(int ox) const {
+      return invalue(0) ? invalue(1) : invalue(2);
+    }
+If invalue(0) returns always zero in a testbench, invalue(1) will
+never be called.  Consequently, a testbench with insufficient coverage
+may fail to detect a gate-loop.
+
+To detect gate-loops perfectly, we must either write a testbench with
+perfect coverage, or write calc_outvalue() such that it calls
+invalue() for all involved input ports, for example:
+    uint calc_outvalue(int ox) const {
+      uint sel = invalue(0);
+      uint a = invalue(1);
+      uint b = invalue(2);
+      return sel ? a : b;
+    }
+In addition, the simulation main routine must call outvalue() for all
+output ports of internal component circuits (more precisely, all
+internally unused output ports).
+
+The what() functions of CycleC::connection_error and
+CycleC::infinite_recursion_error return a human-readable string
+including the name and/or port number of the problematic circuit.
+Both exception classes do not have machine-readable member variables
+to point to the problematic circuit.  Consequently, a CycleC
+simulation program cannot perform elaborate error recoveries.
+
+The CycleC library itself throws only these two exceptions.  Besides,
+the CycleC library forwards exceptions thrown by internally called
+standard library routines (such as std::vector and std::string
+functions), without trying to catch them.  Moreover, the CycleC
+library may throw exceptions defined by a circuit implementer, because
+many important CycleC API are virtual functions.
+
+The constructors of CycleC::connection_error and
+CycleC::infinite_recursion_error call std::string functions to
+construct a message string.  When the std::string functions throw
+exceptions such as std::bad_alloc, std::unexpected() will be called.
+
+======================================
+[D] Reference for Circuit Implementers
+======================================
+
+---------------------
+[D.1] CycleC::Circuit
+---------------------
+
+[D.1.1] Circuit(int nr_input, int nr_output)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This is the constructor of CycleC::Circuit.  It creates a circuit with
+<nr_input> input ports and <nr_output> output ports.
+
+The input ports are numbered from #0 to #(<nr_input>-1).  The output
+ports are numbered from #0 to #(<nr_output>-1).
+
+To attach names to I/O ports, we can define static constants in a circuit
+class, for example:
+    class Counter : public CycleC::Circuit {
+    public:
+      static const int SIG_CLK = 0;
+      static const int SIG_ENABLE = 1;
+      static const int SIG_CLR = 2;
+      :
+    };
+
+<nr_input> is stored into a protected constant member integer
+"m_nr_input".  <nr_output> is stored into "m_nr_output".  A circuit
+implementer can use those constants in circuit operation functions
+such as calc_outvalue(), evaluate(), and update().
+
+The constructor may throw std::bad_alloc because it internally uses
+std::vector functions.
+
+[D.1.2] ~Circuit()
+^^^^^^^^^^^^^^^^^^
+This is the virtual destructor of CycleC::Circuit.  The destructor
+of CycleC::Circuit itself does nothing.
+
+Typically, the destructor of a user circuit class should also do
+nothing.  Because a hardware circuit is a static entity by nature, a
+circuit object should simply be "allocated upon program invocation"
+and "released upon program termination".
+
+[D.1.3] uint calc_outvalue(int ox) const
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This is a virtual function to return the current value (0 or 1) of the
+ox-th output port.
+
+The calc_outvalue() function of CycleC::Circuit itself always returns
+0.  Consequently, a direct instance of CycleC::Circuit will be a
+"constant zero generator" circuit.
+
+A circuit implementer should implement an appropriate calc_outvalue()
+for the circuit.  It may return the value of a member variable which
+represents the internal state of the circuit.  It may examine some
+input port values using invalue() and perform some computation on them
+to get the output port value.  Or, it may compute the output port
+value from both the internal states and the input port values.
+
+The calc_outvalue() function may call outvalue() to examine the value
+of another output port of the same circuit.
+
+[D.1.4] void evaluate(), void update()
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+These are virtual functions to describe operations of sequential
+circuits.
+
+A sequential circuit implementer should implement appropriate
+evaluate(),update() for the circuit.
+
+The evaluate() function is intended to be called during a simulation
+clock cycle.  It should prepare for the internal state updating
+operation which will occur at the ending edge of the clock cycle.
+Typically, it will examine some input port values, compute the next
+internal state, and memorize the next-state values into private member
+variables (without actually changing the current state).
+
+# Some (behavioral) sequential circuit classes do not need to define
+# evaluate().  See section [B.2.2] for example.
+
+The update() function is intended to be called at the transition edge
+between two simulation clock cycles.  It should update the internal
+states of the circuit without examining environmental conditions.
+Typically, it will copy values to the current-state member variables
+from the next-state member variables prepared by evaluate().
+
+The evaluate() function is allowed to and will likely to call
+invalue(), but the update() function must not.  If update() calls
+invalue(), it gets a garbage value.
+
+The update() function will/should/must update the internal states of
+the circuit, but the evaluate() function must not.  If evaluate()
+updates the internal states, simulation programs will show incorrect
+results.
+
+************IMPORTANT********IMPORTANT********IMPORTANT**************
+* The evaluate(),update() functions of a circuit class must call    *
+* evaluate(),update() of its base-class, because the base-class has *
+* its own housekeeping work.                                        *
+************IMPORTANT********IMPORTANT********IMPORTANT**************
+
+A combinatorial circuit class need not, and should not, implement the
+evaluate(),update() functions.
+
+[D.1.5] void reset()
+^^^^^^^^^^^^^^^^^^^^
+This is a virtual function to reset the circuit.
+
+A sequential circuit implementer should implement an appropriate
+reset() for the circuit.
+
+# However, because reset() is not absolutely necessary for CycleC
+# simulation, an implementer may leave reset() undefined (namely,
+# unsupported) like the examples in section [B].
+
+The reset() function of a circuit class must call reset() of its
+base-class, by nature.
+
+The constructor of a sequential circuit class may call reset(), which
+will lead to a compact source code without duplication.
+
+# However, be aware that the reset operation in a circuit constructor
+# need not call reset() of the base-class, because the base-class part
+# of the object is guaranteed to have already been initialized by the
+# base-class constructor.  Therefore, if a circuit constructor calls
+# reset() of the circuit class itself (i.e., calls reset() of the
+# base-class indirectly), execution duplicates instead of source code.
+# To avoid both execution duplication and source code duplication, we
+# can define and use a helper function like:
+#     Counter::Counter() : Circuit(...) { ...; reset_self(); }
+#     void Counter::reset() { Circuit::reset(); reset_self(); }
+#     void Counter::reset_self() { m_value = 0; }
+# but you may or may not like this somewhat lengthy coding style.
+
+[D.1.6] std::string myname() const
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This is a virtual function to return the name of the circuit instance.
+
+The myname() function of CycleC::Circuit itself returns the RTTI class
+name (the leaf part of the inheritance chain) --- e.g., "AndGate" and
+"Counter4" for the example classes in section [B.2].
+
+The name() function of CycleC::Circuit (cf. section [C.1.8]) returns a
+list of myname() strings for all circuit classes in the design
+hierarchy, concatenated by periods --- e.g., "TestBench.Counter4.
+Incrementer4.AndGate" for the example in section [B.2].
+
+Recall that the example in section [B.2] has only one Incrementer4
+instance but two AndGate instances.  The name "TestBench.Counter4.
+Incrementer4" is enough to identify the Incrementer4 instance, but the
+name "TestBench.Counter4.Incrementer4.AndGate" is not enough to
+identify one of the two AndGate instances.  To distinguish the two
+AndGate instances, we require that the myname() function of AndGate
+should have returned a unique name for each instance.  In other words,
+the implementer of the AndGate class should have provided a myname()
+definition which returns a unique name for each instance.
+
+To provide a myname() function which returns a unique name for each
+instance, the implementer of the AndGate class should have provided a
+name-setter function and require users to set instance names using
+that function.  For example,
+
+    class AndGate ... {
+    public:
+      void set_name(std::string name) { m_name = name; }
+      virtual std::string myname() const { return m_name; }
+      ...;
+    private:
+      std::string  m_name;
+    };
+
+    class Incrementer4 ... {
+    public:
+      Incrementer4() : CompoundCircuit(4, 4) {
+        m_and1.set_name("and1");
+        m_and2.set_name("and2");
+        ...;
+      }
+    private:
+      AndGate  m_and1, m_and2;
+      ...;
+    };
+
+The CycleC library does not specify the name-setter function API.  A
+circuit implementer should provide a proper name-setter function such
+as set_name(std::string) or set_number(int) or set_position(int row,
+int col), depending on the characteristics of the circuit.
+
+The myname() function should handle cases such that it is called
+before the name-setter function is called.  In such a case, it cannot
+(and hence is allowed not to) return a proper instance name, but it
+should not hang, crash, or throw exceptions.  Such a case occurs not
+only when a user carelessly calls name() before setting an instance
+name, but also when a compound circuit constructor throws
+CycleC::connection_error.  In the latter case, the constructor calls
+name() to build a message string for the exception.  It means that
+name() is called before the user sets an instance name, because
+the constructor is called when an object is being just created.
+
+-----------------------------
+[D.2] CycleC::CompoundCircuit
+-----------------------------
+
+[D.2.1] CompoundCircuit(int nr_input, int nr_output)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This is the constructor of CycleC::CompoundCircuit.  Its usage is
+almost almost the same as the constructor of CycleC::Circuit.
+
+The constructor of CycleC::CompoundCircuit may throw exceptions
+originating the std::vector library, such as std::bad_alloc.  The
+constructor of a sub-class of CycleC::CompoundCircuit will register
+and connect sub-circuits, which may throw CycleC::connection_error
+because of a coding mistake.
+
+[D.2.2] ~CompoundCircuit()
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+This is the virtual destructor of CycleC::CompoundCircuit.  The
+destructor of CycleC::CompoundCircuit itself does nothing.
+
+[D.2.3] Stream-oriented << Operator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The stream-oriented operator<<() of CycleC::CompoundCircuit registers
+sub-circuits in a compound circuit.  An implementer of a sub-class of
+CycleC::CompoundCircuit should register all sub-circuits in the
+constructor.
+
+Declarations:
+
+    CompoundCircuit& operator<<(Circuit& component);
+
+    template <typename Iter>
+    CompoundCircuit& operator<<(const Components<Iter>& range);
+
+Usage Example:
+
+    class TinyPC : public CycleC::CompoundCircuit {
+      ...;
+    private:
+      CpuCore        m_cpu;
+      UART           m_uart;
+      VGAController  m_vga;
+      GPIO           m_gpio[10];
+    };
+
+    TinyPC::TinyPC() : CompoundCircuit(...) {
+      *this << m_cpu << m_uart << m_vga
+            << Components<GPIO*>(&m_gpio[0], &m_gpio[10]);
+      ...;
+    }
+
+Components<> is a data structure to point to a range of circuit
+instances using two forward iterators (first and last).  It is merely
+a wrapper of std::pair, internally.
+
+# You may associate the word "iterator" with STL.  However, in
+# reality, An STL container cannot hold CycleC::Circuit instances
+# because CycleC::Circuit disables the copy constructor and assignment
+# operators.  On the other hand, a self-made container can hold
+# CycleC::Circuit instances if it does not use the copy constructor
+# and assignment operators.  The iterator of such a self-made
+# container can be used to construct a Components<> instance.
+
+<typename Iter> for Components<> is a conceptual forward iterator.  It
+does not depend on std::iterator syntactically.
+
+When a circuit instance is registered multiple times, operator<<()
+throws CycleC::connection_error.
+
+[D.2.4] InRange in(int ix, int n=1), OutRange out(int ox, int n=1)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+These functions return a proxy object which points to the specified
+range of I/O ports, just like in() and out() functions of
+CycleC::Circuit (cf. section [C.1.1]).
+
+The I/O ports of CycleC::CompoundCircuit can be used just like I/O
+ports of CycleC::Circuit.  In addition, the I/O ports of
+CycleC::CompoundCircuit can be connected to the I/O ports of its
+sub-circuits.
+
+Example:
+
+    TinyPC::TinyPC() : CompoundCircuit(10, 10) {
+      *this << m_cpu << m_uart << m_vga
+            << Components<GPIO*>(&m_gpio[0], &m_gpio[10]);
+      for (int i=0; i<10; ++i) {
+        m_gpio[i].in(0) = in(i);
+        out(i) = m_gpio[i].out(0);
+      }
+      m_gpio.in(1, 8) = m_cpu.out(0, 8);
+      ...;
+    }
+
+In this example, the I/O ports of TinyPC are the I/O ports of internal
+GPIO sub-circuits.
+
+The assignment expressions (representing port connections) look
+confusing at first sight, but they consistently insist that signals
+are transfered from the right-hand side source ports to the left-hand
+side destination ports.  If you keep this rule in mind, you will not
+be confused when you are either reading or writing a code.
+
+An improper assignment such as "out(i) = m_gpio[i].in(0)" will result
+in a compilation error.
+
+When an output port of CycleC::CompoundCircuit is connected to an
+output port of its sub-circuit, outvalue() of CycleC::CompoundCircuit
+will call outvalue() of the sub-circuit, instead of calc_outvalue() of
+CycleC::CompoundCircuit itself.  Consequentely, we need not define
+calc_outvalue() for those ports.  A compound circuit is allowed to
+(and will be likely to) connect all its output ports to internal
+sub-circuit output ports, leaving calc_outvalue() totally undefined.
+
+=====================================================
+[E] Advanced Technique: How to Handle Multiple Clocks
+=====================================================
+
+The CycleC library is designed for circuit simulation with single
+clock, but a clever use enables CycleC simulation with multiple
+clocks.
+
+-----------------
+[E.1] Dual Clocks
+-----------------
+
+First, we try CycleC simulation with two clocks.
+
+    class CpuCore : public CycleC::Circuit {
+      // core clock domain (100MHz)
+      ...;
+    };
+    class BusInterface : public CycleC::Circuit {
+      // bus clock domain (66.666MHz)
+      ...;
+    };
+    class TestJig : public CycleC::Circuit {
+      // bus clock domain (66.666MHz)
+      ...;
+    };
+
+    class TestBench : public CycleC::CompoundCircuit {
+    public:
+      TestBench() : CompoundCircuit(0, 0) {
+        *this << m_cpu << m_bif << m_jig;
+        m_cpu.in(...) = m_bif.out(...);
+        m_bif.in(...) = m_cpu.out(...);
+        m_bif.in(...) = m_jig.out(...);
+        m_jig.in(...) = m_bif.out(...);
+      }
+      CpuCore        m_cpu;
+      BusInterface   m_bif;
+      TestJig        m_jig;
+    };
+
+    int main() {
+      int the_time = -1;
+      try {
+        static TestBench  tb;
+        // core clock period = 10ns
+        // bus clock period = 15ns
+        for (the_time=0; the_time<1000; the_time+=5) {
+          if ((the_time % 30) == 0) {
+            tb.m_cpu.evaluate();
+            tb.m_bif.evaluate();
+            tb.m_jig.evaluate();
+            tb.m_cpu.update();
+            tb.m_bif.update();
+            tb.m_jig.update();
+          } else if ((the_time % 10) == 0) {
+            tb.m_cpu.evaluate();
+            tb.m_cpu.update();
+          } else if ((the_time % 15) == 0) {
+            tb.m_bif.evaluate();
+            tb.m_jig.evaluate();
+            tb.m_bif.update();
+            tb.m_jig.update();
+          }
+        }
+      } catch ... {
+        ...;
+      }
+    }
+
+Circuit classes themselves (including TestBench) are written in the
+same manner as single-clock systems.
+
+The difference between the single-clock simulation and the dual-clock
+simulation appears in the simulation main routine, because the
+simulation main routine for a dual-clock circuit cannot call tb.tick()
+to simulate one clock cycle.  Instead, the simulation main routine
+takes care of time, recognizing "the core clock rises at this time",
+"the bus clock rises at this time", and "both clocks rise at this
+time".  Every time one of the above clock events occurs, the
+simulation main routine first calls evaluate() of all components under
+control of the clock(s) concerned in unspecified order, and then calls
+update() of all same components in unspecified order.  A correct
+zero-delay dual-clock simulation will be accomplished in this way.
+
+If we collect BusInterface and TestJig together to form a compound
+circuit class, the TestBench class will consist of two components,
+e.g., m_cpu and m_busclkdomain.  Then we can write the simulation main
+routine concisely as follows.
+
+          if ((the_time % 30) == 0) {
+            tb.tick();
+          } else if ((the_time % 10) == 0) {
+            tb.m_cpu.tick();
+          } else if ((the_time % 15) == 0) {
+            tb.m_busclkdomain.tick();
+          }
+
+# Even without m_busclkdomain, we can write the former main routine a
+# bit concisely by using tb.tick() and tb.m_cpu.tick().  But we cannot
+# write the four evaluate(),update() lines of m_bif & m_jig in one
+# line without introducing m_busclkdomain.
+
+In dual-clock simulation, the simulation main routine should take care
+of the two clocks of all internal components.  Consequently, the
+simulation main routine becomes complicated if the two clocks are
+mixed here and there deeply in the design hierarchy.  It is advisable
+to separate the clock domains near the top level of the design
+hierarchy, and write circuit components below that level with only one
+clock.
+
+-----------------
+[E.2] Many Clocks
+-----------------
+
+Once we understand how to simulate dual-clock circuits, we can easily
+extend the method to simulate many-clock circuits.  Details are left
+to the reader.
+
+Note that we cannot write the many-clock simulation main routine
+concisely by using tick() of each component circuit.  For example, in
+a three-clock circuit, even if we collect the internal components
+corresponding each clock domain together, we should write the
+simulation main routine as follows.
+
+        if (all clocks rises at this time) {
+          tb.tick();
+        } else if (cpu-clock and bus-clock rise at this time) {
+          tb.m_cpu.evaluate();
+          tb.m_busclkdomain.evaluate();
+          tb.m_cpu.update();
+          tb.m_busclkdomain.update();
+        } else if (cpu-clock and pci-clock rise at this time) {
+          tb.m_cpu.evaluate();
+          tb.m_pciclkdomain.evaluate();
+          tb.m_cpu.update();
+          tb.m_pciclkdomain.update();
+        } else if (bus-clock and pci-clock rise at this time) {
+          tb.m_busclkdomain.evaluate();
+          tb.m_pciclkdomain.evaluate();
+          tb.m_busclkdomain.update();
+          tb.m_pciclkdomain.update();
+        } else if (only cpu-clock rises at this time) {
+          tb.m_cpu.tick();
+        } else if (only bus-clock rises at this time) {
+          tb.m_busclkdomain.tick();
+        } else if (only pci-clock rises at this time) {
+          tb.m_pciclkdomain.tick();
+        }
+
+In many-clock simulation, it is advisable to forget tick() completely
+and write the simulation main routine as follows.
+
+        bool cpuclk_event = ((the_time % 10) == 0);
+        bool busclk_event = ((the_time % 15) == 0);
+        bool pciclk_event = ((the_time % 30) == 0);
+        if (cpuclk_event)  tb.m_cpu.evaluate();
+        if (busclk_event)  tb.m_busclkdomain.evaluate();
+        if (pciclk_event)  tb.m_pciclkdomain.evaluate();
+        if (cpuclk_event)  tb.m_cpu.update();
+        if (busclk_event)  tb.m_busclkdomain.update();
+        if (pciclk_event)  tb.m_pciclkdomain.update();
+        

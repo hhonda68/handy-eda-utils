@@ -1,0 +1,5 @@
+cyclec-singleclock.o: cyclec.cc cyclec.h
+cyclec-multiclock.o: cyclec.cc cyclec.h
+sample-nand.o: sample-nand.cc cyclec.h
+sample-counter.o: sample-counter.cc cyclec.h
+sample-dualclock.o: sample-dualclock.cc cyclec.h
