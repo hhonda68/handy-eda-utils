@@ -1,0 +1,136 @@
+#
+# Generic EZUSB firmware
+#
+# Copyright (c) 2008 the handy-eda-utils develeper(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+#
+# Last modified on May 2007.
+
+[A] EZUSB firmware commands
+[B] Linux programs to access EZUSB
+  [B.1] ep1out
+  [B.2] ep1in
+  [B.3] ep2out
+  [B.4] ep6in
+
+===========================
+[A] EZUSB firmware commands
+===========================
+
+The EZUSB firmware works as follows:
+
+   forever {
+     Receive a command packet from the host.   [ max 63 bytes ]
+     Process commands in the received command packet.
+     Send a reply packet if necessary.
+   }
+
+The commands are:
+
+   00 NN VV    : Write internal memory
+
+      Write "VV" to the address "NN" of the internal memory space.
+
+   01 LL HH VV : Write external memory
+
+      Write "VV" to the address "HHLL" of the external memory space.
+
+   02 NN VV    : Write SFR
+
+      Write "VV" to the special function register "NN".
+
+   04 NN       : Read internal memory
+
+      Read the address "NN" of the internal memory space.
+
+   05 LL HH    : Read external memory
+
+      Read the address "HHLL" of the external memory space.
+
+   06 NN       : Read SFR
+
+      Read the special function register "NN".
+
+A command packet can contain multiple commands, as long as the command
+packet does not exceed 63 bytes.
+
+Each "read" command produces a one-byte reply data.  For example, if a
+command packet contains 3 read commands, the reply packet will be 3
+bytes.
+
+Most control registers are located in the external memory space or in
+the SFR space.  For example:
+
+    I/O Port A : SFR 80
+    I/O Port B : SFR 90
+    I/O Port C : SFR a0
+    I/O Port D : SFR b0
+    I/O Port E : SFR b1
+
+    I/O Port A Output Enable : SFR b2
+    I/O Port B Output Enable : SFR b3
+    I/O Port C Output Enable : SFR b4
+    I/O Port D Output Enable : SFR b5
+    I/O Port E Output Enable : SFR b6
+
+    CPUCS      : External memory e600
+    IFCONFIG   : Extenral memory e601
+
+
+The linux program "ep1out" sends a command packet, and "ep1in"
+receives the reply packet.
+
+==================================
+[B] Linux programs to access EZUSB
+==================================
+
+------------
+[B.1] ep1out
+------------
+
+Usage: ./ep1out DEVICEFILE hex-dump-of-command-packet
+
+The ep1out program sends a command packet to EZUSB.
+
+A command packet should not exceed 63 bytes.
+
+-----------
+[B.2] ep1in
+-----------
+
+Usage: ./ep1in [-d] DEVICEFILE [nr_expected_bytes]
+
+The ep1in progarm receives a reply packet from EZUSB and dumps the
+packet to stdout in hexadecimal (default) or in decimal (when "-d"
+option is specified).
+
+You must specify the precise size of the reply packet to the
+"nr_expected_bytes" argument (default=1).
+
+------------
+[B.3] ep2out
+------------
+
+Usage: ./ep2out [--autopad] DEVICEFILE datafile
+
+The ep2out program sends data packets to the slave FIFO of EZUSB.
+
+The size of the datafile should be multiple of 512 unless the
+"--autopad" option is specified.
+
+-----------
+[B.4] ep6in
+-----------
+
+Usage: ./ep6in DEVICEFILE [nr_packets] > filename
+
+The ep6in program receives data packets from the slave FIFO of EZUSB,
+and prints the packets to stdout as raw binary data.
+
+Specify how many packets (1packet=512bytes) you want to receive
+(default=1).
+
+===
+EOF
