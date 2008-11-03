@@ -1,0 +1,36 @@
+// -*- c++ -*-
+
+//
+// Wrapper for pimpl idiom on hierachical modules
+//
+
+// Copyright (c) 2008 the handy-eda-utils develeper(s).
+// Distributed under the MIT License.
+// (See accompanying file COPYING or copy at
+//  http://www.opensource.org/licenses/mit-license.php.)
+
+//SC_MODULE(HierMod)
+
+////////////////////////////////////////////////////////////////
+
+#include "submoda.h"
+#include "submodb.h"
+
+////////////////////////////////////////////////////////////////
+
+SubModA           *suba;
+SubModB           *subb;
+sc_signal<data_t> atob_sig;
+
+////////////////////////////////////////////////////////////////
+
+m_impl->suba = new SubModA("suba");
+m_impl->subb = new SubModB("subb");
+m_impl->suba->clk(clk);
+m_impl->suba->rst(rst);
+m_impl->suba->idata_in(idata_in);
+m_impl->suba->odata_out(m_impl->atob_sig);
+m_impl->subb->clk(clk);
+m_impl->subb->rst(rst);
+m_impl->subb->idata_in(m_impl->atob_sig);
+m_impl->subb->odata_out(odata_out);

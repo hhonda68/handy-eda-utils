@@ -1,0 +1,277 @@
+#
+# Wrapper for pimpl idiom on hierachical modules
+#
+# Copyright (c) 2008 the handy-eda-utils develeper(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+
+Example of a hierarchical module written in pimpl style:
+
+    hiermod.h
+    ================================================================
+    // -*- c++ -*-
+    #include <systemc>
+    using ::sc_core::sc_in;
+    using ::sc_core::sc_out;
+    using ::sc_core::sc_signal;
+    SC_MODULE(HierMod) {
+      typedef ::sc_dt::sc_uint<8>  data_t;
+      sc_in<bool>     clk;
+      sc_in<data_t>   idata_in;
+      sc_out<data_t>  odata_out;
+      SC_CTOR(HierMod) { construct(); }
+      ~HierMod();
+    private:
+      struct impl_t;
+      impl_t *m_impl;
+      void construct();
+    };
+    ================================================================
+
+    hiermod.cc
+    ================================================================
+    #include "hiermod.h"
+    #include "submoda.h"
+    #include "submodb.h"
+    struct HierMod::impl_t {
+      SubModA            *suba;
+      SubModB            *subb;
+      sc_signal<data_t>  atob_sig;
+    };
+    void HierMod::construct() {
+      m_impl = new impl_t;
+      m_impl->suba = new SubModA("suba");
+      m_impl->subb = new SubModA("subb");
+      m_impl->suba->clk(clk);
+      m_impl->suba->idata_in(idata_in);
+      m_impl->suba->odata_out(m_impl->atob_sig);
+      m_impl->subb->clk(clk);
+      m_impl->subb->idata_in(m_impl->atob_sig);
+      m_impl->subb->odata_out(odata_out);
+    }
+    HierMod::~HierMod() {
+      delete m_impl->suba;
+      delete m_impl->subb;
+      delete m_impl;
+    }
+    ================================================================
+
+Example of a hierarchical module written in inlined style:
+
+    hiermod.h
+    ================================================================
+    // -*- c++ -*-
+    #include <systemc>
+    using ::sc_core::sc_in;
+    using ::sc_core::sc_out;
+    using ::sc_core::sc_signal;
+    #include "submoda.h"
+    #include "submodb.h"
+    SC_MODULE(HierMod) {
+      typedef ::sc_dt::sc_uint<8>  data_t;
+      sc_in<bool>         clk;
+      sc_in<data_t>       idata_in;
+      sc_out<data_t>      odata_out;
+      SubModA             *suba;
+      SubModB             *subb;
+      sc_signal<data_t>   atob_sig;
+      SC_CTOR(HierMod) {
+        suba = new SubModA("suba");
+        subb = new SubModA("subb");
+        suba->clk(clk);
+        suba->idata_in(idata_in);
+        suba->odata_out(atob_sig);
+        subb->clk(clk);
+        subb->idata_in(atob_sig);
+        subb->odata_out(odata_out);
+      }
+      ~HierMod() {
+        delete suba;
+        delete subb;
+      }
+    };
+    ================================================================
+
+Example of a hierarchical module which supports both styles (via #ifdef INLINED_STYLE):
+
+    hiermod.h
+    ================================================================
+    // -*- c++ -*-
+    #include <systemc>
+    using ::sc_core::sc_in;
+    using ::sc_core::sc_out;
+    using ::sc_core::sc_signal;
+    #ifdef INLINED_STYLE
+    #include "hiermod.icc"
+    #endif
+    SC_MODULE(HierMod) {
+      typedef ::sc_dt::sc_uint<8>  data_t;
+      sc_in<bool>       clk;
+      sc_in<data_t>     idata_in;
+      sc_out<data_t>    odata_out;
+    #ifdef INLINED_STYLE
+    #include "hiermod.icc"
+    #else
+      SC_CTOR(HierMod) { construct(); }
+      ~HierMod();
+    private:
+      struct impl_t;
+      impl_t *m_impl;
+      void construct();
+    #endif
+    };
+    ================================================================
+
+    hiermod.cc
+    ================================================================
+    #include "hiermod.h"
+    #define HIERMOD_CC
+    #include "hiermod.icc"
+    ================================================================
+
+    hiermod.icc
+    ================================================================
+    // -*- c++ -*-
+    #ifdef INLINED_STYLE
+    # ifndef HIERMOD_CC
+    #  ifndef HIERMOD_INLINED_HDR
+    #   define HIERMOD_INLINED_HDR
+    #  else
+    #   undef HIERMOD_INLINED_HDR
+    #   define HIERMOD_INLINED_IMPL
+    #  endif
+    # else
+    #  define HIERMOD_INLINED_CC
+    # endif
+    #else
+    # ifndef HIERMOD_CC
+    #  error "hiermod.icc included from hiermod.h under pimpl style???"
+    # else
+    #  define HIERMOD_PIMPL_CC
+    # endif
+    #endif
+
+    ////////////////////////////////////////////////////////////////
+
+    #if defined(HIERMOD_INLINED_HDR) || defined(HIERMOD_PIMPL_CC)
+    #include "submoda.h"
+    #include "submodb.h"
+    #endif
+
+    ////////////////////////////////////////////////////////////////
+
+    #ifdef HIERMOD_PIMPL_CC
+    struct HierMod::impl_t {
+    #endif
+    #if defined(HIERMOD_INLINED_IMPL) || defined(HIERMOD_PIMPL_CC)
+      SubModA           *suba;
+      SubModB           *subb;
+      sc_signal<data_t> atob_sig;
+    #endif
+    #ifdef HIERMOD_PIMPL_CC
+    };
+    #endif
+
+    ////////////////////////////////////////////////////////////////
+
+    #if defined(HIERMOD_PIMPL_CC) || defined(HIERMOD_INLINED_IMPL)
+    #ifdef HIERMOD_PIMPL_CC
+    void HierMod::construct()
+    #else
+    SC_CTOR(HierMod)
+    #endif
+    {
+    #ifdef HIERMOD_PIMPL_CC
+      m_impl = new impl_t;
+    #else
+      HierMod *m_impl = this;
+    #endif
+      m_impl->suba = new SubModA("suba");
+      m_impl->subb = new SubModA("subb");
+      m_impl->suba->clk(clk);
+      m_impl->suba->idata_in(idata_in);
+      m_impl->suba->odata_out(m_impl->atob_sig);
+      m_impl->subb->clk(clk);
+      m_impl->subb->idata_in(m_impl->atob_sig);
+      m_impl->subb->odata_out(odata_out);
+    }
+    #endif
+
+    ////////////////////////////////////////////////////////////////
+
+    #if defined(HIERMOD_PIMPL_CC) || defined(HIERMOD_INLINED_IMPL)
+    #ifdef HIERMOD_PIMPL_CC
+    HierMod::
+    #endif
+    ~HierMod() {
+    #ifdef HIERMOD_INLINED_IMPL
+      HierMod *m_impl = this;
+    #endif
+      delete m_impl->suba;
+      delete m_impl->subb;
+    #ifdef HIERMOD_PIMPL_CC
+      delete m_impl;
+    #endif
+    }
+    #endif
+
+    ////////////////////////////////////////////////////////////////
+
+    #undef HIERMOD_PIMPL_CC
+    #undef HIERMOD_INLINED_IMPL
+    // do not undef HIERMOD_INLINED_HDR
+    ================================================================
+
+Crucial parts of hiermod.h and hiermod.icc
+
+    hiermod.h.in
+    ================================================================
+    // -*- c++ -*-
+    #include <systemc>
+    using ::sc_core::sc_in;
+    using ::sc_core::sc_out;
+    using ::sc_core::sc_signal;
+    SC_MODULE(HierMod) {
+      typedef ::sc_dt::sc_uint<8>  data_t;
+      sc_in<bool>       clk;
+      sc_in<data_t>     idata_in;
+      sc_out<data_t>    odata_out;
+    };
+    ================================================================
+
+    hiermod.icc.in
+    ================================================================
+    // -*- c++ -*-
+
+    //SC_MODULE(HierMod)
+
+    ////////////////////////////////////////////////////////////////
+
+    #include "submoda.h"
+    #include "submodb.h"
+
+    ////////////////////////////////////////////////////////////////
+
+    SubModA           *suba;
+    SubModB           *subb;
+    sc_signal<data_t> atob_sig;
+
+    ////////////////////////////////////////////////////////////////
+
+    m_impl->suba = new SubModA("suba");
+    m_impl->subb = new SubModB("subb");
+    m_impl->suba->clk(clk);
+    m_impl->suba->idata_in(idata_in);
+    m_impl->suba->odata_out(m_impl->atob_sig);
+    m_impl->subb->clk(clk);
+    m_impl->subb->idata_in(m_impl->atob_sig);
+    m_impl->subb->odata_out(odata_out);
+    ================================================================
+
+Automatic generation of .h, .cc, .icc files:
+
+  ruby genhiermod.rb -h   hiermod.h.in   > hiermod.h
+  ruby genhiermod.rb -cc  hiermod.h.in   > hiermod.cc
+  ruby genhiermod.rb -icc hiermod.icc.in > hiermod.icc
+
