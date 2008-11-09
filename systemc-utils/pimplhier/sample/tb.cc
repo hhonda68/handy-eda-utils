@@ -73,30 +73,35 @@ void TestBench::disp() {
 ////////////////////////////////////////////////////////////////
 
 SC_MODULE(System) {
-  TestBench            tb;
-  HierMod              dut;
+  TestBench            *tb;
+  HierMod              *dut;
   ::sc_core::sc_clock  clk;
   sc_signal<bool>      rst_sig;
   sc_signal<data_t>    idata_sig, odata_sig;
-  SC_CTOR(System) : tb("tb"), dut("dut"), clk("clk", 10, ::sc_core::SC_NS) {
-    tb.clk(clk);
-    tb.rst(rst_sig);
-    tb.idata_out(idata_sig);
-    tb.odata_in(odata_sig);
-    dut.clk(clk);
-    dut.rst(rst_sig);
-    dut.idata_in(idata_sig);
-    dut.odata_out(odata_sig);
+  SC_CTOR(System) : clk("clk", 10, ::sc_core::SC_NS) {
+    tb = new TestBench("tb");
+    dut = new HierMod("dut");
+    tb->clk(clk);
+    tb->rst(rst_sig);
+    tb->idata_out(idata_sig);
+    tb->odata_in(odata_sig);
+    dut->clk(clk);
+    dut->rst(rst_sig);
+    dut->idata_in(idata_sig);
+    dut->odata_out(odata_sig);
+  }
+  ~System() {
+    delete tb;
+    delete dut;
   }
 };
 
 ////////////////////////////////////////////////////////////////
 
 int sc_main(int argc, char *argv[]) {
-  System *sys = 0;
   int ret;
   try {
-    sys = new System("sys");
+    System sys("sys");
     ::sc_core::sc_start();
     ret = 0;
   } catch (std::exception &e) {
@@ -106,7 +111,6 @@ int sc_main(int argc, char *argv[]) {
     std::cerr << "Error: unexpected exception\n";
     ret = 2;
   }
-  if (sys)  delete sys;
   return ret;
 }
 
