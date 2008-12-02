@@ -46,11 +46,12 @@
 #          $3 : instance name (optional)
 #
 # Preprocess before conversion
-#   1. If a line matches /^#/, delete the whole line.
-#   2. If a line matches /\s+#.*$/, delete $&.
-#   3. If a line matches /\s*\\$/,
-#        replace $& with " " and append the next line and goto step 2.
-#   4. Expand "ranged name field"s (matching /^\w+(\[(\d+([-,]\d+)+)\]\w*)+$/)
+#   1. If a line matches /^#/ or /^\s+#\s/, delete the whole line.
+#   2. If the line does not match /^[a-z]\s/, print the line as-is.
+#   3. If the line matches /\s+#.*$/, delete $&.
+#   4. If the line matches /\s*\\$/,
+#        replace $& with " " and append the next line and goto step 3.
+#   5. Expand "ranged name field"s (matching /^\w+(\[(\d+([-,]\d+)+)\]\w*)+$/).
 #        foo[0-3]      --> foo0 foo1 foo2 foo3
 #        foo[3-0]bar   --> foo3bar foo2bar foo1bar foo0bar
 #        a[0-15]       --> a0 a1 a2 ... a13 a14 a15
@@ -269,6 +270,7 @@ end
 begin
   while (gets) do
     next if ($_ =~ /^#/)
+    next if ($_ =~ /^\s+#\s/)
     chomp!
     line = $_
     case $_
