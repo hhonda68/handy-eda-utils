@@ -1,7 +1,7 @@
 #
 # Generic EZUSB firmware
 #
-# Copyright (c) 2008 the handy-eda-utils develeper(s).
+# Copyright (c) 2008 the handy-eda-utils developer(s).
 # Distributed under the MIT License.
 # (See accompanying file COPYING or copy at
 #  http://www.opensource.org/licenses/mit-license.php.)
