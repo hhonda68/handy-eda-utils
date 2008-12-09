@@ -14,7 +14,6 @@
 #ifndef BCASYSC_KERNEL_SCTIME_H
 #define BCASYSC_KERNEL_SCTIME_H
 
-#include <string>
 #include <iosfwd>
 
 namespace sc_core {
