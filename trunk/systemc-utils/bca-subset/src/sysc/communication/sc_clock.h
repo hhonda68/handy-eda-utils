@@ -15,7 +15,6 @@
 #define BCASYSC_COMMUNICATION_SCCLOCK_H
 
 #include "sc_signal.h"
-#include <vector>
 
 namespace sc_core {
 
