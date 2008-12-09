@@ -1,0 +1,85 @@
+# -*- Makefile -*-
+#
+# Minimal synthesizable BCA subset of SystemC.
+#
+# Copyright (c) 2008 the handy-eda-utils developer(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+#
+
+.SUFFIXES:
+
+SRCDIR := @SRCDIR@
+PREFIX := @PREFIX@
+
+SRC_CC := $(shell find $(SRCDIR) -name '*.cc' -print)
+SRC_C  := $(shell find $(SRCDIR) -name '*.c' -print)
+SRC_S  := $(shell find $(SRCDIR) -name '*.S' -print)
+SRC_H  := $(shell find $(SRCDIR) -name '*.h' -print)
+
+OBJ_CC := $(patsubst $(SRCDIR)/%.cc,%.o,$(SRC_CC))
+OBJ_C  := $(patsubst $(SRCDIR)/%.c,%.o,$(SRC_C))
+OBJ_S  := $(patsubst $(SRCDIR)/%.S,%.o,$(SRC_S))
+
+CXX := g++
+AR  := ar cru
+CXXFLAGS := -O2 -Wall -fomit-frame-pointer
+
+INSTALL_HEADERS := \
+  systemc \
+  sysc/datatypes/int/sc_int.h \
+  sysc/kernel/sc_time.h \
+  sysc/kernel/sc_module.h \
+  sysc/kernel/sc_simcontext.h \
+  sysc/communication/sc_clock.h \
+  sysc/communication/sc_signal.h
+
+all:	libsystemc.a
+	@
+
+install: libsystemc.a
+	@echo '[Installing ...]'
+	@if [ -e $(PREFIX) ] ; then echo "$(PREFIX) already exists.  Delete it first" ; false ; fi
+	@mkdir -p $(PREFIX)
+	@mkdir -p $(PREFIX)/include $(PREFIX)/lib-linux
+	@( cd $(SRCDIR) && tar cf - $(INSTALL_HEADERS) ) | ( cd $(PREFIX)/include && tar xf - )
+	@for f in $(INSTALL_HEADERS) ; do chmod -w $(PREFIX)/include/$$f ; done
+	@cp -p libsystemc.a $(PREFIX)/lib-linux && chmod -w $(PREFIX)/lib-linux/libsystemc.a
+
+define COMPILE
+	@echo '[Compiling $< ...]'
+	@f=$@ && d=$${f%/*} && test -d $$d || mkdir -p $$d
+	@s=$< && $(CXX) $(CXXFLAGS) -c -o $@ -I$${s%/*} -I$(SRCDIR) $<
+endef
+
+$(OBJ_CC): %.o: $(SRCDIR)/%.cc
+	$(COMPILE)
+
+$(OBJ_C): %.o: $(SRCDIR)/%.c
+	$(COMPILE)
+
+$(OBJ_S): %.o: $(SRCDIR)/%.S
+	$(COMPILE)
+
+libsystemc.a: $(OBJ_CC) $(OBJ_C) $(OBJ_S)
+	@echo '[Archiving $@ ...]'
+	@rm -f $@ && $(AR) $@ $^
+
+-include Makefile.dep
+
+SRCDIRS := $(shell find $(SRCDIR) -not -wholename '*/.svn*' -type d -print)
+
+Makefile.dep: $(SRC_CC) $(SRC_C) $(SRC_S) $(SRC_H) $(SRCDIRS)
+	@echo '[Generating $@ ...]'
+	@rm -f $@~
+	@for f in $(SRC_CC) $(SRC_C) $(SRC_S) ; do \
+	   t=$${f%.cc} && t=$${t%.c} && t=$${t%.S} && t=$${t#$(SRCDIR)/}.o && \
+	   $(CXX) $(CXXFLAGS) -MM -MT $$t -I$${f%/*} -I$(SRCDIR) $$f >> $@~ || exit 2 ; \
+	 done
+	@mv $@~ $@
+
+clean:
+	@echo '[Cleaning ...]'
+	@rm -f `find . -name '*.o' -print` libsystemc.a
+
