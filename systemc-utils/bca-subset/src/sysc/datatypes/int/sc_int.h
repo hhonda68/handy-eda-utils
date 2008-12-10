@@ -180,18 +180,18 @@ struct sc_int_common {
   value_type m_value;
   operator value_type() const { return m_value; }
   sc_int_common() {}
-  sc_int_common(value_type val) : m_value(traits_type::wrap(val)) {}
-  sc_int_common& operator=(value_type val) { m_value = traits_type::wrap(val);  return *this; }
-  sc_int_common& operator+=(value_type val) { return *this = *this + val; }
-  sc_int_common& operator-=(value_type val) { return *this = *this - val; }
-  sc_int_common& operator*=(value_type val) { return *this = *this * val; }
-  sc_int_common& operator/=(value_type val) { return *this = *this / val; }
-  sc_int_common& operator%=(value_type val) { return *this = *this % val; }
-  sc_int_common& operator&=(value_type val) { return *this = *this & val; }
-  sc_int_common& operator|=(value_type val) { return *this = *this | val; }
-  sc_int_common& operator^=(value_type val) { return *this = *this ^ val; }
-  sc_int_common& operator<<=(int val)       { return *this = *this << val; }
-  sc_int_common& operator>>=(int val)       { return *this = *this >> val; }
+  template <typename T> sc_int_common(T x) : m_value(traits_type::wrap(x)) {}
+  template <typename T> sc_int_common& operator=(T val) { m_value = traits_type::wrap(val);  return *this; }
+  template <typename T> sc_int_common& operator+=(T val)  { return *this = *this + val; }
+  template <typename T> sc_int_common& operator-=(T val)  { return *this = *this - val; }
+  template <typename T> sc_int_common& operator*=(T val)  { return *this = *this * val; }
+  template <typename T> sc_int_common& operator/=(T val)  { return *this = *this / val; }
+  template <typename T> sc_int_common& operator%=(T val)  { return *this = *this % val; }
+  template <typename T> sc_int_common& operator&=(T val)  { return *this = *this & val; }
+  template <typename T> sc_int_common& operator|=(T val)  { return *this = *this | val; }
+  template <typename T> sc_int_common& operator^=(T val)  { return *this = *this ^ val; }
+  template <typename T> sc_int_common& operator<<=(T val) { return *this = *this << val; }
+  template <typename T> sc_int_common& operator>>=(T val) { return *this = *this >> val; }
   sc_int_common& operator++() { return *this += 1; }
   sc_int_common& operator--() { return *this -= 1; }
   const sc_int_common operator++(int) { sc_int_common ret = *this;  ++(*this);  return ret; }
@@ -397,19 +397,15 @@ operator,(const sc_int_catref<A1,D1>& lhs, const sc_int_catref<A2,D2>& rhs) {
 
 template <int W> struct sc_int : sc_int_common<signed,W> {
   typedef sc_int_common<signed,W>  base_type;
-  typedef typename base_type::value_type  value_type;
   sc_int() : base_type() {}
-  sc_int(value_type val) : base_type(val) {}
-  sc_int(const base_type& x) : base_type(x) {}
+  template <typename T> sc_int(T x) : base_type(x) {}
   using base_type::operator=;
 };
 
 template <int W> struct sc_uint : sc_int_common<unsigned,W> {
   typedef sc_int_common<unsigned,W>  base_type;
-  typedef typename base_type::value_type  value_type;
   sc_uint() : base_type() {}
-  sc_uint(value_type val) : base_type(val) {}
-  sc_uint(const base_type& x) : base_type(x) {}
+  template <typename T> sc_uint(T x) : base_type(x) {}
   using base_type::operator=;
 };
 
