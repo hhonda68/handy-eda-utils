@@ -182,7 +182,7 @@ void sc_simcontext::check_sensitive_methods(sc_sensitive_methods *sensitive_meth
 
 void sc_simcontext::impl_t::cthread_wrapper(void *arg)
 {
-  int cthread_ix = reinterpret_cast<int>(arg);
+  int cthread_ix = reinterpret_cast<long long>(arg);  // reinterpret to long long because "void*" may not fit in "int"
   sc_cthread_desc *desc = &the_simcontext->m.cthreads[cthread_ix];
   try {
     sc_module *mod = desc->mod;
