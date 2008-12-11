@@ -61,6 +61,16 @@ template <int W> struct sc_int_traits<unsigned,W> {
   static value_type adjust_setbit(value_type newvalue, int pos) { return newvalue; }
 };
 
+template <typename Traits, bool B> struct sc_int_wrap_if;
+template <typename Traits> struct sc_int_wrap_if<Traits,false> {
+  typedef typename Traits::value_type value_type;
+  static value_type wrap(value_type value) { return value; }
+};
+template <typename Traits> struct sc_int_wrap_if<Traits,true> {
+  typedef typename Traits::value_type value_type;
+  static value_type wrap(value_type value) { return Traits::wrap(value); }
+};
+
 struct sc_int_bitref_r {
   const bool m_val;
   explicit sc_int_bitref_r(bool val) : m_val(val) {}
@@ -180,8 +190,8 @@ struct sc_int_common {
   value_type m_value;
   operator value_type() const { return m_value; }
   sc_int_common() {}
-  template <typename T> sc_int_common(T x) : m_value(traits_type::wrap(x)) {}
-  template <typename T> sc_int_common& operator=(T val) { m_value = traits_type::wrap(val);  return *this; }
+  sc_int_common(value_type x) : m_value(traits_type::wrap(x)) {}
+  template <int V> sc_int_common(const sc_int_common<S,V>& x) : m_value(sc_int_wrap_if<traits_type,(W<V)>::wrap(x.m_value)) {}
   template <typename T> sc_int_common& operator+=(T val)  { return *this = *this + val; }
   template <typename T> sc_int_common& operator-=(T val)  { return *this = *this - val; }
   template <typename T> sc_int_common& operator*=(T val)  { return *this = *this * val; }
@@ -399,14 +409,12 @@ template <int W> struct sc_int : sc_int_common<signed,W> {
   typedef sc_int_common<signed,W>  base_type;
   sc_int() : base_type() {}
   template <typename T> sc_int(T x) : base_type(x) {}
-  using base_type::operator=;
 };
 
 template <int W> struct sc_uint : sc_int_common<unsigned,W> {
   typedef sc_int_common<unsigned,W>  base_type;
   sc_uint() : base_type() {}
   template <typename T> sc_uint(T x) : base_type(x) {}
-  using base_type::operator=;
 };
 
 }; // namespace sc_dt
