@@ -53,6 +53,7 @@ public:
   void register_cthread(sc_module *, sc_entry_func);
   void register_reset_port(const sc_in<bool>&);
   void mark_cthread_as_resettable();
+  void set_cthread_stack_size(int);
   void register_method(sc_module *, sc_entry_func);
   int  current_method_id() const;
   void mark_method_as_clocked(int);
