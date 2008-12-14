@@ -250,7 +250,7 @@ void sc_simcontext::impl_t::tick_cthreads(int start_index)
     int newix = oldix;
     sc_cor_utils::destroy_thread(&cthreads[oldix].cor);
     for (++oldix; oldix<n; ++oldix) {
-      if (cthreads[oldix].mod == 0) {
+      if (oldix != n-1 && cthreads[oldix].mod == 0) {
 	sc_cor_utils::destroy_thread(&cthreads[oldix].cor);
       } else {
 	cthreads[newix++] = cthreads[oldix];
@@ -311,7 +311,7 @@ int sc_simcontext::impl_t::check_reset_state()
 
 void sc_simcontext::impl_t::cleanup_simulation()
 {
-  int n = cthreads.size();
+  int n = cthreads.size() - 1;  // destroy all cthreads (except the main thread)
   for (int i=0; i<n; ++i)  sc_cor_utils::destroy_thread(&cthreads[i].cor);
 }
 
