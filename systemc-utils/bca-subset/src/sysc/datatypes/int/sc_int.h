@@ -10,12 +10,12 @@
 //  http://www.opensource.org/licenses/mit-license.php.)
 
 // sc_int<W> and sc_uint<W>
-//   * 1..64 bits (sc_int), 1..63 bits (sc_uint)
+//   * 1..64 bits
 //   * implemented as an "int" or a "long long" (value_type)
 //        sc_int<1>..sc_int<32>    : int
 //        sc_int<33>..sc_int<64>   : long long
-//        sc_uint<1>..sc_uint<31>  : int
-//        sc_uint<32>..sc_int<63>  : long long
+//        sc_uint<1>..sc_uint<32>  : unsigned int
+//        sc_uint<33>..sc_int<64>  : unsigned long long
 //   * auto conversion to/from value_type
 //   * operator[], operator()
 //   * operator++, operator--, operator+= etc.
@@ -25,12 +25,12 @@
 //   * sc_int<24> a = 0x100000;
 //     sc_int<24> b = 0x100000;
 //     sc_int<48> c = a * b;       <-- "0x10000000000" in SystemC, "0" in BCA-subset
-//   * sc_uint<31> a = 0x7fffffff;
-//     sc_uint<31> b = 0x7fffffff;
-//     sc_uint<31> c = (a+b)>>2;   <-- "0x3fffffff" in SystemC, "0x7fffffff" in BCA-subset
+//   * sc_uint<32> a = 0xffffffff;
+//     sc_uint<32> b = 0xffffffff;
+//     sc_uint<32> c = (a+b)>>1;   <-- "0xffffffff" in SystemC, "0x7fffffff" in BCA-subset
 // These incompatibilities can be fixed by changing
 // "sc_int_common<>::operator value_type() const" to
-// "sc_int_common<>::operator long long() const",
+// "sc_int_common<>::operator sc_traits<S,64>::value_type() const",
 // which reults in slight performance loss.
 
 #ifndef BCASYSC_DATATYPES_INT_SCINT_H
@@ -38,13 +38,15 @@
 
 namespace sc_dt {
 
-template <bool WIDE> struct sc_int_traits_body;
-template <> struct sc_int_traits_body<false> { typedef int       value_type; };
-template <> struct sc_int_traits_body<true>  { typedef long long value_type; };
+template <typename S, bool WIDE> struct sc_int_traits_body;
+template <> struct sc_int_traits_body<signed,   false> { typedef signed int         value_type; };
+template <> struct sc_int_traits_body<signed,   true>  { typedef signed long long   value_type; };
+template <> struct sc_int_traits_body<unsigned, false> { typedef unsigned int       value_type; };
+template <> struct sc_int_traits_body<unsigned, true>  { typedef unsigned long long value_type; };
 
 template <typename S, int W> struct sc_int_traits;
 template <int W> struct sc_int_traits<signed,W> {
-  typedef typename sc_int_traits_body<(W>32)>::value_type value_type;
+  typedef typename sc_int_traits_body<signed,(W>32)>::value_type value_type;
   static value_type wrap(value_type value) {
     return (value << (sizeof(value_type)*8-W)) >> (sizeof(value_type)*8-W);
   }
@@ -53,9 +55,9 @@ template <int W> struct sc_int_traits<signed,W> {
   }
 };
 template <int W> struct sc_int_traits<unsigned,W> {
-  typedef typename sc_int_traits_body<(W>=32)>::value_type value_type;
+  typedef typename sc_int_traits_body<unsigned,(W>32)>::value_type value_type;
   static value_type wrap(value_type value) {
-    value_type max_value = (static_cast<value_type>(1)<<W)-1;
+    value_type max_value = static_cast<value_type>(-1) >> (sizeof(value_type)*8-W);
     return value & max_value;
   }
   static value_type adjust_setbit(value_type newvalue, int pos) { return newvalue; }
@@ -80,12 +82,12 @@ private:
 };
 
 struct sc_int_subref_r {
-  const long long m_value;
+  const unsigned long long m_value;
   const int m_size;
-  sc_int_subref_r(long long value, int size) : m_value(value), m_size(size) {}
+  sc_int_subref_r(unsigned long long value, int size) : m_value(value), m_size(size) {}
   explicit sc_int_subref_r(bool value) : m_value(value), m_size(1) {}
   sc_int_subref_r(const sc_int_bitref_r& x) : m_value(static_cast<bool>(x)), m_size(1) {}
-  operator long long() const { return m_value; }
+  operator unsigned long long() const { return m_value; }
   int size() const { return m_size; }
 private:
   void operator=(const sc_int_subref_r&);  // disabled
@@ -299,8 +301,8 @@ template <typename A, typename D> struct sc_int_catref {
   A& m_car;
   D& m_cdr;
   sc_int_catref(A& car, D& cdr) : m_car(car), m_cdr(cdr) {}
-  const sc_int_catref& operator=(long long value) const { m_cdr = value;  m_car = (value>>m_cdr.size());  return *this; }
-  const sc_int_catref& operator=(const sc_int_catref& rhs) const { return operator=(static_cast<long long>(rhs)); }
+  const sc_int_catref& operator=(unsigned long long value) const { m_cdr=value; m_car=(value>>m_cdr.size()); return *this; }
+  const sc_int_catref& operator=(const sc_int_catref& rhs) const { return operator=(static_cast<unsigned long long>(rhs)); }
   template <typename T> const sc_int_catref& operator+=(T val) const  { return *this = *this + val; }
   template <typename T> const sc_int_catref& operator-=(T val) const  { return *this = *this - val; }
   template <typename T> const sc_int_catref& operator*=(T val) const  { return *this = *this * val; }
@@ -333,7 +335,7 @@ template <typename A, typename D> struct sc_int_catref {
   friend const sc_int_subref_r operator,(const sc_int_subref_r& lhs, const sc_int_catref& rhs) {
     return (lhs, rhs.to_subref_r());
   }
-  operator long long() const { return to_subref_r(); }
+  operator unsigned long long() const { return to_subref_r(); }
   int size() const { return m_car.size() + m_cdr.size(); }
   const sc_int_subref_r to_subref_r() const {
     return (m_car.to_subref_r(), m_cdr.to_subref_r());
