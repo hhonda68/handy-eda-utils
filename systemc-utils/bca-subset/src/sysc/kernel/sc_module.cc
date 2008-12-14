@@ -45,5 +45,10 @@ void sc_module::reset_signal_is(sc_signal<bool>& sig, bool polarity)
   the_simcontext->mark_cthread_as_resettable();
 }
 
+void sc_module::set_stack_size(int size)
+{
+  the_simcontext->set_cthread_stack_size(size);
+}
+
 }; // namespace sc_core
 

@@ -24,6 +24,7 @@ struct sc_entry_desc {
 };
 
 struct sc_cthread_desc : sc_entry_desc {
+  int    sz_stack;
   sc_cor cor;
 };
 struct sc_method_desc : sc_entry_desc {
@@ -112,6 +113,8 @@ void sc_simcontext::register_cthread(sc_module *mod, sc_entry_func func)
   sc_cthread_desc desc;
   desc.mod = mod;
   desc.func = func;
+  desc.sz_stack = 16*1024;
+  m.cthread_tick_index = m.cthreads.size();  // used as "the most-recently-registered cthread" in elaboration phase
   m.cthreads.push_back(desc);
 }
 
@@ -122,14 +125,19 @@ void sc_simcontext::register_reset_port(const sc_in<bool>& port)
 
 void sc_simcontext::mark_cthread_as_resettable()
 {
-  int nc = m.cthreads.size();
+  int nc = m.cthread_tick_index;  // most-recently-registered cthread
   int nr = m.nr_cthreads_with_reset;
-  int nr1 = nr + 1;
-  m.nr_cthreads_with_reset = nr1;
-  if (nr1 == nc)  return;
-  sc_cthread_desc &last = m.cthreads.back();
-  sc_cthread_desc &mid = m.cthreads[nr];
-  sc_cthread_desc tmp = mid;  mid = last;  last = tmp;
+  m.nr_cthreads_with_reset = nr + 1;
+  if (nr == nc)  return;
+  sc_cthread_desc &cdesc = m.cthreads[nc];
+  sc_cthread_desc &rdesc = m.cthreads[nr];
+  sc_cthread_desc tmp = rdesc;  rdesc = cdesc;  cdesc = tmp;
+  m.cthread_tick_index = nr;
+}
+
+void sc_simcontext::set_cthread_stack_size(int size)
+{
+  m.cthreads[m.cthread_tick_index].sz_stack = size;  // most-recently-registered cthread
 }
 
 void sc_simcontext::register_method(sc_module *mod, sc_entry_func func)
@@ -207,7 +215,7 @@ void sc_simcontext::impl_t::setup_simulation()
   {
     int n = cthreads.size();
     for (int i=0; i<n; ++i) {
-      sc_cor_utils::init_thread(&cthreads[i].cor, 16*1024, cthread_wrapper, reinterpret_cast<void*>(i));
+      sc_cor_utils::init_thread(&cthreads[i].cor, cthreads[i].sz_stack, cthread_wrapper, reinterpret_cast<void*>(i));
     }
   }
   // register main coroutine
