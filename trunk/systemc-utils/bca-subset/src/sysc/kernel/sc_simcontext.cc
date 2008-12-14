@@ -89,6 +89,7 @@ struct sc_simcontext::impl_t {
   void update_signals();
   void eval_methods();
   int  check_reset_state();  // ret = cthread_start_index for next cycle
+  void cleanup_simulation();
 };
 
 sc_simcontext::sc_simcontext() : m(*(new impl_t))
@@ -306,6 +307,12 @@ int sc_simcontext::impl_t::check_reset_state()
   return 0;
 }
 
+void sc_simcontext::impl_t::cleanup_simulation()
+{
+  int n = cthreads.size();
+  for (int i=0; i<n; ++i)  sc_cor_utils::destroy_thread(&cthreads[i].cor);
+}
+
 void sc_simcontext::scstart()
 {
   m.setup_simulation();
@@ -321,6 +328,7 @@ void sc_simcontext::scstart()
     cthread_start_index = m.check_reset_state();
     m.current_time.m_val += 10;
   } while (! m.stopping);
+  m.cleanup_simulation();
 }
 
 void sc_simcontext::scstop()
