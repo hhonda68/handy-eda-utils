@@ -99,6 +99,8 @@ sc_simcontext::sc_simcontext() : m(*(new impl_t))
   m.current_time.m_val = 0;
 }
 
+sc_simcontext::~sc_simcontext() { delete &m; }
+
 void sc_simcontext::construct_scmodulename(const sc_module_name* name) { m.name_hierarchy.push(name); }
 void sc_simcontext::destruct_scmodulename() { m.name_hierarchy.pop(); m.module_hierarchy.pop(); }
 const char *sc_simcontext::scmodule_basename() { return *(m.name_hierarchy.top()); }
