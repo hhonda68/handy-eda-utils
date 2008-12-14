@@ -126,6 +126,9 @@ template <typename S, int W> struct sc_int_bitref {
   sc_int_bitref(obj_type& obj, int pos) : m_obj(obj), m_pos(pos) {}
   const sc_int_bitref& operator=(bool val) const { m_obj.set_bit(m_pos, val);  return *this; }
   const sc_int_bitref& operator=(const sc_int_bitref& rhs) const { return operator=(static_cast<bool>(rhs)); }
+  template <typename T> const sc_int_bitref& operator&=(T val) const { return *this = *this & val; }
+  template <typename T> const sc_int_bitref& operator|=(T val) const { return *this = *this | val; }
+  template <typename T> const sc_int_bitref& operator^=(T val) const { return *this = *this ^ val; }
   operator bool() const { return (static_cast<const obj_type&>(m_obj))[m_pos]; }
   friend const sc_int_subref_r operator,(const sc_int_bitref& lhs, bool rhs) {
     return (lhs.to_subref_r(), sc_int_subref_r(rhs));
@@ -158,6 +161,20 @@ template <typename S, int W> struct sc_int_subref {
   sc_int_subref(obj_type& obj, int msb, int lsb) : m_obj(obj), m_msb(msb), m_lsb(lsb) {}
   const sc_int_subref& operator=(value_type val) const { m_obj.set_sub(m_msb, m_lsb, val);  return *this; }
   const sc_int_subref& operator=(const sc_int_subref& rhs) const { return operator=(static_cast<value_type>(rhs)); }
+  template <typename T> const sc_int_subref& operator+=(T val) const  { return *this = *this + val; }
+  template <typename T> const sc_int_subref& operator-=(T val) const  { return *this = *this - val; }
+  template <typename T> const sc_int_subref& operator*=(T val) const  { return *this = *this * val; }
+  template <typename T> const sc_int_subref& operator/=(T val) const  { return *this = *this / val; }
+  template <typename T> const sc_int_subref& operator%=(T val) const  { return *this = *this % val; }
+  template <typename T> const sc_int_subref& operator&=(T val) const  { return *this = *this & val; }
+  template <typename T> const sc_int_subref& operator|=(T val) const  { return *this = *this | val; }
+  template <typename T> const sc_int_subref& operator^=(T val) const  { return *this = *this ^ val; }
+  template <typename T> const sc_int_subref& operator<<=(T val) const { return *this = *this << val; }
+  template <typename T> const sc_int_subref& operator>>=(T val) const { return *this = *this >> val; }
+  const sc_int_subref& operator++() const { return *this += 1; }
+  const sc_int_subref& operator--() const { return *this -= 1; }
+  const sc_int_subref operator++(int) const { sc_int_subref ret = *this;  ++(*this);  return ret; }
+  const sc_int_subref operator--(int) const { sc_int_subref ret = *this;  --(*this);  return ret; }
   const sc_int_subref_r to_subref_r() const { return (static_cast<const obj_type&>(m_obj))(m_msb, m_lsb); }
   operator value_type() const { return to_subref_r(); }
   int size() const { return m_msb - m_lsb + 1; }
@@ -284,6 +301,20 @@ template <typename A, typename D> struct sc_int_catref {
   sc_int_catref(A& car, D& cdr) : m_car(car), m_cdr(cdr) {}
   const sc_int_catref& operator=(long long value) const { m_cdr = value;  m_car = (value>>m_cdr.size());  return *this; }
   const sc_int_catref& operator=(const sc_int_catref& rhs) const { return operator=(static_cast<long long>(rhs)); }
+  template <typename T> const sc_int_catref& operator+=(T val) const  { return *this = *this + val; }
+  template <typename T> const sc_int_catref& operator-=(T val) const  { return *this = *this - val; }
+  template <typename T> const sc_int_catref& operator*=(T val) const  { return *this = *this * val; }
+  template <typename T> const sc_int_catref& operator/=(T val) const  { return *this = *this / val; }
+  template <typename T> const sc_int_catref& operator%=(T val) const  { return *this = *this % val; }
+  template <typename T> const sc_int_catref& operator&=(T val) const  { return *this = *this & val; }
+  template <typename T> const sc_int_catref& operator|=(T val) const  { return *this = *this | val; }
+  template <typename T> const sc_int_catref& operator^=(T val) const  { return *this = *this ^ val; }
+  template <typename T> const sc_int_catref& operator<<=(T val) const { return *this = *this << val; }
+  template <typename T> const sc_int_catref& operator>>=(T val) const { return *this = *this >> val; }
+  const sc_int_catref& operator++() const { return *this += 1; }
+  const sc_int_catref& operator--() const { return *this -= 1; }
+  const sc_int_catref operator++(int) const { sc_int_catref ret = *this;  ++(*this);  return ret; }
+  const sc_int_catref operator--(int) const { sc_int_catref ret = *this;  --(*this);  return ret; }
   friend const sc_int_subref_r operator,(const sc_int_catref& lhs, bool rhs) {
     return (lhs.to_subref_r(), sc_int_subref_r(rhs));
   }
