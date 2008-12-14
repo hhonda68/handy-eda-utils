@@ -44,6 +44,7 @@ typedef void (sc_module::*sc_entry_func)();
 class sc_simcontext {
 public:
   sc_simcontext();
+  ~sc_simcontext();
   void construct_scmodulename(const sc_module_name*);
   void destruct_scmodulename();
   const char *scmodule_basename();
