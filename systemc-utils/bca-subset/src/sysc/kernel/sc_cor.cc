@@ -48,8 +48,7 @@ void destroy_thread(sc_cor *cor)
   delete[] cor->m_stack;
 }
 
-}; // namespace sc_cor_utils
+} // namespace sc_cor_utils
 
-
-}; // namespace sc_core
+} // namespace sc_core
 

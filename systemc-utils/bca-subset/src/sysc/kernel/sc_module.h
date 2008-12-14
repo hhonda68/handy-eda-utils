@@ -57,7 +57,7 @@ private:
   impl_t& m;
 };
 
-}; // namespace sc_core
+} // namespace sc_core
 
 #define SC_MODULE(name)       struct name : ::sc_core::sc_module
 #define SC_HAS_PROCESS(name)  typedef name SC_CURRENT_USER_MODULE

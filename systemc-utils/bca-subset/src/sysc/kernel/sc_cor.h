@@ -29,9 +29,9 @@ void init_thread(sc_cor *cor, int sz_stack, void (*fn)(void*), void *arg);
 void yield(sc_cor *curr_cor, sc_cor *next_cor);
 void destroy_thread(sc_cor *cor);
 
-}; // namespace sc_cor_utils
+} // namespace sc_cor_utils
 
-}; // namespace sc_core
+} // namespace sc_core
 
 #endif
 

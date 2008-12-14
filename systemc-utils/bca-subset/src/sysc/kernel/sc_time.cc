@@ -17,6 +17,5 @@ namespace sc_core {
   return (os << tim.m_val << "ns");
 }
 
-
-}; // namespace sc_core
+} // namespace sc_core
 

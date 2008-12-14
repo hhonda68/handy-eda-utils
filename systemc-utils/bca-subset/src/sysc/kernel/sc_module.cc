@@ -50,5 +50,5 @@ void sc_module::set_stack_size(int size)
   the_simcontext->set_cthread_stack_size(size);
 }
 
-}; // namespace sc_core
+} // namespace sc_core
 
