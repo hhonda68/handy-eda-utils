@@ -353,7 +353,7 @@ const sc_time& sc_simcontext::sctimestamp()
 
 sc_simcontext *the_simcontext;
 
-}; // namespace sc_core
+} // namespace sc_core
 
 int main(int argc, char *argv[]) {
   try {

@@ -159,6 +159,6 @@ template <typename T> void sc_out<T>::bind(sc_signal<T>& dst) {
   m_sig = &dst;
 }
 
-}; // namespace sc_core
+} // namespace sc_core
 
 #endif

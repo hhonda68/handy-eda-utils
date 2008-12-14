@@ -450,6 +450,6 @@ template <int W> struct sc_uint : sc_int_common<unsigned,W> {
   template <typename T> sc_uint(T x) : base_type(x) {}
 };
 
-}; // namespace sc_dt
+} // namespace sc_dt
 
 #endif

@@ -29,6 +29,6 @@ inline void sc_set_time_resolution(double, sc_time_unit) {}
 
 extern ::std::ostream& operator<<(::std::ostream& os, const sc_time& tim);
 
-};
+} // namespace sc_core
 
 #endif

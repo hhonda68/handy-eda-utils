@@ -25,6 +25,6 @@ public:
   sc_clock(const char* name, double period, sc_time_unit unit) {}
 };
 
-};
+} // namespace sc_core
 
 #endif
