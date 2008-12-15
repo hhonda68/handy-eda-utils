@@ -53,6 +53,7 @@ public:
   sc_sensitive sensitive;
   void dont_initialize() {}
   void wait() { ::sc_core::wait(); }
+  void wait(int n) { ::sc_core::wait(n); }
 private:
   struct impl_t;
   impl_t& m;
