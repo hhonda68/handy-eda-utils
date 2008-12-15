@@ -77,6 +77,7 @@ inline void sc_start() { the_simcontext->scstart(); }
 inline void sc_stop() { the_simcontext->scstop(); }
 inline const sc_time& sc_time_stamp() { return the_simcontext->sctimestamp(); }
 inline void wait() { the_simcontext->wait(); }
+inline void wait(int n) { for (int i=0; i<n; ++i)  wait(); }
 
 class sc_trace_file;  // allow user to define sc_trace() [which is unused in this minimal BCA-subset library]
 
