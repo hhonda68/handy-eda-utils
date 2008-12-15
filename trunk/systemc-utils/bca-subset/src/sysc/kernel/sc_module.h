@@ -21,7 +21,8 @@ namespace sc_core {
 
 class sc_module_name {
 public:
-  sc_module_name(const char *name) : m_str(name), m_pushed(true) { the_simcontext->construct_scmodulename(this); }
+  sc_module_name(const char *name) : m_str(name ? name : "unnamed"), m_pushed(true)
+    { the_simcontext->construct_scmodulename(this); }
   sc_module_name(const sc_module_name& x) : m_str(x.m_str), m_pushed(false) {};
   ~sc_module_name() { if (m_pushed)  the_simcontext->destruct_scmodulename(); }
   operator const char*() const { return m_str; }
