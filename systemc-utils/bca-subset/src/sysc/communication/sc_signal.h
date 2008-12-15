@@ -61,6 +61,7 @@ public:
 ////////////////////////////////////////////////////////////////
 
 template <typename T> class sc_in;
+template <typename T> class sc_out;
 
 template <typename T> class sc_in_data {
 public:
@@ -99,7 +100,8 @@ template <typename T> class sc_in : public sc_in_reader<T>, public sc_in_pos<T> 
 public:
   using sc_in_reader<T>::m_info;
   using sc_in_reader<T>::m_sig;
-  void bind(sc_in& src) { src.m_info->ports.push_back(this); }
+  void bind(sc_in& src)     { src.m_info->ports.push_back(this); }
+  void bind(sc_out<T>& src) { src.m_info->dstports.push_back(this); }
   void bind(sc_signal<T>& src);
   template <typename S> void operator()(S& src) { bind(src); }
 };
@@ -114,20 +116,19 @@ template <typename T> void sc_in<T>::bind(sc_signal<T>& src) {
 
 ////////////////////////////////////////////////////////////////
 
-template <typename T> class sc_out;
-
 template <typename T> class sc_out_data {
 public:
-  sc_out_data() : m_info(new srcinfo_t) {}
+  sc_out_data() : m_info(new info_t) {}
   void sensitive_add(int method_id) { m_info->smeths.add(method_id); }
 protected:
-  struct srcinfo_t {
-    sc_out<T>             *port;
-    sc_sensitive_methods  smeths;
-    srcinfo_t() : port(0) {}
+  struct info_t {
+    sc_out<T>                *srcport;
+    ::std::vector<sc_in<T>*> dstports;
+    sc_sensitive_methods     smeths;
+    info_t() : srcport(0) {}
   };
   union {
-    srcinfo_t    *m_info;
+    info_t       *m_info;
     sc_signal<T> *m_sig;
   };
 };
@@ -145,7 +146,7 @@ template <typename T> class sc_out : public sc_out_accessor<T> {
 public:
   using sc_out_accessor<T>::m_info;
   using sc_out_accessor<T>::m_sig;
-  void bind(sc_out& dst) { dst.m_info->port = this; }
+  void bind(sc_out& dst) { dst.m_info->srcport = this; }
   void bind(sc_signal<T>& dst);
   template <typename D> void operator()(D& dst) { bind(dst); }
   using sc_out_accessor<T>::operator=;
@@ -153,7 +154,9 @@ public:
 };
 
 template <typename T> void sc_out<T>::bind(sc_signal<T>& dst) {
-  if (m_info->port != 0)  m_info->port->bind(dst);
+  if (m_info->srcport != 0)  m_info->srcport->bind(dst);
+  int n = m_info->dstports.size();
+  for (int i=0; i<n; ++i)  m_info->dstports[i]->bind(dst);
   dst.sensitive_merge(m_info->smeths);
   delete m_info;
   m_sig = &dst;
