@@ -12,8 +12,8 @@
 // representation about the suitability of this software for any
 // purpose. */
 
-/* NOTE: double-labeled `_name' and `name' for System V compatability.  */
-/* NOTE: Comment lines start with '/*' and '//' ONLY.  Sorry! */
+// NOTE: double-labeled `_name' and `name' for System V compatability.
+// NOTE: Comment lines start with '/*' and '//' ONLY.  Sorry!
 
 /* Callee-save: %esi, %edi, %ebx, %ebp
 // Caller-save: %eax, %ecx
