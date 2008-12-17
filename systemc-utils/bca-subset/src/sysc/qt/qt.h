@@ -14,13 +14,11 @@
 #ifndef QUICKTHREADS_QT_H
 #define QUICKTHREADS_QT_H
 
-#if !defined(SC_USE_PTHREADS)
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <sysc/qt/qtmd.h>
+#include "sysc/qt/qtmd.h"
 
 
 /* A QuickThreads thread is represented by it's current stack pointer.
@@ -60,18 +58,11 @@ typedef struct qt_t {
    For non-varargs, takes one void* function.
    For varargs, takes some number of arguments. */
 typedef void *(qt_userf_t)(void *pu);
-typedef void *(qt_vuserf_t)(int arg0, ...);
 
 /* For non-varargs, just call a client-supplied function,
    it does all startup and cleanup, and also calls the user's
    function. */
-typedef void (qt_only_t)(void *pu, void *pt, qt_userf_t *userf);
-
-/* For varargs, call `startup', then call the user's function,
-   then call `cleanup'. */
-typedef void (qt_startup_t)(void *pt);
-typedef void (qt_cleanup_t)(void *pt, void *vuserf_return);
-
+//typedef void (qt_only_t)(void *pu, void *pt, qt_userf_t *userf);
 
 /* Internal helper for putting stuff on stack. */
 #ifndef QUICKTHREADS_SPUT
@@ -110,65 +101,11 @@ typedef void (qt_cleanup_t)(void *pt, void *vuserf_return);
 #endif
 
 
-/* Push arguments for the varargs case.
-   Has to be a function call because initialization is an expression
-   and we need to loop to copy nbytes of stuff on to the stack.
-   But that's probably OK, it's not terribly cheap, anyway. */
-
-#ifdef QUICKTHREADS_VARGS_DEFAULT
-#ifndef QUICKTHREADS_VARGS_MD0
-#define QUICKTHREADS_VARGS_MD0(sp, vasize)	(sp)
-#endif
-#ifndef QUICKTHREADS_VARGS_MD1
-#define QUICKTHREADS_VARGS_MD1(sp)	do { ; } while (0)
-#endif
-
-#ifndef QUICKTHREADS_VSTKBASE
-  #error "Need base stack size for varargs functions."
-#endif
-
-/* Sometimes the stack pointer needs to munged a bit when storing
-   the list of arguments. */
-#ifndef QUICKTHREADS_VARGS_ADJUST
-#define QUICKTHREADS_VARGS_ADJUST(sp)	(sp)
-#endif
-
-/* All things are put on the stack relative to the final value of
-   the stack pointer. */
-#ifdef QUICKTHREADS_GROW_DOWN
-#define QUICKTHREADS_VADJ(sp)	(((char *)sp) - QUICKTHREADS_VSTKBASE)
-#else
-#define QUICKTHREADS_VADJ(sp)	(((char *)sp) + QUICKTHREADS_VSTKBASE)
-#endif
-
-extern qt_t *qt_vargs (qt_t *sp, int nbytes, void *vargs,
-		       void *pt, qt_startup_t *startup,
-		       qt_vuserf_t *vuserf, qt_cleanup_t *cleanup);
-
-#ifndef QUICKTHREADS_VARGS
-#define QUICKTHREADS_VARGS(sp, nbytes, vargs, pt, startup, vuserf, cleanup) \
-      (qt_vargs (sp, nbytes, vargs, pt, startup, vuserf, cleanup))
-#endif
-
-#endif
-
-
 /* Save the state of the thread and call the helper function
    using the stack of the new thread. */
 typedef void *(qt_helper_t)(qt_t *old, void *a0, void *a1);
-typedef void *(qt_block_t)(qt_helper_t *helper, void *a0, void *a1,
-			  qt_t *newthread);
-
-/* Rearrange the parameters so that things passed to the helper
-   function are already in the right argument registers. */
-#ifndef QUICKTHREADS_ABORT
-extern void *qt_abort (qt_helper_t *h, void *a0, void *a1, qt_t *newthread);
-/* The following does, technically, `return' a value, but the
-   user had better not rely on it, since the function never
-   returns. */ 
-#define QUICKTHREADS_ABORT(h, a0, a1, newthread) \
-    do { qt_abort (h, a0, a1, newthread); } while (0)
-#endif
+//typedef void *(qt_block_t)(qt_helper_t *helper, void *a0, void *a1,
+//                           qt_t *newthread);
 
 #ifndef QUICKTHREADS_BLOCK
 extern void *qt_block (qt_helper_t *h, void *a0, void *a1,
@@ -177,16 +114,8 @@ extern void *qt_block (qt_helper_t *h, void *a0, void *a1,
     (qt_block (h, a0, a1, newthread))
 #endif
 
-#ifndef QUICKTHREADS_BLOCKI
-extern void *qt_blocki (qt_helper_t *h, void *a0, void *a1,
-			qt_t *newthread);
-#define QUICKTHREADS_BLOCKI(h, a0, a1, newthread) \
-    (qt_blocki (h, a0, a1, newthread))
-#endif
-
 #ifdef __cplusplus
 }		/* Match `extern "C" {' at top. */
 #endif
 
-#endif // !defined(SC_USE_PTHREADS)
 #endif /* ndef QUICKTHREADS_H */

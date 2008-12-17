@@ -36,37 +36,11 @@ typedef unsigned long qt_word_t;
    +---
 
    When a non-varargs thread is started, it ``returns'' directly to
-   the client's `only' function.
-
-   varargs:
-
-   +---
-   | arg[n-1]
-   | ..
-   | arg[0]
-   +---
-   | ret pc	=== `qt_vstart'
-   +---
-   | %ebp	=== `startup'
-   | %esi	=== `cleanup'
-   | %edi	=== `pt'
-   | %ebx	=== `vuserf'		<--- qt_t.sp
-   +---
-
-   When a varargs thread is started, it ``returns'' to the `qt_vstart'
-   startup code.  The startup code calls the appropriate functions. */
-
-
-/* What to do to start a varargs thread running. */
-extern void qt_vstart (void);
+   the client's `only' function. */
 
 
 /* Hold two return pcs (qt_error, qt_start) plus thirteen args. */
 #define QUICKTHREADS_STKBASE	(15 * sizeof(long))
-
-/* Hold 4 saved regs plus one return pc (qt_vstart). */
-#define QUICKTHREADS_VSTKBASE	(5 * sizeof(long))
-
 
 /* Stack must be long-word aligned. */
 #define QUICKTHREADS_STKALIGN	(sizeof(long))
@@ -77,12 +51,6 @@ extern void qt_vstart (void);
 #define QUICKTHREADS_USER_INDEX	(QUICKTHREADS_ARG2)
 #define QUICKTHREADS_ARGT_INDEX	(QUICKTHREADS_ARG1)
 #define QUICKTHREADS_ARGU_INDEX	(QUICKTHREADS_ARG0)
-
-#define QUICKTHREADS_VSTARTUP_INDEX	(QUICKTHREADS_EBP)
-#define QUICKTHREADS_VUSERF_INDEX	(QUICKTHREADS_EBX)
-#define QUICKTHREADS_VCLEANUP_INDEX	(QUICKTHREADS_ESI)
-#define QUICKTHREADS_VARGT_INDEX	(QUICKTHREADS_EDI)
-
 
 /* Stack layout offsets relative to stack when save stack function called. */
 
@@ -121,14 +89,5 @@ extern void qt_error (void);
 #define QUICKTHREADS_ARGS_MD(sto) \
   (QUICKTHREADS_SPUT (sto, QUICKTHREADS_RPC, qt_error))
 
-
-/* When varargs are pushed, allocate space for all the args. */
-#define QUICKTHREADS_VARGS_MD0(sto, nbytes) \
-  ((qt_t *)(((char *)(sto)) - QUICKTHREADS_STKROUNDUP(nbytes)))
-
-#define QUICKTHREADS_VARGS_MD1(sto) \
-  (QUICKTHREADS_SPUT (sto, QUICKTHREADS_PC, qt_vstart))
-
-#define QUICKTHREADS_VARGS_DEFAULT
 
 #endif /* QUICKTHREADS_X86_64_H */
