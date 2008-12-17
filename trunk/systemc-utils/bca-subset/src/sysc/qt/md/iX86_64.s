@@ -21,19 +21,11 @@
     .text
     .align 2
 
-    .globl _qt_abort
-    .globl qt_abort
     .globl _qt_block
     .globl qt_block
-    .globl _qt_blocki
-    .globl qt_blocki
 
-_qt_abort:
-qt_abort:
 _qt_block:
 qt_block:
-_qt_blocki:
-qt_blocki:
 	                 /* 14 (return address.) */
     pushq %rbp       /* 13 (push stack frame top.) */
 	movq  %rsp, %rbp /* set new stack frame top. */

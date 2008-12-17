@@ -27,12 +27,8 @@
 	.text
 	.align 2
 
-	.globl _qt_abort
-	.globl qt_abort
 	.globl _qt_block
 	.globl qt_block
-	.globl _qt_blocki
-	.globl qt_blocki
 
 /* These all have the type signature
 //
@@ -49,30 +45,18 @@
 // arg1 (8+32(sp)) and arg2 (12+32(sp)).  When the user function is
 // done, restore the new thread's state and return.
 //
-// `qt_abort' is (currently) an alias for `qt_block' because most of
-// the work is shared.  We could save the insns up to `qt_common' by
-// replicating, but w/o replicating we need an inital subtract (to
-// offset the stack as if it had been a qt_block) and then a jump
-// to qt_common.  For the cost of a jump, we might as well just do
-// all the work.
-//
 // The helper function (4(sp)) can return a void* that is returned
-// by the call to `qt_blockk{,i}'.  Since we don't touch %eax in
+// by the call to `qt_block'.  Since we don't touch %eax in
 // between, we get that ``for free''.  */
 
-_qt_abort:
-qt_abort:
 _qt_block:
 qt_block:
-_qt_blocki:
-qt_blocki:
 	pushl %ebp		/* Save callee-save, sp-=4. */
 	pushl %esi		/* Save callee-save, sp-=4. */
 	pushl %edi		/* Save callee-save, sp-=4. */
 	pushl %ebx		/* Save callee-save, sp-=4. */
 	movl %esp, %eax		/* Remember old stack pointer. */
 
-qt_common:
 	movl 32(%esp), %esp	/* Move to new thread. */
 	pushl 28(%eax)		/* Push arg 2. */
 	pushl 24(%eax)		/* Push arg 1. */
@@ -89,20 +73,3 @@ qt_common:
 	hlt
 
 
-/* Start a varargs thread. */
-
-	.globl _qt_vstart
-	.globl qt_vstart
-_qt_vstart:
-qt_vstart:
-	pushl %edi		/* Push `pt' arg to `startup'. */
-	call *%ebp		/* Call `startup'. */
-	popl %eax		/* Clean up the stack. */
-
-	call *%ebx		/* Call the user's function. */
-
-	pushl %eax		/* Push return from user's. */
-	pushl %edi		/* Push `pt' arg to `cleanup'. */
-	call *%esi		/* Call `cleanup'. */
-
-	hlt			/* `cleanup' never returns. */
