@@ -26,44 +26,28 @@
 
 _qt_block:
 qt_block:
-	                 /* 14 (return address.) */
-	pushq %rbp       /* 13 (push stack frame top.) */
-	movq  %rsp, %rbp /* set new stack frame top. */
-	                 /* save registers. */
-	pushq %r8        /* 12 ... */
-	pushq %r9        /* 11 ... */
-	pushq %r10       /* 10 ... */
-	pushq %r11       /*  9 ... */
-	pushq %r12       /*  8 ... */
-	pushq %r13       /*  7 ... */
-	pushq %r14       /*  6 ... */
-	pushq %r15       /*  5 ... */
-	pushq %rbx       /*  4 ... */
-	pushq %rcx       /*  3 ... (new stack address) */
-	pushq %rdx       /*  2 ... (arg) */
-	pushq %rdi       /*  1 ... (address of save function.) */
-	pushq %rsi       /*  0 ... (cor) */
+	                   /*  6 (return address) */
+	pushq %rbp         /*  5 ... */
+	pushq %rbx         /*  4 ... */
+	pushq %r12         /*  3 ... */
+	pushq %r13         /*  2 ... */
+	pushq %r14         /*  1 ... */
+	pushq %r15         /*  0 ... */
+	movq %rsp, (%rdi)  /* Save old stack pointer. */
+	movq %rsi, %rsp    /* Move to new thread. */
+	popq %r15          /*  0 ... */
+	popq %r14          /*  1 ... */
+	popq %r13          /*  2 ... */
+	popq %r12          /*  3 ... */
+	popq %rbx          /*  4 ... */
+	popq %rbp          /*  5 ... */
+	ret
 
-	movq %rdi, %rax  /* get address of save function. */
-	movq %rsp, %rdi  /* set current stack as save argument. */
-	movq %rcx, %rsp  /* swap stacks. */
-	movq %rcx, %rbp  /* adjust stack frame pointer. */
-	addq $13*8, %rbp /* ... */
-	call *%rax       /* call function to save stack pointer. */
-
-	                /* restore registers. */
-	popq %rsi       /* ... */
-	popq %rdi       /* ... */
-	popq %rdx       /* ... */
-	popq %rcx       /* ... */
-	popq %rbx       /* ... */
-	popq %r15       /* restore registers from new stack. */
-	popq %r14       /* ... */
-	popq %r13       /* ... */
-	popq %r12       /* ... */
-	popq %r11       /* ... */
-	popq %r10       /* ... */
-	popq %r9        /* ... */
-	popq %r8        /* ... */
-	leave           /* unwind stack. */
-	ret             /* return. */
+    .globl _qt_start
+    .globl qt_start
+_qt_start:
+qt_start:
+	movq %r15, %rdx    /* userf (third argument) */
+	movq %r14, %rsi    /* pt    (second argument) */
+	movq %r13, %rdi    /* pu    (first argument) */
+	jmp  *%r12         /* jump to the "only" startup procedure*/
