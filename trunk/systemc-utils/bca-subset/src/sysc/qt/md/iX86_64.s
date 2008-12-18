@@ -27,7 +27,7 @@
 _qt_block:
 qt_block:
 	                 /* 14 (return address.) */
-    pushq %rbp       /* 13 (push stack frame top.) */
+	pushq %rbp       /* 13 (push stack frame top.) */
 	movq  %rsp, %rbp /* set new stack frame top. */
 	                 /* save registers. */
 	pushq %r8        /* 12 ... */
@@ -44,12 +44,12 @@ qt_block:
 	pushq %rdi       /*  1 ... (address of save function.) */
 	pushq %rsi       /*  0 ... (cor) */
 
-    movq %rdi, %rax  /* get address of save function. */
-    movq %rsp, %rdi  /* set current stack as save argument. */
+	movq %rdi, %rax  /* get address of save function. */
+	movq %rsp, %rdi  /* set current stack as save argument. */
 	movq %rcx, %rsp  /* swap stacks. */
 	movq %rcx, %rbp  /* adjust stack frame pointer. */
 	addq $13*8, %rbp /* ... */
-    call *%rax      /* call function to save stack pointer. */
+	call *%rax       /* call function to save stack pointer. */
 
 	                /* restore registers. */
 	popq %rsi       /* ... */
