@@ -40,8 +40,8 @@ typedef unsigned long qt_word_t;
 /* Hold two return pcs (qt_error, qt_start) plus thirteen args. */
 #define QUICKTHREADS_STKBASE	(8 * sizeof(long))
 
-/* Stack must be long-word aligned. */
-#define QUICKTHREADS_STKALIGN	(sizeof(long))
+/* Stack must be 16-byte aligned. */
+#define QUICKTHREADS_STKALIGN	16
 
 
 /* Where to place various arguments. */
