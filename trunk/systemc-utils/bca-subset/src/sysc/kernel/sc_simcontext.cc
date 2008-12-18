@@ -210,7 +210,7 @@ void sc_simcontext::impl_t::cthread_wrapper(void *arg)
   }
   desc->mod = 0;
   the_simcontext->m.cthread_aborted = true;
-  sc_cor_utils::yield(&the_simcontext->m.cthreads_ctx[cthread_ix], &the_simcontext->m.cthreads_ctx[cthread_ix+1]);
+  sc_cor_ut::yield(&the_simcontext->m.cthreads_ctx[cthread_ix], &the_simcontext->m.cthreads_ctx[cthread_ix+1]);
 }
 
 void sc_simcontext::impl_t::setup_simulation()
@@ -220,7 +220,7 @@ void sc_simcontext::impl_t::setup_simulation()
     int n = cthreads.size();
     cthreads_ctx.resize(n+1);  // +1 for the main thread
     for (int i=0; i<n; ++i) {
-      sc_cor_utils::init_thread(&cthreads[i].cor, &cthreads_ctx[i],
+      sc_cor_ut::init_thread(&cthreads[i].cor, &cthreads_ctx[i],
 				cthreads[i].sz_stack, cthread_wrapper, reinterpret_cast<void*>(i));
     }
   }
@@ -251,16 +251,16 @@ void sc_simcontext::impl_t::tick_cthreads(int start_index)
 {
   cthread_aborted = false;
   cthread_tick_index = start_index;
-  sc_cor_utils::yield(&cthreads_ctx.back(), &cthreads_ctx[start_index]);
+  sc_cor_ut::yield(&cthreads_ctx.back(), &cthreads_ctx[start_index]);
   if (cthread_aborted) {
     int n = cthreads.size();
     int oldix = 0;
     while (cthreads[oldix].mod != 0)  ++oldix;
     int newix = oldix;
-    sc_cor_utils::destroy_thread(&cthreads[oldix].cor);
+    sc_cor_ut::destroy_thread(&cthreads[oldix].cor);
     for (++oldix; oldix<n; ++oldix) {
       if (cthreads[oldix].mod == 0) {
-	sc_cor_utils::destroy_thread(&cthreads[oldix].cor);
+	sc_cor_ut::destroy_thread(&cthreads[oldix].cor);
       } else {
 	cthreads[newix] = cthreads[oldix];
 	cthreads_ctx[newix] = cthreads_ctx[oldix];
@@ -277,7 +277,7 @@ void sc_simcontext::wait()
 {
   sc_cor_ctx& curr_ctx = m.cthreads_ctx[m.cthread_tick_index];
   sc_cor_ctx& next_ctx = m.cthreads_ctx[++m.cthread_tick_index];
-  sc_cor_utils::yield(&curr_ctx, &next_ctx);
+  sc_cor_ut::yield(&curr_ctx, &next_ctx);
 }
 
 void sc_simcontext::impl_t::tick_cmethods()
@@ -325,7 +325,7 @@ int sc_simcontext::impl_t::check_reset_state()
 void sc_simcontext::impl_t::cleanup_simulation()
 {
   int n = cthreads.size();
-  for (int i=0; i<n; ++i)  sc_cor_utils::destroy_thread(&cthreads[i].cor);
+  for (int i=0; i<n; ++i)  sc_cor_ut::destroy_thread(&cthreads[i].cor);
 }
 
 void sc_simcontext::scstart()

@@ -12,7 +12,7 @@
 
 namespace sc_core {
 
-namespace sc_cor_utils {
+namespace sc_cor_ut {
 
 extern "C" void sc_cor_qt_wrapper(void* arg, void*, qt_userf_t* fn) {
   (*reinterpret_cast<void (*)(void*)>(fn))(arg);
@@ -48,7 +48,7 @@ void destroy_thread(sc_cor_desc *desc)
   delete[] desc->m_stack;
 }
 
-} // namespace sc_cor_utils
+} // namespace sc_cor_ut
 
 } // namespace sc_core
 
