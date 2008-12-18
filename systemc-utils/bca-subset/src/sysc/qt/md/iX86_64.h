@@ -21,18 +21,16 @@ typedef unsigned long qt_word_t;
    non-varargs:
 
    +---
-   | arg[2]	=== `userf' on startup
-   | arg[1]	=== `pt' on startup
-   | arg[0]	=== `pu' on startup
+   | ret pc	=== qt_error
    +---
-   | ret pc === qt_error
+   | ret pc	=== qt_start
    +---
-   | ret pc	=== `only' on startup
-   +---
-   | %ebp
-   | %esi
-   | %edi
-   | %ebx				<--- qt_t.sp
+   | %rbp
+   | %rbx
+   | %r12	=== `only' on startup
+   | %r13	=== `pu' on startup
+   | %r14	=== `pt' on startup
+   | %r15	=== `userf' on startup      <--- qt_t.sp
    +---
 
    When a non-varargs thread is started, it ``returns'' directly to
@@ -40,54 +38,39 @@ typedef unsigned long qt_word_t;
 
 
 /* Hold two return pcs (qt_error, qt_start) plus thirteen args. */
-#define QUICKTHREADS_STKBASE	(15 * sizeof(long))
+#define QUICKTHREADS_STKBASE	(8 * sizeof(long))
 
 /* Stack must be long-word aligned. */
 #define QUICKTHREADS_STKALIGN	(sizeof(long))
 
 
 /* Where to place various arguments. */
-#define QUICKTHREADS_ONLY_INDEX	(QUICKTHREADS_PC)
-#define QUICKTHREADS_USER_INDEX	(QUICKTHREADS_ARG2)
-#define QUICKTHREADS_ARGT_INDEX	(QUICKTHREADS_ARG1)
-#define QUICKTHREADS_ARGU_INDEX	(QUICKTHREADS_ARG0)
+#define QUICKTHREADS_ONLY_INDEX	(QUICKTHREADS_R12)
+#define QUICKTHREADS_USER_INDEX	(QUICKTHREADS_R15)
+#define QUICKTHREADS_ARGT_INDEX	(QUICKTHREADS_R14)
+#define QUICKTHREADS_ARGU_INDEX	(QUICKTHREADS_R13)
 
 /* Stack layout offsets relative to stack when save stack function called. */
 
-#define QUICKTHREADS_PC	   14
-#define QUICKTHREADS_RPC   13
-
-#define QUICKTHREADS_R8    12
-#define QUICKTHREADS_R9    11
-#define QUICKTHREADS_R10   10
-#define QUICKTHREADS_R11    9
-#define QUICKTHREADS_R12    8
-#define QUICKTHREADS_R13    7
-#define QUICKTHREADS_R14    6
-#define QUICKTHREADS_R15    5
+#define QUICKTHREADS_RPC    7
+#define QUICKTHREADS_PC	    6
+#define QUICKTHREADS_RBP    5
 #define QUICKTHREADS_RBX    4
-#define QUICKTHREADS_RCX    3
-#define QUICKTHREADS_RDX    2
-#define QUICKTHREADS_RDI    1
-#define QUICKTHREADS_RSI    0
-
-
-/* Arguments to save stack function. */
-
-#define QUICKTHREADS_ARG0 QUICKTHREADS_RDI
-#define QUICKTHREADS_ARG1 QUICKTHREADS_RSI
-#define QUICKTHREADS_ARG2 QUICKTHREADS_RDX
-
+#define QUICKTHREADS_R12    3
+#define QUICKTHREADS_R13    2
+#define QUICKTHREADS_R14    1
+#define QUICKTHREADS_R15    0
 
 /* Stack grows down.  The top of the stack is the first thing to
    pop off (preincrement, postdecrement). */
 #define QUICKTHREADS_GROW_DOWN
 
-extern void qt_error (void);
+extern void qt_start(void);
 
 /* Push on the error return address. */
 #define QUICKTHREADS_ARGS_MD(sto) \
-  (QUICKTHREADS_SPUT (sto, QUICKTHREADS_RPC, qt_error))
+  (QUICKTHREADS_SPUT (sto, QUICKTHREADS_RPC, qt_error), \
+   QUICKTHREADS_SPUT (sto, QUICKTHREADS_PC, qt_start))
 
 
 #endif /* QUICKTHREADS_X86_64_H */

@@ -18,6 +18,8 @@
 extern "C" {
 #endif
 
+extern void qt_error(void);
+
 #include "sysc/qt/qtmd.h"
 
 
@@ -101,17 +103,9 @@ typedef void *(qt_userf_t)(void *pu);
 #endif
 
 
-/* Save the state of the thread and call the helper function
-   using the stack of the new thread. */
-typedef void *(qt_helper_t)(qt_t *old, void *a0, void *a1);
-//typedef void *(qt_block_t)(qt_helper_t *helper, void *a0, void *a1,
-//                           qt_t *newthread);
-
 #ifndef QUICKTHREADS_BLOCK
-extern void *qt_block (qt_helper_t *h, void *a0, void *a1,
-		       qt_t *newthread);
-#define QUICKTHREADS_BLOCK(h, a0, a1, newthread) \
-    (qt_block (h, a0, a1, newthread))
+extern void qt_block(qt_t **curctx, qt_t *newsp);
+#define QUICKTHREADS_BLOCK(curctx, newsp)  (qt_block(curctx, newsp))
 #endif
 
 #ifdef __cplusplus

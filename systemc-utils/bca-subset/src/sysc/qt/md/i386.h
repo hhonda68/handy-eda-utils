@@ -69,8 +69,6 @@ typedef unsigned long qt_word_t;
    pop off (preincrement, postdecrement). */
 #define QUICKTHREADS_GROW_DOWN
 
-extern void qt_error (void);
-
 /* Push on the error return address. */
 #define QUICKTHREADS_ARGS_MD(sto) \
   (QUICKTHREADS_SPUT (sto, QUICKTHREADS_RPC, qt_error))

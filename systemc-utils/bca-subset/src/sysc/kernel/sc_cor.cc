@@ -18,11 +18,6 @@ extern "C" void sc_cor_qt_wrapper(void* arg, void*, qt_userf_t* fn) {
   (*reinterpret_cast<void (*)(void*)>(fn))(arg);
 }
 
-extern "C" void* sc_cor_qt_yieldhelp(qt_t* sp, void* old_ctx, void*) {
-  static_cast<sc_cor_ctx*>(old_ctx)->m_sp = sp;
-  return 0;
-}
-
 void init_thread(sc_cor_desc *desc, sc_cor_ctx *ctx, int sz_stack, void (*fn)(void*), void *arg)
 {
   sz_stack += QUICKTHREADS_STKALIGN*2;
@@ -40,7 +35,7 @@ void init_thread(sc_cor_desc *desc, sc_cor_ctx *ctx, int sz_stack, void (*fn)(vo
 
 void yield(sc_cor_ctx* curr_ctx, sc_cor_ctx* next_ctx)
 {
-  QUICKTHREADS_BLOCK(sc_cor_qt_yieldhelp, curr_ctx, 0, next_ctx->m_sp);
+  QUICKTHREADS_BLOCK(&curr_ctx->m_sp, next_ctx->m_sp);
 }
 
 void destroy_thread(sc_cor_desc *desc)

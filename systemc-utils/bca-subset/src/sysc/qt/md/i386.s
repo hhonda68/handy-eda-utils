@@ -56,15 +56,9 @@ qt_block:
 	pushl %edi		/* Save callee-save, sp-=4. */
 	pushl %ebx		/* Save callee-save, sp-=4. */
 	movl %esp, %eax		/* Remember old stack pointer. */
-
-	movl 32(%esp), %esp	/* Move to new thread. */
-	pushl 28(%eax)		/* Push arg 2. */
-	pushl 24(%eax)		/* Push arg 1. */
-	pushl %eax		/* Push arg 0. */
-	movl 20(%eax), %ebx	/* Get function to call. */
-	call *%ebx		/* Call f. */
-	addl $12, %esp		/* Pop args. */
-
+	movl 20(%eax), %ebx	/* Get address of the context save area. */
+	movl 24(%eax), %esp	/* Move to new thread. */
+	movl %eax, (%ebx)	/* Save the old context. */
 	popl %ebx		/* Restore callee-save, sp+=4. */
 	popl %edi		/* Restore callee-save, sp+=4. */
 	popl %esi		/* Restore callee-save, sp+=4. */
