@@ -18,34 +18,34 @@ extern "C" void sc_cor_qt_wrapper(void* arg, void*, qt_userf_t* fn) {
   (*reinterpret_cast<void (*)(void*)>(fn))(arg);
 }
 
-extern "C" void* sc_cor_qt_yieldhelp(qt_t* sp, void* old_cor, void*) {
-  reinterpret_cast<sc_cor*>(old_cor)->m_sp = sp;
+extern "C" void* sc_cor_qt_yieldhelp(qt_t* sp, void* old_ctx, void*) {
+  static_cast<sc_cor_ctx*>(old_ctx)->m_sp = sp;
   return 0;
 }
 
-void init_thread(sc_cor *cor, int sz_stack, void (*fn)(void*), void *arg)
+void init_thread(sc_cor_desc *desc, sc_cor_ctx *ctx, int sz_stack, void (*fn)(void*), void *arg)
 {
   sz_stack += QUICKTHREADS_STKALIGN*2;
-  cor->m_stack = new char[sz_stack];
-  qt_word_t addr_low = reinterpret_cast<qt_word_t>(cor->m_stack);
+  desc->m_stack = new char[sz_stack];
+  qt_word_t addr_low = reinterpret_cast<qt_word_t>(desc->m_stack);
   qt_word_t addr_high = addr_low + sz_stack;
   qt_word_t align_lsbmask = QUICKTHREADS_STKALIGN - 1;
   qt_word_t align_msbmask = ~align_lsbmask;
   addr_low = (addr_low + align_lsbmask) & align_msbmask;   // ceil
   addr_high = addr_high & align_msbmask;                   // floor
   qt_word_t sz_actual = addr_high - addr_low;
-  cor->m_sp = QUICKTHREADS_SP(cor->m_stack, sz_actual);
-  cor->m_sp = QUICKTHREADS_ARGS(cor->m_sp, arg, 0, reinterpret_cast<qt_userf_t*>(fn), sc_cor_qt_wrapper);
+  ctx->m_sp = QUICKTHREADS_SP(desc->m_stack, sz_actual);
+  ctx->m_sp = QUICKTHREADS_ARGS(ctx->m_sp, arg, 0, reinterpret_cast<qt_userf_t*>(fn), sc_cor_qt_wrapper);
 }
 
-void yield(sc_cor* curr_cor, sc_cor* next_cor)
+void yield(sc_cor_ctx* curr_ctx, sc_cor_ctx* next_ctx)
 {
-  QUICKTHREADS_BLOCK(sc_cor_qt_yieldhelp, curr_cor, 0, next_cor->m_sp);
+  QUICKTHREADS_BLOCK(sc_cor_qt_yieldhelp, curr_ctx, 0, next_ctx->m_sp);
 }
 
-void destroy_thread(sc_cor *cor)
+void destroy_thread(sc_cor_desc *desc)
 {
-  delete[] cor->m_stack;
+  delete[] desc->m_stack;
 }
 
 } // namespace sc_cor_utils

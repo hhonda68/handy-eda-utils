@@ -24,9 +24,12 @@ struct sc_entry_desc {
 };
 
 struct sc_cthread_desc : sc_entry_desc {
-  int    sz_stack;
-  sc_cor cor;
+  union {
+    int         sz_stack;
+    sc_cor_desc cor;
+  };
 };
+
 struct sc_method_desc : sc_entry_desc {
   int eval_order;
 };
@@ -72,6 +75,7 @@ struct sc_simcontext::impl_t {
   ::std::stack<const sc_module_name*>  name_hierarchy;
   ::std::stack<const sc_module*>       module_hierarchy;
   ::std::vector<sc_cthread_desc>       cthreads;
+  ::std::vector<sc_cor_ctx>            cthreads_ctx;
   const sc_in<bool>                    *reset_port;
   int                                  nr_cthreads_with_reset;
   int                                  cthread_tick_index;
@@ -206,7 +210,7 @@ void sc_simcontext::impl_t::cthread_wrapper(void *arg)
   }
   desc->mod = 0;
   the_simcontext->m.cthread_aborted = true;
-  sc_cor_utils::yield(&desc->cor, &the_simcontext->m.cthreads[cthread_ix+1].cor);
+  sc_cor_utils::yield(&the_simcontext->m.cthreads_ctx[cthread_ix], &the_simcontext->m.cthreads_ctx[cthread_ix+1]);
 }
 
 void sc_simcontext::impl_t::setup_simulation()
@@ -214,15 +218,12 @@ void sc_simcontext::impl_t::setup_simulation()
   // initialize cthread coroutines
   {
     int n = cthreads.size();
+    cthreads_ctx.resize(n+1);  // +1 for the main thread
     for (int i=0; i<n; ++i) {
-      sc_cor_utils::init_thread(&cthreads[i].cor, cthreads[i].sz_stack, cthread_wrapper, reinterpret_cast<void*>(i));
+      sc_cor_utils::init_thread(&cthreads[i].cor, &cthreads_ctx[i],
+				cthreads[i].sz_stack, cthread_wrapper, reinterpret_cast<void*>(i));
     }
   }
-  // register main coroutine
-  sc_cthread_desc desc;
-  desc.mod = 0;
-  desc.func = 0;
-  cthreads.push_back(desc);
   // force current value of the reset signal to be "active(false)"
   if (reset_port != 0) {
     the_simcontext->m_signal_write_index = 0;
@@ -250,7 +251,7 @@ void sc_simcontext::impl_t::tick_cthreads(int start_index)
 {
   cthread_aborted = false;
   cthread_tick_index = start_index;
-  sc_cor_utils::yield(&cthreads.back().cor, &cthreads[start_index].cor);
+  sc_cor_utils::yield(&cthreads_ctx.back(), &cthreads_ctx[start_index]);
   if (cthread_aborted) {
     int n = cthreads.size();
     int oldix = 0;
@@ -258,21 +259,25 @@ void sc_simcontext::impl_t::tick_cthreads(int start_index)
     int newix = oldix;
     sc_cor_utils::destroy_thread(&cthreads[oldix].cor);
     for (++oldix; oldix<n; ++oldix) {
-      if (oldix != n-1 && cthreads[oldix].mod == 0) {
+      if (cthreads[oldix].mod == 0) {
 	sc_cor_utils::destroy_thread(&cthreads[oldix].cor);
       } else {
-	cthreads[newix++] = cthreads[oldix];
+	cthreads[newix] = cthreads[oldix];
+	cthreads_ctx[newix] = cthreads_ctx[oldix];
+	++ newix;
       }
     }
     cthreads.resize(newix);
+    cthreads_ctx[newix] = cthreads_ctx[n];
+    cthreads_ctx.resize(newix+1);  // +1 for the main thread
   }
 }
 
 void sc_simcontext::wait()
 {
-  sc_cor& curr_cor = m.cthreads[m.cthread_tick_index].cor;
-  sc_cor& next_cor = m.cthreads[++m.cthread_tick_index].cor;
-  sc_cor_utils::yield(&curr_cor, &next_cor);
+  sc_cor_ctx& curr_ctx = m.cthreads_ctx[m.cthread_tick_index];
+  sc_cor_ctx& next_ctx = m.cthreads_ctx[++m.cthread_tick_index];
+  sc_cor_utils::yield(&curr_ctx, &next_ctx);
 }
 
 void sc_simcontext::impl_t::tick_cmethods()
@@ -319,7 +324,7 @@ int sc_simcontext::impl_t::check_reset_state()
 
 void sc_simcontext::impl_t::cleanup_simulation()
 {
-  int n = cthreads.size() - 1;  // destroy all cthreads (except the main thread)
+  int n = cthreads.size();
   for (int i=0; i<n; ++i)  sc_cor_utils::destroy_thread(&cthreads[i].cor);
 }
 

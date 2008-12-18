@@ -18,16 +18,14 @@ extern "C" struct qt_t;
 
 namespace sc_core {
 
-struct sc_cor {
-  char *m_stack;
-  qt_t *m_sp;
-};
+struct sc_cor_desc { char *m_stack; };  // descriptor for initialization/finalization
+struct sc_cor_ctx { qt_t *m_sp; };      // context used during simulation
 
 namespace sc_cor_utils {
 
-void init_thread(sc_cor *cor, int sz_stack, void (*fn)(void*), void *arg);
-void yield(sc_cor *curr_cor, sc_cor *next_cor);
-void destroy_thread(sc_cor *cor);
+void init_thread(sc_cor_desc *desc, sc_cor_ctx *ctx, int sz_stack, void (*fn)(void*), void *arg);
+void yield(sc_cor_ctx *curr_ctx, sc_cor_ctx *next_ctx);
+void destroy_thread(sc_cor_desc *desc);
 
 } // namespace sc_cor_utils
 
