@@ -33,16 +33,11 @@ protected:
   T m_val[2];
 };
 
-template <typename T, bool B> struct sc_signal_arg_type;
-template <typename T> struct sc_signal_arg_type<T,true > { typedef T type; };
-template <typename T> struct sc_signal_arg_type<T,false> { typedef const T& type; };
-template <typename T> struct sc_signal_arg : sc_signal_arg_type<T,(sizeof(T)<=8)> {};
-
 template <typename T> class sc_signal_accessor : public sc_signal_data<T> {
 public:
   const T& read() const { return this->m_val[0]; };
   operator const T&() const { return read(); }
-  void write(typename sc_signal_arg<T>::type val) {
+  void write(const T& val) {
     int ix = the_simcontext->signal_write_index();
     this->m_val[ix] = val;
     if (ix == 0)  this->check_sensitive_methods();
@@ -80,9 +75,8 @@ protected:
 
 template <typename T> class sc_in_reader : public sc_in_data<T> {
 public:
-  typedef typename sc_signal_arg<T>::type argtype_t;
-  argtype_t read() const { return this->m_sig->read(); }
-  operator argtype_t() const { return read(); }
+  const T& read() const { return this->m_sig->read(); }
+  operator const T&() const { return read(); }
 };
 
 class sc_clock_edge {
@@ -135,11 +129,10 @@ protected:
 
 template <typename T> class sc_out_accessor : public sc_out_data<T> {
 public:
-  typedef typename sc_signal_arg<T>::type argtype_t;
-  argtype_t read() const { return this->m_sig->read(); }
-  operator argtype_t() const { return read(); }
-  void write(argtype_t val) { this->m_sig->write(val); }
-  void operator=(argtype_t val) { write(val); }
+  const T& read() const { return this->m_sig->read(); }
+  operator const T&() const { return read(); }
+  void write(const T& val) { this->m_sig->write(val); }
+  void operator=(const T& val) { write(val); }
 };
 
 template <typename T> class sc_out : public sc_out_accessor<T> {
