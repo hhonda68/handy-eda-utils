@@ -19,36 +19,28 @@
 
 namespace sc_core {
 
-class sc_signal_sensitive_methods {
+class sc_signal_sensitive_delegator : public sc_signal_access_manager {
 public:
-  void sensitive_add(int method_id) { m_smeths.add(method_id); }
-  void sensitive_merge(sc_sensitive_methods& other) { m_smeths.merge(other); }
-protected:
-  sc_sensitive_methods m_smeths;
-  void check_sensitive_methods() { if (m_smeths.valid())  the_simcontext->check_sensitive_methods(&m_smeths); }
+  void sensitive_add(int method_id) { the_simcontext->sensitive_add(*this, method_id); }
+  void sensitive_merge(sc_sensitive_methods& other) { the_simcontext->sensitive_merge(*this, other); }
 };
 
-template <typename T> class sc_signal_data : public sc_signal_sensitive_methods {
+template <typename T> class sc_signal_data : public sc_signal_sensitive_delegator {
 protected:
   T m_val[2];
 };
 
 template <typename T> class sc_signal_accessor : public sc_signal_data<T> {
 public:
-  const T& read() const { return this->m_val[0]; };
+  const T& read() const { return this->m_val[this->m_rix]; };
+  void write(const T& val) { this->m_val[this->m_wix] = val;  this->m_written = true; }
   operator const T&() const { return read(); }
-  void write(const T& val) {
-    int ix = the_simcontext->signal_write_index();
-    this->m_val[ix] = val;
-    if (ix == 0)  this->check_sensitive_methods();
-  }
   void operator=(const T& val) { write(val); }
 };
 
-template <typename T> class sc_signal : public sc_signal_accessor<T>, public sc_signal_update_if {
+template <typename T> class sc_signal : public sc_signal_accessor<T> {
 public:
-  sc_signal() { the_simcontext->register_signal(*this, this->m_smeths); }
-  void update() { this->m_val[0] = this->m_val[1]; }
+  sc_signal() { the_simcontext->register_signal(*this); }
   using sc_signal_accessor<T>::operator=;
   void operator=(const sc_signal& rhs) { operator=(rhs.read()); }
 };
@@ -130,8 +122,8 @@ protected:
 template <typename T> class sc_out_accessor : public sc_out_data<T> {
 public:
   const T& read() const { return this->m_sig->read(); }
-  operator const T&() const { return read(); }
   void write(const T& val) { this->m_sig->write(val); }
+  operator const T&() const { return read(); }
   void operator=(const T& val) { write(val); }
 };
 
