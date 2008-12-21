@@ -22,10 +22,15 @@ template <typename T> class sc_in;
 template <typename T> class sc_signal;
 struct sc_time;
 
+struct sc_signal_access_manager {
+  unsigned char m_rix, m_wix;
+  bool          m_written;
+  unsigned char m_id;
+};
+
 class sc_sensitive_methods {
 public:
   sc_sensitive_methods() : data(0) {}
-  bool valid() const { return (data != 0); }
   ~sc_sensitive_methods();
   void add(int method_id);
   void merge(sc_sensitive_methods& other);
@@ -33,10 +38,6 @@ private:
   friend class sc_simcontext;
   struct data_t;
   data_t *data;
-};
-
-struct sc_signal_update_if {
-  virtual void update() = 0;
 };
 
 typedef void (sc_module::*sc_entry_func)();
@@ -57,16 +58,15 @@ public:
   void register_method(sc_module *, sc_entry_func);
   int  current_method_id() const;
   void mark_method_as_clocked(int);
-  void register_signal(sc_signal_update_if&, sc_sensitive_methods&);
-  int signal_write_index() const { return m_signal_write_index; }
-  void check_sensitive_methods(sc_sensitive_methods *);
+  void register_signal(sc_signal_access_manager&);
+  void sensitive_add(sc_signal_access_manager&, int);
+  void sensitive_merge(sc_signal_access_manager&, sc_sensitive_methods&);
   void scstart();
   void scstop();
   const sc_time& sctimestamp();
   void wait();
   int elab_and_sim(int argc, char *argv[]);
 private:
-  int m_signal_write_index;
   struct impl_t;
   impl_t& m;
 };

@@ -15,6 +15,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <stack>
+#include <set>
 
 namespace sc_core {
 
@@ -30,25 +31,16 @@ struct sc_cthread_desc : sc_entry_desc {
   };
 };
 
-struct sc_method_desc : sc_entry_desc {
-  int eval_order;
-};
-
-union sensitive_entry {
-  int            id;
-  sc_method_desc *desc;
-};
+typedef sc_entry_desc sc_method_desc;
 
 struct sc_sensitive_methods::data_t {
-  ::std::vector<sensitive_entry> vec;
+  ::std::vector<int> vec;   // list of method id
 };
 
 void sc_sensitive_methods::add(int method_id)
 {
   if (data == 0)  data = new data_t;
-  sensitive_entry ent;
-  ent.id = method_id;
-  data->vec.push_back(ent);
+  data->vec.push_back(method_id);
 }
 
 void sc_sensitive_methods::merge(sc_sensitive_methods& other)
@@ -58,8 +50,8 @@ void sc_sensitive_methods::merge(sc_sensitive_methods& other)
     data = other.data;
     other.data = 0;
   } else {
-    ::std::vector<sensitive_entry>& lhs = data->vec;
-    const ::std::vector<sensitive_entry>& rhs = other.data->vec;
+    ::std::vector<int>& lhs = data->vec;
+    const ::std::vector<int>& rhs = other.data->vec;
     int n = rhs.size();
     lhs.reserve(lhs.size() + n);
     for (int i=0; i<n; ++i)  lhs.push_back(rhs[i]);
@@ -72,27 +64,29 @@ sc_sensitive_methods::~sc_sensitive_methods()
 }
 
 struct sc_simcontext::impl_t {
-  ::std::stack<const sc_module_name*>  name_hierarchy;
-  ::std::stack<const sc_module*>       module_hierarchy;
-  ::std::vector<sc_cthread_desc>       cthreads;
-  ::std::vector<sc_cor_ctx>            cthreads_ctx;
-  const sc_in<bool>                    *reset_port;
-  int                                  nr_cthreads_with_reset;
-  int                                  cthread_tick_index;
-  bool                                 cthread_aborted;
-  bool                                 stopping;
-  ::std::vector<sc_method_desc>        methods, cmethods;
-  ::std::vector<sc_method_desc*>       method_eval_table;
-  int                                  method_eval_index;
-  ::std::vector<sc_signal_update_if*>  signals;
-  ::std::vector<sc_sensitive_methods*> smeths;
-  sc_time                              current_time;
+  ::std::stack<const sc_module_name*>      name_hierarchy;
+  ::std::stack<const sc_module*>           module_hierarchy;
+  ::std::vector<sc_cthread_desc>           cthreads;
+  ::std::vector<sc_cor_ctx>                cthreads_ctx;
+  const sc_in<bool>                        *reset_port;
+  int                                      nr_cthreads_with_reset;
+  int                                      cthread_tick_index;
+  bool                                     cthread_aborted;
+  bool                                     stopping;
+  ::std::vector<sc_method_desc>            methods, cmethods;
+  ::std::vector<sc_signal_access_manager*> signals;
+  ::std::vector<sc_sensitive_methods*>     smeths;
+  ::std::vector<int>                       methodsigs;
+  sc_time                                  current_time;
   static void cthread_wrapper(void *arg);
+  int search_signal_id(const sc_signal_access_manager& sig);
   void setup_simulation();
   void tick_cthreads(int start_index);
   void tick_cmethods();
-  void update_signals();
+  void update_nonblocking_assignments();
+  void sort_methods();
   void eval_methods();
+  void update_blocking_assignments();
   int  check_reset_state();  // ret = cthread_start_index for next cycle
   void cleanup_simulation();
 };
@@ -149,7 +143,6 @@ void sc_simcontext::register_method(sc_module *mod, sc_entry_func func)
   sc_method_desc desc;
   desc.mod = mod;
   desc.func = func;
-  desc.eval_order = m.methods.size();
   m.methods.push_back(desc);
 }
 
@@ -162,35 +155,33 @@ void sc_simcontext::mark_method_as_clocked(int method_id)
   m.methods.pop_back();
 }
 
-void sc_simcontext::register_signal(sc_signal_update_if& sig, sc_sensitive_methods& smeth)
+void sc_simcontext::register_signal(sc_signal_access_manager& sig)
 {
+  sig.m_id = m.signals.size() & 0xff;
   m.signals.push_back(&sig);
-  m.smeths.push_back(&smeth);
+  m.smeths.push_back(0);
 }
 
-void sc_simcontext::check_sensitive_methods(sc_sensitive_methods *sensitive_methods)
+int sc_simcontext::impl_t::search_signal_id(const sc_signal_access_manager& sig)
 {
-  ::std::vector<sensitive_entry>& methods = sensitive_methods->data->vec;
-  int n = methods.size();
-  int eval_index = m.method_eval_index;
-  for (int i=0; i<n; ++i) {
-    sc_method_desc *meth = methods[i].desc;
-    int order = meth->eval_order;
-    if (order >= eval_index)  continue;
-    // reorder method_eval_table
-    // assert(m.method_eval_table[i] == &m.methods[order]);
-    ::std::vector<sc_method_desc*>& table = m.method_eval_table;
-    for (int j=order; j<eval_index; ++j) {
-      sc_method_desc *meth1 = table[j+1];
-      table[j] = meth1;
-      // assert(meth1->eval_order == i+1);
-      meth1->eval_order = j;
-    }
-    table[eval_index] = meth;
-    meth->eval_order = eval_index;
-    -- eval_index;
-    m.method_eval_index = eval_index;
-  }
+  int id = sig.m_id;
+  while (signals[id] != &sig)  id += 0x100;
+  return id;
+}
+
+void sc_simcontext::sensitive_add(sc_signal_access_manager& sig, int method_id)
+{
+  int id = m.search_signal_id(sig);
+  if (m.smeths[id] == 0)  m.smeths[id] = new sc_sensitive_methods;
+  m.smeths[id]->add(method_id);
+}
+
+void sc_simcontext::sensitive_merge(sc_signal_access_manager& sig, sc_sensitive_methods& other)
+{
+  if (other.data == 0)  return;
+  int id = m.search_signal_id(sig);
+  if (m.smeths[id] == 0)  m.smeths[id] = new sc_sensitive_methods;
+  m.smeths[id]->merge(other);
 }
 
 ////////////////////////////////////////////////////////////////
@@ -221,30 +212,28 @@ void sc_simcontext::impl_t::setup_simulation()
     cthreads_ctx.resize(n+1);  // +1 for the main thread
     for (int i=0; i<n; ++i) {
       sc_cor_ut::init_thread(&cthreads[i].cor, &cthreads_ctx[i],
-				cthreads[i].sz_stack, cthread_wrapper, reinterpret_cast<void*>(i));
+			     cthreads[i].sz_stack, cthread_wrapper, reinterpret_cast<void*>(i));
+    }
+  }
+  // initialize sc_signal_access_manager's
+  {
+    int n = signals.size();
+    for (int i=0; i<n; ++i) {
+      sc_signal_access_manager *sig = signals[i];
+      sig->m_rix = 0;
+      sig->m_wix = 1;
+      sig->m_written = false;
     }
   }
   // force current value of the reset signal to be "active(false)"
   if (reset_port != 0) {
-    the_simcontext->m_signal_write_index = 0;
+    reset_port->m_sig->m_wix = 0;
     reset_port->m_sig->write(false);
+    reset_port->m_sig->m_wix = 1;
+    reset_port->m_sig->m_written = false;
   }
-  // initialize method_eval_table
-  {
-    int n = methods.size();
-    method_eval_table.reserve(n);
-    for (int i=0; i<n; ++i)  method_eval_table.push_back(&methods[i]);
-  }
-  // change sc_sensitive_methods entry from id to desc
-  {
-    int n = smeths.size();
-    for (int i=0; i<n; ++i) {
-      if (smeths[i]->data == 0)  continue;
-      ::std::vector<sensitive_entry>& vec = smeths[i]->data->vec;
-      int nn = vec.size();
-      for (int j=0; j<nn; ++j)  vec[j].desc = &methods[vec[j].id];
-    }
-  }
+  // temporarily set methodsigs as empty
+  methodsigs.push_back(signals.size());  // sentinel
 }
 
 void sc_simcontext::impl_t::tick_cthreads(int start_index)
@@ -291,22 +280,144 @@ void sc_simcontext::impl_t::tick_cmethods()
   }
 }
 
-void sc_simcontext::impl_t::update_signals()
+void sc_simcontext::impl_t::update_nonblocking_assignments()
 {
   int n = signals.size();
-  for (int i=0; i<n; ++i)  signals[i]->update();
+  int msix = 0;
+  for (int i=0; i<n; ++i) {
+    sc_signal_access_manager *sig = signals[i];
+    bool written = sig->m_written;
+    int msid = methodsigs[msix];
+    {
+      // Straightforward code:
+      //   if (i == msid) {
+      //     if (written)  rix = wix;  else  wix = rix;
+      //     ++msix;
+      //   } else {
+      //     if (written)  swap(rix,wix);
+      //   }
+      bool hit = (i == msid);
+      sig->m_rix ^= written;
+      sig->m_wix ^= (written^hit);
+      msix += hit;
+    }
+    sig->m_written = false;
+  }
+}
+
+class PartiallyOrderedSet {
+public:
+  PartiallyOrderedSet(int nr_elements) : nodes(nr_elements) {}
+  void register_order(int predecessor, int successor);
+  const ::std::vector<int> topological_sort();
+private:
+  void topological_sort_recur(int ix);
+  struct node_t {
+    ::std::set<int> preds;
+    bool            visited;
+  };
+  ::std::vector<node_t> nodes;
+  ::std::vector<int>    *sort_result;
+};
+
+void PartiallyOrderedSet::register_order(int predecessor, int successor)
+{
+  nodes[successor].preds.insert(predecessor);
+}
+
+const ::std::vector<int> PartiallyOrderedSet::topological_sort()
+{
+  int n = nodes.size();
+  for (int i=0; i<n; ++i)  nodes[i].visited = false;
+  ::std::vector<int> result;
+  sort_result = &result;
+  for (int i=0; i<n; ++i)  topological_sort_recur(i);
+  sort_result = 0;
+  return result;
+}
+
+void PartiallyOrderedSet::topological_sort_recur(int ix)
+{
+  node_t& node = nodes[ix];
+  if (node.visited)  return;
+  node.visited = true;
+  for (::std::set<int>::const_iterator iter=node.preds.begin(); iter!=node.preds.end(); ++iter) {
+    topological_sort_recur(*iter);
+  }
+  sort_result->push_back(ix);
+}
+
+void sc_simcontext::impl_t::sort_methods()
+{
+  int nr_meth = methods.size();
+  int nr_sig = signals.size();
+  PartiallyOrderedSet pos(nr_meth);
+  ::std::set<int> msig;
+  for (int m=0; m<nr_meth; ++m) {
+    // for each methods, ...
+    sc_method_desc& meth = methods[m];
+    // experimentally evaluate it.
+    sc_module *mod = meth.mod;
+    sc_entry_func func = meth.func;
+    (mod->*func)();
+    // search written signals.
+    for (int s=0; s<nr_sig; ++s) {
+      sc_signal_access_manager *sig = signals[s];
+      if (! sig->m_written)  continue;
+      msig.insert(s);
+      sig->m_written = false;
+      // judge dependency of methods
+      if (smeths[s] == 0)  continue;
+      ::std::vector<int>& vec = smeths[s]->data->vec;
+      int n = vec.size();
+      for (int i=0; i<n; ++i) {
+	// method "m" writes to signal "s".
+	// method "vec[i]" is sensitive to signal "s".
+	pos.register_order(m, vec[i]);
+      }
+    }
+  }
+  // determine correct evaluation order
+  ::std::vector<int> order = pos.topological_sort();
+  // sort "methods"
+  ::std::vector<sc_method_desc> sorted_methods(nr_meth);
+  for (int i=0; i<nr_meth; ++i)  sorted_methods[i] = methods[order[i]];
+  using ::std::swap;
+  swap(methods, sorted_methods);
+  // set "methodsigs"
+  int nr_msig = msig.size();
+  methodsigs.reserve(1+nr_msig);  // extra 1 entry for sentinel (already registered)
+  for (::std::set<int>::const_iterator iter=msig.begin(); iter!=msig.end(); ++iter) {
+    methodsigs.push_back(*iter);
+  }
+  using ::std::sort;
+  sort(methodsigs.begin(), methodsigs.end());
+  // prepare for normal "eval_methods()"
+  for (int i=0; i<nr_msig; ++i) {
+    sc_signal_access_manager *sig = signals[methodsigs[i]];
+    sig->m_wix = sig->m_rix;
+  }
 }
 
 void sc_simcontext::impl_t::eval_methods()
 {
-  int n = method_eval_table.size();
-  method_eval_index = 0;
-  while (method_eval_index < n) {
-    sc_method_desc *meth = method_eval_table[method_eval_index];
-    sc_module *mod = meth->mod;
-    sc_entry_func func = meth->func;
+  int n = methods.size();
+  for (int i=0; i<n; ++i) {
+    sc_method_desc& meth = methods[i];
+    sc_module *mod = meth.mod;
+    sc_entry_func func = meth.func;
     (mod->*func)();
-    ++ method_eval_index;
+  }
+}
+
+void sc_simcontext::impl_t::update_blocking_assignments()
+{
+  int n = methodsigs.size() - 1;  // -1 to exclude sentinel
+  for (int i=0; i<n; ++i) {
+    int id = methodsigs[i];
+    sc_signal_access_manager *sig = signals[id];
+    sig->m_wix ^= 1;
+    sig->m_written = false;
   }
 }
 
@@ -333,16 +444,25 @@ void sc_simcontext::scstart()
   m.setup_simulation();
   m.stopping = false;
   int cthread_start_index = 0;
-  do {
-    m_signal_write_index = 1;
+  // the first cycle
+  m.tick_cthreads(cthread_start_index);
+  m.tick_cmethods();
+  m.update_nonblocking_assignments();
+  m.sort_methods();
+  m.eval_methods();
+  m.update_blocking_assignments();
+  cthread_start_index = m.check_reset_state();
+  m.current_time.m_val += 10;
+  // subsequent cycles
+  while (! m.stopping) {
     m.tick_cthreads(cthread_start_index);
     m.tick_cmethods();
-    m.update_signals();
-    m_signal_write_index = 0;
+    m.update_nonblocking_assignments();
     m.eval_methods();
+    m.update_blocking_assignments();
     cthread_start_index = m.check_reset_state();
     m.current_time.m_val += 10;
-  } while (! m.stopping);
+  }
   m.cleanup_simulation();
 }
 
