@@ -214,50 +214,25 @@ template <typename S, int W> struct sc_int_subref {
 
 template <bool WIDE> struct sc_int_ranged_aux;
 template <> struct sc_int_ranged_aux<false> {
-  static int swidth(unsigned int x) {
-    int sx = static_cast<int>(x);
-    int sign = sx >> 31;
-    int ans = 1;
-    if ((sx >> 16) != sign) { sx >>= 16;  ans += 16; }
-    if ((sx >>  8) != sign) { sx >>=  8;  ans +=  8; }
-    if ((sx >>  4) != sign) { sx >>=  4;  ans +=  4; }
-    if ((sx >>  2) != sign) { sx >>=  2;  ans +=  2; }
-    if ((sx >>  1) != sign) { sx >>=  1;  ans +=  1; }
-    if (sx != sign)  ++ans;
-    return ans;
-  }
   static int uwidth(unsigned int x) {
     int ans = 1;
-    if ((x >> 16) != 0) { x >>= 16;  ans += 16; }
-    if ((x >>  8) != 0) { x >>=  8;  ans +=  8; }
-    if ((x >>  4) != 0) { x >>=  4;  ans +=  4; }
-    if ((x >>  2) != 0) { x >>=  2;  ans +=  2; }
-    if ((x >>  1) != 0) { x >>=  1;  ans +=  1; }
+    int t16 = ((x >> 16) != 0) << 4;   x >>= t16;  ans += t16;
+    int t8  = ((x >>  8) != 0) << 3;   x >>= t8;   ans += t8;
+    int t4  = ((x >>  4) != 0) << 2;   x >>= t4;   ans += t4;
+    int t2  = ((x >>  2) != 0) << 1;   x >>= t2;   ans += t2;
+    int t1  = ((x >>  1) != 0);                    ans += t1;
     return ans;
   }
 };
 template <> struct sc_int_ranged_aux<true> {
-  static int swidth(unsigned long long x) {
-    signed long long sx = static_cast<signed long long>(x);
-    signed long long sign = sx >> 63;
-    int ans = 1;
-    if ((sx >> 32) != sign) { sx >>= 32;  ans += 32; }
-    if ((sx >> 16) != sign) { sx >>= 16;  ans += 16; }
-    if ((sx >>  8) != sign) { sx >>=  8;  ans +=  8; }
-    if ((sx >>  4) != sign) { sx >>=  4;  ans +=  4; }
-    if ((sx >>  2) != sign) { sx >>=  2;  ans +=  2; }
-    if ((sx >>  1) != sign) { sx >>=  1;  ans +=  1; }
-    if (sx != sign)  ++ans;
-    return ans;
-  }
   static int uwidth(unsigned long long x) {
     int ans = 1;
-    if ((x >> 32) != 0) { x >>= 32;  ans += 32; }
-    if ((x >> 16) != 0) { x >>= 16;  ans += 16; }
-    if ((x >>  8) != 0) { x >>=  8;  ans +=  8; }
-    if ((x >>  4) != 0) { x >>=  4;  ans +=  4; }
-    if ((x >>  2) != 0) { x >>=  2;  ans +=  2; }
-    if ((x >>  1) != 0) { x >>=  1;  ans +=  1; }
+    int t32 = ((x >> 32) != 0) << 5;   x >>= t32;  ans += t32;
+    int t16 = ((x >> 16) != 0) << 4;   x >>= t16;  ans += t16;
+    int t8  = ((x >>  8) != 0) << 3;   x >>= t8;   ans += t8;
+    int t4  = ((x >>  4) != 0) << 2;   x >>= t4;   ans += t4;
+    int t2  = ((x >>  2) != 0) << 1;   x >>= t2;   ans += t2;
+    int t1  = ((x >>  1) != 0);                    ans += t1;
     return ans;
   }
 };
@@ -272,15 +247,22 @@ template <typename S, bool WIDE> struct sc_int_ranged_body : public sc_int_range
   operator value_type() const { return m_uval; }
   bool signed_range() const { return m_minval+m_range < m_minval; }
   bool unsigned_range() const { return static_cast<svalue_type>(m_minval+m_range) < static_cast<svalue_type>(m_minval); }
-  int width(signed) const {
-    if (unsigned_range())  return sizeof(value_type)*8;
-    int minwidth = swidth(m_minval);
-    int maxwidth = swidth(m_minval+m_range);
-    return (minwidth > maxwidth) ? minwidth : maxwidth;
+  using sc_int_ranged_aux<WIDE>::uwidth;
+  int uwidth() const { return uwidth(m_minval+m_range); }
+  static int swidth(uvalue_type x) {
+    uvalue_type xx = x ^ (static_cast<svalue_type>(x)>>(sizeof(uvalue_type)*8-1));
+    return uwidth(xx) + (xx!=0);
   }
-  int width(unsigned) const {
-    return signed_range() ? sizeof(value_type)*8 : uwidth(m_minval+m_range);
+  int swidth() const {
+    uvalue_type x = m_minval;
+    uvalue_type xx = x ^ (static_cast<svalue_type>(x)>>(sizeof(uvalue_type)*8-1));
+    uvalue_type y = m_minval + m_range;
+    uvalue_type yy = y ^ (static_cast<svalue_type>(y)>>(sizeof(uvalue_type)*8-1));
+    uvalue_type zz = xx | yy;
+    return uwidth(zz) + (zz!=0);
   }
+  int width(signed)   const { return unsigned_range() ? static_cast<int>(sizeof(value_type)*8) : swidth(); }
+  int width(unsigned) const { return   signed_range() ? static_cast<int>(sizeof(value_type)*8) : uwidth(); }
 };
 
 template <typename S, bool WIDE> struct sc_int_ranged;
@@ -291,7 +273,7 @@ typedef sc_int_ranged<unsigned,true >  sc_int_rul; // ranged unsigned long long
 
 template <> struct sc_int_ranged<signed,false> : public sc_int_ranged_body<signed,false> {
   typedef sc_int_ranged_body<signed,false> base_type;
-  typedef base_type::uvalue_type uvalue_type;
+  using typename base_type::uvalue_type;
   sc_int_ranged(uvalue_type val, uvalue_type minval, uvalue_type range) : base_type(val, minval, range) {}
   explicit sc_int_ranged(bool x)           : base_type(x, 0, 1) {}
   explicit sc_int_ranged(signed char x)    : base_type(x, -128, 255) {}
@@ -303,7 +285,7 @@ template <> struct sc_int_ranged<signed,false> : public sc_int_ranged_body<signe
 
 template <> struct sc_int_ranged<unsigned,false> : public sc_int_ranged_body<unsigned,false> {
   typedef sc_int_ranged_body<unsigned,false> base_type;
-  typedef base_type::uvalue_type uvalue_type;
+  using typename base_type::uvalue_type;
   sc_int_ranged(uvalue_type val, uvalue_type minval, uvalue_type range) : base_type(val, minval, range) {}
   explicit sc_int_ranged(unsigned int x)   : base_type(x, 0u, 0xffffffffu) {}
   explicit sc_int_ranged(const sc_int_rsi& x) : base_type(x.m_uval, x.m_minval, x.m_range) {}
@@ -311,7 +293,7 @@ template <> struct sc_int_ranged<unsigned,false> : public sc_int_ranged_body<uns
 
 template <> struct sc_int_ranged<signed,true> : public sc_int_ranged_body<signed,true> {
   typedef sc_int_ranged_body<signed,true> base_type;
-  typedef base_type::uvalue_type uvalue_type;
+  using typename base_type::uvalue_type;
   sc_int_ranged(uvalue_type val, uvalue_type minval, uvalue_type range) : base_type(val, minval, range) {}
   explicit sc_int_ranged(signed long long x) : base_type(x, 0x8000000000000000ull, 0xffffffffffffffffull) {}
   explicit sc_int_ranged(const sc_int_rsi& x)
@@ -324,7 +306,7 @@ template <> struct sc_int_ranged<signed,true> : public sc_int_ranged_body<signed
 
 template <> struct sc_int_ranged<unsigned,true> : public sc_int_ranged_body<unsigned,true> {
   typedef sc_int_ranged_body<unsigned,true> base_type;
-  typedef base_type::uvalue_type uvalue_type;
+  using typename base_type::uvalue_type;
   sc_int_ranged(uvalue_type val, uvalue_type minval, uvalue_type range) : base_type(val, minval, range) {}
   explicit sc_int_ranged(unsigned long long x) : base_type(x, 0, 0xfffffffffffffffful) {}
   explicit sc_int_ranged(const sc_int_rsi& x)
@@ -338,7 +320,7 @@ template <> struct sc_int_ranged<unsigned,true> : public sc_int_ranged_body<unsi
 
 template <typename S, bool WIDE>
 inline const sc_int_ranged<S,WIDE> operator+(const sc_int_ranged<S,WIDE>& a, const sc_int_ranged<S,WIDE>& b) {
-  typedef typename sc_int_traits_body<unsigned,WIDE>::value_type uvalue_type;
+  typedef typename sc_int_ranged<S,WIDE>::uvalue_type uvalue_type;
   uvalue_type val = a.m_uval + b.m_uval;
   uvalue_type minval = a.m_minval + b.m_minval;
   uvalue_type range  = a.m_range + b.m_range;
@@ -352,7 +334,7 @@ inline const sc_int_ranged<S,WIDE> operator+(const sc_int_ranged<S,WIDE>& a, con
 
 template <typename S, bool WIDE>
 inline const sc_int_ranged<S,WIDE> operator-(const sc_int_ranged<S,WIDE>& a, const sc_int_ranged<S,WIDE>& b) {
-  typedef typename sc_int_traits_body<unsigned,WIDE>::value_type uvalue_type;
+  typedef typename sc_int_ranged<S,WIDE>::uvalue_type uvalue_type;
   uvalue_type val = a.m_uval - b.m_uval;
   uvalue_type minval = a.m_minval - (b.m_minval+b.m_range);
   uvalue_type range  = a.m_range + b.m_range;
@@ -568,6 +550,61 @@ inline const sc_int_rul operator-(unsigned int       a, const sc_int_rul& b) { r
 inline const sc_int_rul operator-(signed long long   a, const sc_int_rul& b) { return sc_int_rsl(a) - b; }
 inline const sc_int_rul operator-(unsigned long long a, const sc_int_rul& b) { return sc_int_rul(a) - b; }
 
+template <typename LS, bool LWIDE, typename RS, bool RWIDE>
+inline const sc_int_ranged<LS,LWIDE> operator<<(const sc_int_ranged<LS,LWIDE>& a, const sc_int_ranged<RS,RWIDE>& b) {
+  typedef typename sc_int_ranged<LS,LWIDE>::uvalue_type luvalue_type;
+  typedef typename sc_int_ranged<RS,RWIDE>::uvalue_type ruvalue_type;
+  typedef typename sc_int_ranged<LS,LWIDE>::value_type  lvalue_type;
+  typedef typename sc_int_ranged<RS,RWIDE>::value_type  rvalue_type;
+  ruvalue_type bminval = b.m_minval;
+  ruvalue_type brange = b.m_range;
+  if (b.signed_range()) {  // ignore negative shifts
+    brange += bminval;
+    bminval = 0;
+  }
+  ruvalue_type bmaxval = bminval + brange;
+  luvalue_type val = static_cast<lvalue_type>(a) << static_cast<rvalue_type>(b);
+  luvalue_type minval, range;
+  if ((bmaxval >= sizeof(luvalue_type)*8)
+      || ((a.signed_range() ? a.swidth() : a.uwidth()) + static_cast<int>(bmaxval)) >= sizeof(luvalue_type)*8) {
+    minval = sc_int_traits<LS,(LWIDE?64:32)>::MINVAL;
+    range = static_cast<luvalue_type>(-1);
+  } else {
+    minval = a.m_minval << bmaxval;
+    range = a.m_range << bmaxval;
+  }
+  return sc_int_ranged<LS,LWIDE>(val, minval, range);
+}
+
+template <typename S, bool WIDE> inline const sc_int_ranged<S,WIDE>
+operator<<(const sc_int_ranged<S,WIDE>& a, bool               b) { return a << sc_int_rsi(b); }
+template <typename S, bool WIDE> inline const sc_int_ranged<S,WIDE>
+operator<<(const sc_int_ranged<S,WIDE>& a, int                b) { return a << sc_int_rsi(b); }
+template <typename S, bool WIDE> inline const sc_int_ranged<S,WIDE>
+operator<<(const sc_int_ranged<S,WIDE>& a, unsigned int       b) { return a << sc_int_rui(b); }
+template <typename S, bool WIDE> inline const sc_int_ranged<S,WIDE>
+operator<<(const sc_int_ranged<S,WIDE>& a, signed long long   b) { return a << sc_int_rsl(b); }
+template <typename S, bool WIDE> inline const sc_int_ranged<S,WIDE>
+operator<<(const sc_int_ranged<S,WIDE>& a, unsigned long long b) { return a << sc_int_rul(b); }
+template <typename S, bool WIDE>
+inline const sc_int_rsi operator<<(bool               a, const sc_int_ranged<S,WIDE>& b) { return sc_int_rsi(a) << b; }
+template <typename S, bool WIDE>
+inline const sc_int_rsi operator<<(signed char        a, const sc_int_ranged<S,WIDE>& b) { return sc_int_rsi(a) << b; }
+template <typename S, bool WIDE>
+inline const sc_int_rsi operator<<(unsigned char      a, const sc_int_ranged<S,WIDE>& b) { return sc_int_rsi(a) << b; }
+template <typename S, bool WIDE>
+inline const sc_int_rsi operator<<(signed short       a, const sc_int_ranged<S,WIDE>& b) { return sc_int_rsi(a) << b; }
+template <typename S, bool WIDE>
+inline const sc_int_rsi operator<<(unsigned short     a, const sc_int_ranged<S,WIDE>& b) { return sc_int_rsi(a) << b; }
+template <typename S, bool WIDE>
+inline const sc_int_rsi operator<<(signed int         a, const sc_int_ranged<S,WIDE>& b) { return sc_int_rsi(a) << b; }
+template <typename S, bool WIDE>
+inline const sc_int_rui operator<<(unsigned int       a, const sc_int_ranged<S,WIDE>& b) { return sc_int_rui(a) << b; }
+template <typename S, bool WIDE>
+inline const sc_int_rsl operator<<(signed long long   a, const sc_int_ranged<S,WIDE>& b) { return sc_int_rsl(a) << b; }
+template <typename S, bool WIDE>
+inline const sc_int_rul operator<<(unsigned long long a, const sc_int_ranged<S,WIDE>& b) { return sc_int_rul(a) << b; }
+
 ////////////////////////////////////////////////////////////////
 
 template <typename S, int W>
@@ -635,6 +672,24 @@ struct sc_int_common {
   operator-(const sc_int_common& a, const sc_int_ranged<SS,WIDE>& b) { return a.to_ranged() - b; }
   template <typename SS, bool WIDE> friend const typename binop_traits<SS,WIDE>::result_type
   operator-(const sc_int_ranged<SS,WIDE>& a, const sc_int_common& b) { return a - b.to_ranged(); }
+  friend const ranged_type operator<<(const sc_int_common& a, bool               b) { return a.to_ranged() << b; }
+  friend const ranged_type operator<<(const sc_int_common& a, int                b) { return a.to_ranged() << b; }
+  friend const ranged_type operator<<(const sc_int_common& a, unsigned int       b) { return a.to_ranged() << b; }
+  friend const ranged_type operator<<(const sc_int_common& a, signed long long   b) { return a.to_ranged() << b; }
+  friend const ranged_type operator<<(const sc_int_common& a, unsigned long long b) { return a.to_ranged() << b; }
+  friend const sc_int_rsi operator<<(bool               a, const sc_int_common& b) { return a << b.to_ranged(); }
+  friend const sc_int_rsi operator<<(signed char        a, const sc_int_common& b) { return a << b.to_ranged(); }
+  friend const sc_int_rsi operator<<(unsigned char      a, const sc_int_common& b) { return a << b.to_ranged(); }
+  friend const sc_int_rsi operator<<(signed short       a, const sc_int_common& b) { return a << b.to_ranged(); }
+  friend const sc_int_rsi operator<<(unsigned short     a, const sc_int_common& b) { return a << b.to_ranged(); }
+  friend const sc_int_rsi operator<<(signed int         a, const sc_int_common& b) { return a << b.to_ranged(); }
+  friend const sc_int_rui operator<<(unsigned int       a, const sc_int_common& b) { return a << b.to_ranged(); }
+  friend const sc_int_rsl operator<<(signed long long   a, const sc_int_common& b) { return a << b.to_ranged(); }
+  friend const sc_int_rul operator<<(unsigned long long a, const sc_int_common& b) { return a << b.to_ranged(); }
+  template <typename SS, bool WIDE> friend const ranged_type
+  operator<<(const sc_int_common& a, const sc_int_ranged<SS,WIDE>& b) { return a.to_ranged() << b; }
+  template <typename SS, bool WIDE> friend const sc_int_ranged<SS,WIDE>
+  operator<<(const sc_int_ranged<SS,WIDE>& a, const sc_int_common& b) { return a << b.to_ranged(); }
 
   template <typename T> sc_int_common& operator+=(T val)  { return *this = *this + val; }
   template <typename T> sc_int_common& operator-=(T val)  { return *this = *this - val; }
@@ -728,6 +783,9 @@ template <typename S1, int W1, typename S2, int W2>
 inline const typename sc_int_ranged_binop_traits<typename sc_int_common<S1,W1>::ranged_type,
 						 typename sc_int_common<S2,W2>::ranged_type>::result_type
 operator-(const sc_int_common<S1,W1>& a, const sc_int_common<S2,W2>& b) { return a.to_ranged() - b.to_ranged(); }
+template <typename S1, int W1, typename S2, int W2>
+inline const typename sc_int_common<S1,W1>::ranged_type
+operator<<(const sc_int_common<S1,W1>& a, const sc_int_common<S2,W2>& b) { return a.to_ranged() << b.to_ranged(); }
 
 ////////////////////////////////////////////////////////////////
 
