@@ -284,10 +284,10 @@ template <typename S, bool WIDE> struct sc_int_ranged_body : public sc_int_range
 };
 
 template <typename S, bool WIDE> struct sc_int_ranged;
-typedef sc_int_ranged<  signed,false>  sc_int_ranged_si;
-typedef sc_int_ranged<unsigned,false>  sc_int_ranged_ui;
-typedef sc_int_ranged<  signed,true >  sc_int_ranged_sl;
-typedef sc_int_ranged<unsigned,true >  sc_int_ranged_ul;
+typedef sc_int_ranged<  signed,false>  sc_int_rsi; // ranged signed integer
+typedef sc_int_ranged<unsigned,false>  sc_int_rui; // ranged unsigned integer
+typedef sc_int_ranged<  signed,true >  sc_int_rsl; // ranged signed long long
+typedef sc_int_ranged<unsigned,true >  sc_int_rul; // ranged unsigned long long
 
 template <> struct sc_int_ranged<signed,false> : public sc_int_ranged_body<signed,false> {
   typedef sc_int_ranged_body<signed,false> base_type;
@@ -306,7 +306,7 @@ template <> struct sc_int_ranged<unsigned,false> : public sc_int_ranged_body<uns
   typedef base_type::uvalue_type uvalue_type;
   sc_int_ranged(uvalue_type val, uvalue_type minval, uvalue_type range) : base_type(val, minval, range) {}
   explicit sc_int_ranged(unsigned int x)   : base_type(x, 0u, 0xffffffffu) {}
-  explicit sc_int_ranged(const sc_int_ranged_si& x) : base_type(x.m_uval, x.m_minval, x.m_range) {}
+  explicit sc_int_ranged(const sc_int_rsi& x) : base_type(x.m_uval, x.m_minval, x.m_range) {}
 };
 
 template <> struct sc_int_ranged<signed,true> : public sc_int_ranged_body<signed,true> {
@@ -314,11 +314,11 @@ template <> struct sc_int_ranged<signed,true> : public sc_int_ranged_body<signed
   typedef base_type::uvalue_type uvalue_type;
   sc_int_ranged(uvalue_type val, uvalue_type minval, uvalue_type range) : base_type(val, minval, range) {}
   explicit sc_int_ranged(signed long long x) : base_type(x, 0x8000000000000000ull, 0xffffffffffffffffull) {}
-  explicit sc_int_ranged(const sc_int_ranged_si& x)
+  explicit sc_int_ranged(const sc_int_rsi& x)
     : base_type(static_cast<int>(x.m_uval),
 		x.unsigned_range() ? static_cast<int>(0x80000000u) : static_cast<int>(x.m_minval),
 		x.unsigned_range() ? 0xffffffffu : x.m_range) {}
-  explicit sc_int_ranged(const sc_int_ranged_ui& x)
+  explicit sc_int_ranged(const sc_int_rui& x)
     : base_type(x.m_uval, x.signed_range() ? 0 : x.m_minval, x.signed_range() ? 0xffffffffu : x.m_range) {}
 };
 
@@ -327,13 +327,13 @@ template <> struct sc_int_ranged<unsigned,true> : public sc_int_ranged_body<unsi
   typedef base_type::uvalue_type uvalue_type;
   sc_int_ranged(uvalue_type val, uvalue_type minval, uvalue_type range) : base_type(val, minval, range) {}
   explicit sc_int_ranged(unsigned long long x) : base_type(x, 0, 0xfffffffffffffffful) {}
-  explicit sc_int_ranged(const sc_int_ranged_si& x)
+  explicit sc_int_ranged(const sc_int_rsi& x)
     : base_type(static_cast<int>(x.m_uval),
 		x.unsigned_range() ? static_cast<int>(0x80000000u) : static_cast<int>(x.m_minval),
 		x.unsigned_range() ? 0xffffffffu : x.m_range) {}
-  explicit sc_int_ranged(const sc_int_ranged_ui& x)
+  explicit sc_int_ranged(const sc_int_rui& x)
     : base_type(x.m_uval, x.signed_range() ? 0 : x.m_minval, x.signed_range() ? 0xffffffffu : x.m_range) {}
-  explicit sc_int_ranged(const sc_int_ranged_sl& x) : base_type(x.m_uval, x.m_minval, x.m_range) {}
+  explicit sc_int_ranged(const sc_int_rsl& x) : base_type(x.m_uval, x.m_minval, x.m_range) {}
 };
 
 template <typename S, bool WIDE>
@@ -350,128 +350,116 @@ inline const sc_int_ranged<S,WIDE> operator+(const sc_int_ranged<S,WIDE>& a, con
   return sc_int_ranged<S,WIDE>(val, minval, range);
 }
 
-inline const sc_int_ranged_ui operator+(const sc_int_ranged_si& a, const sc_int_ranged_ui& b)
-  { return static_cast<sc_int_ranged_ui>(a) + b; }
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_si& a, const sc_int_ranged_sl& b)
-  { return static_cast<sc_int_ranged_sl>(a) + b; }
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_ui& a, const sc_int_ranged_sl& b)
-  { return static_cast<sc_int_ranged_sl>(a) + b; }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_si& a, const sc_int_ranged_ul& b)
-  { return static_cast<sc_int_ranged_ul>(a) + b; }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ui& a, const sc_int_ranged_ul& b)
-  { return static_cast<sc_int_ranged_ul>(a) + b; }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_sl& a, const sc_int_ranged_ul& b)
-  { return static_cast<sc_int_ranged_ul>(a) + b; }
-inline const sc_int_ranged_ui operator+(const sc_int_ranged_ui& a, const sc_int_ranged_si& b)
-  { return a + static_cast<sc_int_ranged_ui>(b); }
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_sl& a, const sc_int_ranged_si& b)
-  { return a + static_cast<sc_int_ranged_sl>(b); }
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_sl& a, const sc_int_ranged_ui& b)
-  { return a + static_cast<sc_int_ranged_sl>(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ul& a, const sc_int_ranged_si& b)
-  { return a + static_cast<sc_int_ranged_ul>(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ul& a, const sc_int_ranged_ui& b)
-  { return a + static_cast<sc_int_ranged_ul>(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ul& a, const sc_int_ranged_sl& b)
-  { return a + static_cast<sc_int_ranged_ul>(b); }
+inline const sc_int_rui operator+(const sc_int_rsi& a, const sc_int_rui& b) { return static_cast<sc_int_rui>(a) + b; }
+inline const sc_int_rsl operator+(const sc_int_rsi& a, const sc_int_rsl& b) { return static_cast<sc_int_rsl>(a) + b; }
+inline const sc_int_rsl operator+(const sc_int_rui& a, const sc_int_rsl& b) { return static_cast<sc_int_rsl>(a) + b; }
+inline const sc_int_rul operator+(const sc_int_rsi& a, const sc_int_rul& b) { return static_cast<sc_int_rul>(a) + b; }
+inline const sc_int_rul operator+(const sc_int_rui& a, const sc_int_rul& b) { return static_cast<sc_int_rul>(a) + b; }
+inline const sc_int_rul operator+(const sc_int_rsl& a, const sc_int_rul& b) { return static_cast<sc_int_rul>(a) + b; }
+inline const sc_int_rui operator+(const sc_int_rui& a, const sc_int_rsi& b) { return a + static_cast<sc_int_rui>(b); }
+inline const sc_int_rsl operator+(const sc_int_rsl& a, const sc_int_rsi& b) { return a + static_cast<sc_int_rsl>(b); }
+inline const sc_int_rsl operator+(const sc_int_rsl& a, const sc_int_rui& b) { return a + static_cast<sc_int_rsl>(b); }
+inline const sc_int_rul operator+(const sc_int_rul& a, const sc_int_rsi& b) { return a + static_cast<sc_int_rul>(b); }
+inline const sc_int_rul operator+(const sc_int_rul& a, const sc_int_rui& b) { return a + static_cast<sc_int_rul>(b); }
+inline const sc_int_rul operator+(const sc_int_rul& a, const sc_int_rsl& b) { return a + static_cast<sc_int_rul>(b); }
 
 template <typename L, typename R> struct sc_int_ranged_binop_traits;
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_si,sc_int_ranged_si> { typedef sc_int_ranged_si result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_si,sc_int_ranged_ui> { typedef sc_int_ranged_ui result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_si,sc_int_ranged_sl> { typedef sc_int_ranged_sl result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_si,sc_int_ranged_ul> { typedef sc_int_ranged_ul result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_ui,sc_int_ranged_si> { typedef sc_int_ranged_ui result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_ui,sc_int_ranged_ui> { typedef sc_int_ranged_ui result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_ui,sc_int_ranged_sl> { typedef sc_int_ranged_sl result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_ui,sc_int_ranged_ul> { typedef sc_int_ranged_ul result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_sl,sc_int_ranged_si> { typedef sc_int_ranged_sl result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_sl,sc_int_ranged_ui> { typedef sc_int_ranged_sl result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_sl,sc_int_ranged_sl> { typedef sc_int_ranged_sl result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_sl,sc_int_ranged_ul> { typedef sc_int_ranged_ul result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_ul,sc_int_ranged_si> { typedef sc_int_ranged_ul result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_ul,sc_int_ranged_ui> { typedef sc_int_ranged_ul result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_ul,sc_int_ranged_sl> { typedef sc_int_ranged_ul result_type; };
-template <> struct sc_int_ranged_binop_traits<sc_int_ranged_ul,sc_int_ranged_ul> { typedef sc_int_ranged_ul result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rsi,sc_int_rsi> { typedef sc_int_rsi result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rsi,sc_int_rui> { typedef sc_int_rui result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rsi,sc_int_rsl> { typedef sc_int_rsl result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rsi,sc_int_rul> { typedef sc_int_rul result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rui,sc_int_rsi> { typedef sc_int_rui result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rui,sc_int_rui> { typedef sc_int_rui result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rui,sc_int_rsl> { typedef sc_int_rsl result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rui,sc_int_rul> { typedef sc_int_rul result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rsl,sc_int_rsi> { typedef sc_int_rsl result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rsl,sc_int_rui> { typedef sc_int_rsl result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rsl,sc_int_rsl> { typedef sc_int_rsl result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rsl,sc_int_rul> { typedef sc_int_rul result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rul,sc_int_rsi> { typedef sc_int_rul result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rul,sc_int_rui> { typedef sc_int_rul result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rul,sc_int_rsl> { typedef sc_int_rul result_type; };
+template <> struct sc_int_ranged_binop_traits<sc_int_rul,sc_int_rul> { typedef sc_int_rul result_type; };
 
-inline const sc_int_ranged_si operator+(const sc_int_ranged_si& a, bool               b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_si operator+(const sc_int_ranged_si& a, signed char        b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_si operator+(const sc_int_ranged_si& a, unsigned char      b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_si operator+(const sc_int_ranged_si& a, signed short       b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_si operator+(const sc_int_ranged_si& a, unsigned short     b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_si operator+(const sc_int_ranged_si& a, signed int         b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_ui operator+(const sc_int_ranged_si& a, unsigned int       b) { return a + sc_int_ranged_ui(b); }
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_si& a, signed long long   b) { return a + sc_int_ranged_sl(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_si& a, unsigned long long b) { return a + sc_int_ranged_ul(b); }
+inline const sc_int_rsi operator+(const sc_int_rsi& a, bool               b) { return a + sc_int_rsi(b); }
+inline const sc_int_rsi operator+(const sc_int_rsi& a, signed char        b) { return a + sc_int_rsi(b); }
+inline const sc_int_rsi operator+(const sc_int_rsi& a, unsigned char      b) { return a + sc_int_rsi(b); }
+inline const sc_int_rsi operator+(const sc_int_rsi& a, signed short       b) { return a + sc_int_rsi(b); }
+inline const sc_int_rsi operator+(const sc_int_rsi& a, unsigned short     b) { return a + sc_int_rsi(b); }
+inline const sc_int_rsi operator+(const sc_int_rsi& a, signed int         b) { return a + sc_int_rsi(b); }
+inline const sc_int_rui operator+(const sc_int_rsi& a, unsigned int       b) { return a + sc_int_rui(b); }
+inline const sc_int_rsl operator+(const sc_int_rsi& a, signed long long   b) { return a + sc_int_rsl(b); }
+inline const sc_int_rul operator+(const sc_int_rsi& a, unsigned long long b) { return a + sc_int_rul(b); }
 
-inline const sc_int_ranged_ui operator+(const sc_int_ranged_ui& a, bool               b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_ui operator+(const sc_int_ranged_ui& a, signed char        b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_ui operator+(const sc_int_ranged_ui& a, unsigned char      b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_ui operator+(const sc_int_ranged_ui& a, signed short       b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_ui operator+(const sc_int_ranged_ui& a, unsigned short     b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_ui operator+(const sc_int_ranged_ui& a, signed int         b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_ui operator+(const sc_int_ranged_ui& a, unsigned int       b) { return a + sc_int_ranged_ui(b); }
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_ui& a, signed long long   b) { return a + sc_int_ranged_sl(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ui& a, unsigned long long b) { return a + sc_int_ranged_ul(b); }
+inline const sc_int_rui operator+(const sc_int_rui& a, bool               b) { return a + sc_int_rsi(b); }
+inline const sc_int_rui operator+(const sc_int_rui& a, signed char        b) { return a + sc_int_rsi(b); }
+inline const sc_int_rui operator+(const sc_int_rui& a, unsigned char      b) { return a + sc_int_rsi(b); }
+inline const sc_int_rui operator+(const sc_int_rui& a, signed short       b) { return a + sc_int_rsi(b); }
+inline const sc_int_rui operator+(const sc_int_rui& a, unsigned short     b) { return a + sc_int_rsi(b); }
+inline const sc_int_rui operator+(const sc_int_rui& a, signed int         b) { return a + sc_int_rsi(b); }
+inline const sc_int_rui operator+(const sc_int_rui& a, unsigned int       b) { return a + sc_int_rui(b); }
+inline const sc_int_rsl operator+(const sc_int_rui& a, signed long long   b) { return a + sc_int_rsl(b); }
+inline const sc_int_rul operator+(const sc_int_rui& a, unsigned long long b) { return a + sc_int_rul(b); }
 
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_sl& a, bool               b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_sl& a, signed char        b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_sl& a, unsigned char      b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_sl& a, signed short       b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_sl& a, unsigned short     b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_sl& a, signed int         b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_sl& a, unsigned int       b) { return a + sc_int_ranged_ui(b); }
-inline const sc_int_ranged_sl operator+(const sc_int_ranged_sl& a, signed long long   b) { return a + sc_int_ranged_sl(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_sl& a, unsigned long long b) { return a + sc_int_ranged_ul(b); }
+inline const sc_int_rsl operator+(const sc_int_rsl& a, bool               b) { return a + sc_int_rsi(b); }
+inline const sc_int_rsl operator+(const sc_int_rsl& a, signed char        b) { return a + sc_int_rsi(b); }
+inline const sc_int_rsl operator+(const sc_int_rsl& a, unsigned char      b) { return a + sc_int_rsi(b); }
+inline const sc_int_rsl operator+(const sc_int_rsl& a, signed short       b) { return a + sc_int_rsi(b); }
+inline const sc_int_rsl operator+(const sc_int_rsl& a, unsigned short     b) { return a + sc_int_rsi(b); }
+inline const sc_int_rsl operator+(const sc_int_rsl& a, signed int         b) { return a + sc_int_rsi(b); }
+inline const sc_int_rsl operator+(const sc_int_rsl& a, unsigned int       b) { return a + sc_int_rui(b); }
+inline const sc_int_rsl operator+(const sc_int_rsl& a, signed long long   b) { return a + sc_int_rsl(b); }
+inline const sc_int_rul operator+(const sc_int_rsl& a, unsigned long long b) { return a + sc_int_rul(b); }
 
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ul& a, bool               b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ul& a, signed char        b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ul& a, unsigned char      b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ul& a, signed short       b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ul& a, unsigned short     b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ul& a, signed int         b) { return a + sc_int_ranged_si(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ul& a, unsigned int       b) { return a + sc_int_ranged_ui(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ul& a, signed long long   b) { return a + sc_int_ranged_sl(b); }
-inline const sc_int_ranged_ul operator+(const sc_int_ranged_ul& a, unsigned long long b) { return a + sc_int_ranged_ul(b); }
+inline const sc_int_rul operator+(const sc_int_rul& a, bool               b) { return a + sc_int_rsi(b); }
+inline const sc_int_rul operator+(const sc_int_rul& a, signed char        b) { return a + sc_int_rsi(b); }
+inline const sc_int_rul operator+(const sc_int_rul& a, unsigned char      b) { return a + sc_int_rsi(b); }
+inline const sc_int_rul operator+(const sc_int_rul& a, signed short       b) { return a + sc_int_rsi(b); }
+inline const sc_int_rul operator+(const sc_int_rul& a, unsigned short     b) { return a + sc_int_rsi(b); }
+inline const sc_int_rul operator+(const sc_int_rul& a, signed int         b) { return a + sc_int_rsi(b); }
+inline const sc_int_rul operator+(const sc_int_rul& a, unsigned int       b) { return a + sc_int_rui(b); }
+inline const sc_int_rul operator+(const sc_int_rul& a, signed long long   b) { return a + sc_int_rsl(b); }
+inline const sc_int_rul operator+(const sc_int_rul& a, unsigned long long b) { return a + sc_int_rul(b); }
 
-inline const sc_int_ranged_si operator+(bool               a, const sc_int_ranged_si& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_si operator+(signed char        a, const sc_int_ranged_si& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_si operator+(unsigned char      a, const sc_int_ranged_si& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_si operator+(signed short       a, const sc_int_ranged_si& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_si operator+(unsigned short     a, const sc_int_ranged_si& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_si operator+(signed int         a, const sc_int_ranged_si& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_ui operator+(unsigned int       a, const sc_int_ranged_si& b) { return sc_int_ranged_ui(a) + b; }
-inline const sc_int_ranged_sl operator+(signed long long   a, const sc_int_ranged_si& b) { return sc_int_ranged_sl(a) + b; }
-inline const sc_int_ranged_ul operator+(unsigned long long a, const sc_int_ranged_si& b) { return sc_int_ranged_ul(a) + b; }
+inline const sc_int_rsi operator+(bool               a, const sc_int_rsi& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rsi operator+(signed char        a, const sc_int_rsi& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rsi operator+(unsigned char      a, const sc_int_rsi& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rsi operator+(signed short       a, const sc_int_rsi& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rsi operator+(unsigned short     a, const sc_int_rsi& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rsi operator+(signed int         a, const sc_int_rsi& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rui operator+(unsigned int       a, const sc_int_rsi& b) { return sc_int_rui(a) + b; }
+inline const sc_int_rsl operator+(signed long long   a, const sc_int_rsi& b) { return sc_int_rsl(a) + b; }
+inline const sc_int_rul operator+(unsigned long long a, const sc_int_rsi& b) { return sc_int_rul(a) + b; }
 
-inline const sc_int_ranged_ui operator+(bool               a, const sc_int_ranged_ui& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_ui operator+(signed char        a, const sc_int_ranged_ui& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_ui operator+(unsigned char      a, const sc_int_ranged_ui& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_ui operator+(signed short       a, const sc_int_ranged_ui& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_ui operator+(unsigned short     a, const sc_int_ranged_ui& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_ui operator+(signed int         a, const sc_int_ranged_ui& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_ui operator+(unsigned int       a, const sc_int_ranged_ui& b) { return sc_int_ranged_ui(a) + b; }
-inline const sc_int_ranged_sl operator+(signed long long   a, const sc_int_ranged_ui& b) { return sc_int_ranged_sl(a) + b; }
-inline const sc_int_ranged_ul operator+(unsigned long long a, const sc_int_ranged_ui& b) { return sc_int_ranged_ul(a) + b; }
+inline const sc_int_rui operator+(bool               a, const sc_int_rui& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rui operator+(signed char        a, const sc_int_rui& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rui operator+(unsigned char      a, const sc_int_rui& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rui operator+(signed short       a, const sc_int_rui& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rui operator+(unsigned short     a, const sc_int_rui& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rui operator+(signed int         a, const sc_int_rui& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rui operator+(unsigned int       a, const sc_int_rui& b) { return sc_int_rui(a) + b; }
+inline const sc_int_rsl operator+(signed long long   a, const sc_int_rui& b) { return sc_int_rsl(a) + b; }
+inline const sc_int_rul operator+(unsigned long long a, const sc_int_rui& b) { return sc_int_rul(a) + b; }
 
-inline const sc_int_ranged_sl operator+(bool               a, const sc_int_ranged_sl& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_sl operator+(signed char        a, const sc_int_ranged_sl& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_sl operator+(unsigned char      a, const sc_int_ranged_sl& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_sl operator+(signed short       a, const sc_int_ranged_sl& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_sl operator+(unsigned short     a, const sc_int_ranged_sl& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_sl operator+(signed int         a, const sc_int_ranged_sl& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_sl operator+(unsigned int       a, const sc_int_ranged_sl& b) { return sc_int_ranged_ui(a) + b; }
-inline const sc_int_ranged_sl operator+(signed long long   a, const sc_int_ranged_sl& b) { return sc_int_ranged_sl(a) + b; }
-inline const sc_int_ranged_ul operator+(unsigned long long a, const sc_int_ranged_sl& b) { return sc_int_ranged_ul(a) + b; }
+inline const sc_int_rsl operator+(bool               a, const sc_int_rsl& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rsl operator+(signed char        a, const sc_int_rsl& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rsl operator+(unsigned char      a, const sc_int_rsl& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rsl operator+(signed short       a, const sc_int_rsl& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rsl operator+(unsigned short     a, const sc_int_rsl& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rsl operator+(signed int         a, const sc_int_rsl& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rsl operator+(unsigned int       a, const sc_int_rsl& b) { return sc_int_rui(a) + b; }
+inline const sc_int_rsl operator+(signed long long   a, const sc_int_rsl& b) { return sc_int_rsl(a) + b; }
+inline const sc_int_rul operator+(unsigned long long a, const sc_int_rsl& b) { return sc_int_rul(a) + b; }
 
-inline const sc_int_ranged_ul operator+(bool               a, const sc_int_ranged_ul& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_ul operator+(signed char        a, const sc_int_ranged_ul& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_ul operator+(unsigned char      a, const sc_int_ranged_ul& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_ul operator+(signed short       a, const sc_int_ranged_ul& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_ul operator+(unsigned short     a, const sc_int_ranged_ul& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_ul operator+(signed int         a, const sc_int_ranged_ul& b) { return sc_int_ranged_si(a) + b; }
-inline const sc_int_ranged_ul operator+(unsigned int       a, const sc_int_ranged_ul& b) { return sc_int_ranged_ui(a) + b; }
-inline const sc_int_ranged_ul operator+(signed long long   a, const sc_int_ranged_ul& b) { return sc_int_ranged_sl(a) + b; }
-inline const sc_int_ranged_ul operator+(unsigned long long a, const sc_int_ranged_ul& b) { return sc_int_ranged_ul(a) + b; }
+inline const sc_int_rul operator+(bool               a, const sc_int_rul& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rul operator+(signed char        a, const sc_int_rul& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rul operator+(unsigned char      a, const sc_int_rul& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rul operator+(signed short       a, const sc_int_rul& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rul operator+(unsigned short     a, const sc_int_rul& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rul operator+(signed int         a, const sc_int_rul& b) { return sc_int_rsi(a) + b; }
+inline const sc_int_rul operator+(unsigned int       a, const sc_int_rul& b) { return sc_int_rui(a) + b; }
+inline const sc_int_rul operator+(signed long long   a, const sc_int_rul& b) { return sc_int_rsl(a) + b; }
+inline const sc_int_rul operator+(unsigned long long a, const sc_int_rul& b) { return sc_int_rul(a) + b; }
 
 ////////////////////////////////////////////////////////////////
 
