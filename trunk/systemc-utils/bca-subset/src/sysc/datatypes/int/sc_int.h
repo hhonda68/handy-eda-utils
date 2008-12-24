@@ -350,6 +350,20 @@ inline const sc_int_ranged<S,WIDE> operator+(const sc_int_ranged<S,WIDE>& a, con
   return sc_int_ranged<S,WIDE>(val, minval, range);
 }
 
+template <typename S, bool WIDE>
+inline const sc_int_ranged<S,WIDE> operator-(const sc_int_ranged<S,WIDE>& a, const sc_int_ranged<S,WIDE>& b) {
+  typedef typename sc_int_traits_body<unsigned,WIDE>::value_type uvalue_type;
+  uvalue_type val = a.m_uval - b.m_uval;
+  uvalue_type minval = a.m_minval - (b.m_minval+b.m_range);
+  uvalue_type range  = a.m_range + b.m_range;
+  if (range < a.m_range) {
+    // overflow
+    minval = sc_int_traits<S,(WIDE?64:32)>::MINVAL;
+    range = static_cast<uvalue_type>(-1);
+  }
+  return sc_int_ranged<S,WIDE>(val, minval, range);
+}
+
 inline const sc_int_rui operator+(const sc_int_rsi& a, const sc_int_rui& b) { return static_cast<sc_int_rui>(a) + b; }
 inline const sc_int_rsl operator+(const sc_int_rsi& a, const sc_int_rsl& b) { return static_cast<sc_int_rsl>(a) + b; }
 inline const sc_int_rsl operator+(const sc_int_rui& a, const sc_int_rsl& b) { return static_cast<sc_int_rsl>(a) + b; }
@@ -362,6 +376,19 @@ inline const sc_int_rsl operator+(const sc_int_rsl& a, const sc_int_rui& b) { re
 inline const sc_int_rul operator+(const sc_int_rul& a, const sc_int_rsi& b) { return a + static_cast<sc_int_rul>(b); }
 inline const sc_int_rul operator+(const sc_int_rul& a, const sc_int_rui& b) { return a + static_cast<sc_int_rul>(b); }
 inline const sc_int_rul operator+(const sc_int_rul& a, const sc_int_rsl& b) { return a + static_cast<sc_int_rul>(b); }
+
+inline const sc_int_rui operator-(const sc_int_rsi& a, const sc_int_rui& b) { return static_cast<sc_int_rui>(a) - b; }
+inline const sc_int_rsl operator-(const sc_int_rsi& a, const sc_int_rsl& b) { return static_cast<sc_int_rsl>(a) - b; }
+inline const sc_int_rsl operator-(const sc_int_rui& a, const sc_int_rsl& b) { return static_cast<sc_int_rsl>(a) - b; }
+inline const sc_int_rul operator-(const sc_int_rsi& a, const sc_int_rul& b) { return static_cast<sc_int_rul>(a) - b; }
+inline const sc_int_rul operator-(const sc_int_rui& a, const sc_int_rul& b) { return static_cast<sc_int_rul>(a) - b; }
+inline const sc_int_rul operator-(const sc_int_rsl& a, const sc_int_rul& b) { return static_cast<sc_int_rul>(a) - b; }
+inline const sc_int_rui operator-(const sc_int_rui& a, const sc_int_rsi& b) { return a - static_cast<sc_int_rui>(b); }
+inline const sc_int_rsl operator-(const sc_int_rsl& a, const sc_int_rsi& b) { return a - static_cast<sc_int_rsl>(b); }
+inline const sc_int_rsl operator-(const sc_int_rsl& a, const sc_int_rui& b) { return a - static_cast<sc_int_rsl>(b); }
+inline const sc_int_rul operator-(const sc_int_rul& a, const sc_int_rsi& b) { return a - static_cast<sc_int_rul>(b); }
+inline const sc_int_rul operator-(const sc_int_rul& a, const sc_int_rui& b) { return a - static_cast<sc_int_rul>(b); }
+inline const sc_int_rul operator-(const sc_int_rul& a, const sc_int_rsl& b) { return a - static_cast<sc_int_rul>(b); }
 
 template <typename L, typename R> struct sc_int_ranged_binop_traits;
 template <> struct sc_int_ranged_binop_traits<sc_int_rsi,sc_int_rsi> { typedef sc_int_rsi result_type; };
@@ -461,6 +488,86 @@ inline const sc_int_rul operator+(unsigned int       a, const sc_int_rul& b) { r
 inline const sc_int_rul operator+(signed long long   a, const sc_int_rul& b) { return sc_int_rsl(a) + b; }
 inline const sc_int_rul operator+(unsigned long long a, const sc_int_rul& b) { return sc_int_rul(a) + b; }
 
+inline const sc_int_rsi operator-(const sc_int_rsi& a, bool               b) { return a - sc_int_rsi(b); }
+inline const sc_int_rsi operator-(const sc_int_rsi& a, signed char        b) { return a - sc_int_rsi(b); }
+inline const sc_int_rsi operator-(const sc_int_rsi& a, unsigned char      b) { return a - sc_int_rsi(b); }
+inline const sc_int_rsi operator-(const sc_int_rsi& a, signed short       b) { return a - sc_int_rsi(b); }
+inline const sc_int_rsi operator-(const sc_int_rsi& a, unsigned short     b) { return a - sc_int_rsi(b); }
+inline const sc_int_rsi operator-(const sc_int_rsi& a, signed int         b) { return a - sc_int_rsi(b); }
+inline const sc_int_rui operator-(const sc_int_rsi& a, unsigned int       b) { return a - sc_int_rui(b); }
+inline const sc_int_rsl operator-(const sc_int_rsi& a, signed long long   b) { return a - sc_int_rsl(b); }
+inline const sc_int_rul operator-(const sc_int_rsi& a, unsigned long long b) { return a - sc_int_rul(b); }
+
+inline const sc_int_rui operator-(const sc_int_rui& a, bool               b) { return a - sc_int_rsi(b); }
+inline const sc_int_rui operator-(const sc_int_rui& a, signed char        b) { return a - sc_int_rsi(b); }
+inline const sc_int_rui operator-(const sc_int_rui& a, unsigned char      b) { return a - sc_int_rsi(b); }
+inline const sc_int_rui operator-(const sc_int_rui& a, signed short       b) { return a - sc_int_rsi(b); }
+inline const sc_int_rui operator-(const sc_int_rui& a, unsigned short     b) { return a - sc_int_rsi(b); }
+inline const sc_int_rui operator-(const sc_int_rui& a, signed int         b) { return a - sc_int_rsi(b); }
+inline const sc_int_rui operator-(const sc_int_rui& a, unsigned int       b) { return a - sc_int_rui(b); }
+inline const sc_int_rsl operator-(const sc_int_rui& a, signed long long   b) { return a - sc_int_rsl(b); }
+inline const sc_int_rul operator-(const sc_int_rui& a, unsigned long long b) { return a - sc_int_rul(b); }
+
+inline const sc_int_rsl operator-(const sc_int_rsl& a, bool               b) { return a - sc_int_rsi(b); }
+inline const sc_int_rsl operator-(const sc_int_rsl& a, signed char        b) { return a - sc_int_rsi(b); }
+inline const sc_int_rsl operator-(const sc_int_rsl& a, unsigned char      b) { return a - sc_int_rsi(b); }
+inline const sc_int_rsl operator-(const sc_int_rsl& a, signed short       b) { return a - sc_int_rsi(b); }
+inline const sc_int_rsl operator-(const sc_int_rsl& a, unsigned short     b) { return a - sc_int_rsi(b); }
+inline const sc_int_rsl operator-(const sc_int_rsl& a, signed int         b) { return a - sc_int_rsi(b); }
+inline const sc_int_rsl operator-(const sc_int_rsl& a, unsigned int       b) { return a - sc_int_rui(b); }
+inline const sc_int_rsl operator-(const sc_int_rsl& a, signed long long   b) { return a - sc_int_rsl(b); }
+inline const sc_int_rul operator-(const sc_int_rsl& a, unsigned long long b) { return a - sc_int_rul(b); }
+
+inline const sc_int_rul operator-(const sc_int_rul& a, bool               b) { return a - sc_int_rsi(b); }
+inline const sc_int_rul operator-(const sc_int_rul& a, signed char        b) { return a - sc_int_rsi(b); }
+inline const sc_int_rul operator-(const sc_int_rul& a, unsigned char      b) { return a - sc_int_rsi(b); }
+inline const sc_int_rul operator-(const sc_int_rul& a, signed short       b) { return a - sc_int_rsi(b); }
+inline const sc_int_rul operator-(const sc_int_rul& a, unsigned short     b) { return a - sc_int_rsi(b); }
+inline const sc_int_rul operator-(const sc_int_rul& a, signed int         b) { return a - sc_int_rsi(b); }
+inline const sc_int_rul operator-(const sc_int_rul& a, unsigned int       b) { return a - sc_int_rui(b); }
+inline const sc_int_rul operator-(const sc_int_rul& a, signed long long   b) { return a - sc_int_rsl(b); }
+inline const sc_int_rul operator-(const sc_int_rul& a, unsigned long long b) { return a - sc_int_rul(b); }
+
+inline const sc_int_rsi operator-(bool               a, const sc_int_rsi& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rsi operator-(signed char        a, const sc_int_rsi& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rsi operator-(unsigned char      a, const sc_int_rsi& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rsi operator-(signed short       a, const sc_int_rsi& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rsi operator-(unsigned short     a, const sc_int_rsi& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rsi operator-(signed int         a, const sc_int_rsi& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rui operator-(unsigned int       a, const sc_int_rsi& b) { return sc_int_rui(a) - b; }
+inline const sc_int_rsl operator-(signed long long   a, const sc_int_rsi& b) { return sc_int_rsl(a) - b; }
+inline const sc_int_rul operator-(unsigned long long a, const sc_int_rsi& b) { return sc_int_rul(a) - b; }
+
+inline const sc_int_rui operator-(bool               a, const sc_int_rui& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rui operator-(signed char        a, const sc_int_rui& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rui operator-(unsigned char      a, const sc_int_rui& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rui operator-(signed short       a, const sc_int_rui& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rui operator-(unsigned short     a, const sc_int_rui& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rui operator-(signed int         a, const sc_int_rui& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rui operator-(unsigned int       a, const sc_int_rui& b) { return sc_int_rui(a) - b; }
+inline const sc_int_rsl operator-(signed long long   a, const sc_int_rui& b) { return sc_int_rsl(a) - b; }
+inline const sc_int_rul operator-(unsigned long long a, const sc_int_rui& b) { return sc_int_rul(a) - b; }
+
+inline const sc_int_rsl operator-(bool               a, const sc_int_rsl& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rsl operator-(signed char        a, const sc_int_rsl& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rsl operator-(unsigned char      a, const sc_int_rsl& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rsl operator-(signed short       a, const sc_int_rsl& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rsl operator-(unsigned short     a, const sc_int_rsl& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rsl operator-(signed int         a, const sc_int_rsl& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rsl operator-(unsigned int       a, const sc_int_rsl& b) { return sc_int_rui(a) - b; }
+inline const sc_int_rsl operator-(signed long long   a, const sc_int_rsl& b) { return sc_int_rsl(a) - b; }
+inline const sc_int_rul operator-(unsigned long long a, const sc_int_rsl& b) { return sc_int_rul(a) - b; }
+
+inline const sc_int_rul operator-(bool               a, const sc_int_rul& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rul operator-(signed char        a, const sc_int_rul& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rul operator-(unsigned char      a, const sc_int_rul& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rul operator-(signed short       a, const sc_int_rul& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rul operator-(unsigned short     a, const sc_int_rul& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rul operator-(signed int         a, const sc_int_rul& b) { return sc_int_rsi(a) - b; }
+inline const sc_int_rul operator-(unsigned int       a, const sc_int_rul& b) { return sc_int_rui(a) - b; }
+inline const sc_int_rul operator-(signed long long   a, const sc_int_rul& b) { return sc_int_rsl(a) - b; }
+inline const sc_int_rul operator-(unsigned long long a, const sc_int_rul& b) { return sc_int_rul(a) - b; }
+
 ////////////////////////////////////////////////////////////////
 
 template <typename S, int W>
@@ -506,6 +613,28 @@ struct sc_int_common {
   operator+(const sc_int_common& a, const sc_int_ranged<SS,WIDE>& b) { return a.to_ranged() + b; }
   template <typename SS, bool WIDE> friend const typename binop_traits<SS,WIDE>::result_type
   operator+(const sc_int_ranged<SS,WIDE>& a, const sc_int_common& b) { return a + b.to_ranged(); }
+  friend const binop_si_type operator-(const sc_int_common& a, bool               b) { return a.to_ranged() - b; }
+  friend const binop_si_type operator-(const sc_int_common& a, signed char        b) { return a.to_ranged() - b; }
+  friend const binop_si_type operator-(const sc_int_common& a, unsigned char      b) { return a.to_ranged() - b; }
+  friend const binop_si_type operator-(const sc_int_common& a, signed short       b) { return a.to_ranged() - b; }
+  friend const binop_si_type operator-(const sc_int_common& a, unsigned short     b) { return a.to_ranged() - b; }
+  friend const binop_si_type operator-(const sc_int_common& a, signed int         b) { return a.to_ranged() - b; }
+  friend const binop_ui_type operator-(const sc_int_common& a, unsigned int       b) { return a.to_ranged() - b; }
+  friend const binop_sl_type operator-(const sc_int_common& a, signed long long   b) { return a.to_ranged() - b; }
+  friend const binop_ul_type operator-(const sc_int_common& a, unsigned long long b) { return a.to_ranged() - b; }
+  friend const binop_si_type operator-(bool               a, const sc_int_common& b) { return a - b.to_ranged(); }
+  friend const binop_si_type operator-(signed char        a, const sc_int_common& b) { return a - b.to_ranged(); }
+  friend const binop_si_type operator-(unsigned char      a, const sc_int_common& b) { return a - b.to_ranged(); }
+  friend const binop_si_type operator-(signed short       a, const sc_int_common& b) { return a - b.to_ranged(); }
+  friend const binop_si_type operator-(unsigned short     a, const sc_int_common& b) { return a - b.to_ranged(); }
+  friend const binop_si_type operator-(signed int         a, const sc_int_common& b) { return a - b.to_ranged(); }
+  friend const binop_ui_type operator-(unsigned int       a, const sc_int_common& b) { return a - b.to_ranged(); }
+  friend const binop_sl_type operator-(signed long long   a, const sc_int_common& b) { return a - b.to_ranged(); }
+  friend const binop_ul_type operator-(unsigned long long a, const sc_int_common& b) { return a - b.to_ranged(); }
+  template <typename SS, bool WIDE> friend const typename binop_traits<SS,WIDE>::result_type
+  operator-(const sc_int_common& a, const sc_int_ranged<SS,WIDE>& b) { return a.to_ranged() - b; }
+  template <typename SS, bool WIDE> friend const typename binop_traits<SS,WIDE>::result_type
+  operator-(const sc_int_ranged<SS,WIDE>& a, const sc_int_common& b) { return a - b.to_ranged(); }
 
   template <typename T> sc_int_common& operator+=(T val)  { return *this = *this + val; }
   template <typename T> sc_int_common& operator-=(T val)  { return *this = *this - val; }
@@ -595,6 +724,10 @@ template <typename S1, int W1, typename S2, int W2>
 inline const typename sc_int_ranged_binop_traits<typename sc_int_common<S1,W1>::ranged_type,
 						 typename sc_int_common<S2,W2>::ranged_type>::result_type
 operator+(const sc_int_common<S1,W1>& a, const sc_int_common<S2,W2>& b) { return a.to_ranged() + b.to_ranged(); }
+template <typename S1, int W1, typename S2, int W2>
+inline const typename sc_int_ranged_binop_traits<typename sc_int_common<S1,W1>::ranged_type,
+						 typename sc_int_common<S2,W2>::ranged_type>::result_type
+operator-(const sc_int_common<S1,W1>& a, const sc_int_common<S2,W2>& b) { return a.to_ranged() - b.to_ranged(); }
 
 ////////////////////////////////////////////////////////////////
 
