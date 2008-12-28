@@ -212,26 +212,8 @@ template <typename S, int W> struct sc_int_subref {
 
 ////////////////////////////////////////////////////////////////
 
-inline int sc_int_uwidth(unsigned int x) {
-  int ans = 1;
-  int t16 = (x > 0xffff) << 4;   x >>= t16;  ans += t16;
-  int t8  = (x > 0x00ff) << 3;   x >>= t8;   ans += t8;
-  int t4  = (x > 0x000f) << 2;   x >>= t4;   ans += t4;
-  int t2  = (x > 0x0003) << 1;   x >>= t2;   ans += t2;
-  int t1  = (x > 0x0001);                    ans += t1;
-  return ans;
-}
-
-inline int sc_int_uwidth(unsigned long long x) {
-  int ans = 1;
-  int t32 = (x > 0xffffffffull) << 5;   x >>= t32;  ans += t32;
-  int t16 = (x > 0x0000ffffull) << 4;   x >>= t16;  ans += t16;
-  int t8  = (x > 0x000000ffull) << 3;   x >>= t8;   ans += t8;
-  int t4  = (x > 0x0000000full) << 2;   x >>= t4;   ans += t4;
-  int t2  = (x > 0x00000003ull) << 1;   x >>= t2;   ans += t2;
-  int t1  = (x > 0x00000001ull);                    ans += t1;
-  return ans;
-}
+inline int sc_int_clz(unsigned int x)       { return __builtin_clz(x); }
+inline int sc_int_clz(unsigned long long x) { return __builtin_clzll(x); }
 
 template <bool WIDE> struct sc_int_ranged_data {
   typedef typename sc_int_traits_body<signed,  WIDE>::value_type svalue_type;
@@ -241,17 +223,18 @@ template <bool WIDE> struct sc_int_ranged_data {
     : m_uval(val), m_minval(__builtin_constant_p(val) ? val : minval), m_range(__builtin_constant_p(val) ? 0 : range) {}
   bool overflow_as_unsigned() const { return m_minval+m_range < m_minval; }
   bool overflow_as_signed()   const { return static_cast<svalue_type>(m_minval+m_range) < static_cast<svalue_type>(m_minval); }
-  int uwidth() const { return sc_int_uwidth(m_minval+m_range); }
-  int swidth() const {
+  int width(signed) const {
     uvalue_type x = m_minval;
-    uvalue_type xx = x ^ (static_cast<svalue_type>(x)>>(sizeof(uvalue_type)*8-1));
     uvalue_type y = m_minval + m_range;
+    bool overflow = static_cast<svalue_type>(y) < static_cast<svalue_type>(x);
+    uvalue_type xx = x ^ (static_cast<svalue_type>(x)>>(sizeof(uvalue_type)*8-1));
     uvalue_type yy = y ^ (static_cast<svalue_type>(y)>>(sizeof(uvalue_type)*8-1));
     uvalue_type zz = xx | yy;
-    return sc_int_uwidth(zz) + (zz!=0);
+    return sizeof(svalue_type)*8 - (overflow ? 0 : sc_int_clz(zz+zz+1));
   }
-  int width(signed)   const { return overflow_as_signed()   ? static_cast<int>(sizeof(svalue_type)*8) : swidth(); }
-  int width(unsigned) const { return overflow_as_unsigned() ? static_cast<int>(sizeof(uvalue_type)*8) : uwidth(); }
+  int width(unsigned) const {
+    return sizeof(uvalue_type)*8 - (overflow_as_unsigned() ? 0 : sc_int_clz((m_minval+m_range)|1));
+  }
 };
 
 template <typename S, bool WIDE> struct sc_int_ranged_body : public sc_int_ranged_data<WIDE> {
