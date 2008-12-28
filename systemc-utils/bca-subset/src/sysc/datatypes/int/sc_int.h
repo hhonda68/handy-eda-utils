@@ -224,8 +224,10 @@ template <typename S, bool WIDE> struct sc_int_ranged_body : public sc_int_range
   using sc_int_ranged_data<WIDE>::m_minval;
   using sc_int_ranged_data<WIDE>::m_range;
   using sc_int_ranged_data<WIDE>::overflow_as_unsigned;
+  using sc_int_ranged_data<WIDE>::width;
   sc_inline operator value_type() const { return m_uval; }
   sc_inline bool overflow() const { return static_cast<value_type>(m_minval+m_range) < static_cast<value_type>(m_minval); }
+  sc_inline int width() const { return width(S()); }
   sc_inline uvalue_type minval_as_shiftcount() const
     { return overflow_as_unsigned() ? 0 : m_minval; }
   sc_inline uvalue_type maxval_as_shiftcount() const
@@ -528,7 +530,7 @@ sc_inline const sc_int_ranged<LS,LWIDE> operator<<(const sc_int_ranged<LS,LWIDE>
   typedef typename sc_int_ranged<LS,LWIDE>::value_type  lvalue_type;
   typedef typename sc_int_ranged<RS,RWIDE>::value_type  rvalue_type;
   ruvalue_type maxsft = b.maxval_as_shiftcount();
-  bool overflow = (maxsft >= sizeof(luvalue_type)*8) || (a.width(LS()) > static_cast<int>(sizeof(luvalue_type)*8 - maxsft));
+  bool overflow = (maxsft >= sizeof(luvalue_type)*8) || (a.width() > static_cast<int>(sizeof(luvalue_type)*8 - maxsft));
   luvalue_type val = static_cast<lvalue_type>(a) << static_cast<rvalue_type>(b);
   luvalue_type minval = overflow ? static_cast<luvalue_type>(sc_int_traits<LS,(LWIDE?64:32)>::MINVAL) : (a.m_minval << maxsft);
   luvalue_type range  = overflow ? static_cast<luvalue_type>(-1)                                      : (a.m_range  << maxsft);
@@ -613,6 +615,16 @@ sc_inline const sc_int_rul operator>>(unsigned long long a, const sc_int_ranged<
 
 ////////////////////////////////////////////////////////////////
 
+template <bool SWIDE, bool DWIDE>
+sc_inline int sc_int_assign_width(const sc_int_ranged<signed,SWIDE>& x, signed) { return x.width(); }
+template <bool SWIDE, bool DWIDE>
+sc_inline int sc_int_assign_width(const sc_int_ranged<signed,SWIDE>& x, unsigned)
+  { return sc_int_ranged<unsigned,(SWIDE||DWIDE)>(x).width(); }
+template <bool SWIDE, bool DWIDE>
+sc_inline int sc_int_assign_width(const sc_int_ranged<unsigned,SWIDE>& x, signed) { return x.width()+1; }
+template <bool SWIDE, bool DWIDE>
+sc_inline int sc_int_assign_width(const sc_int_ranged<unsigned,SWIDE>& x, unsigned) { return x.width(); }
+
 template <typename S, int W>
 struct sc_int_common {
   typedef sc_int_traits<S,W>  traits_type;
@@ -625,7 +637,8 @@ struct sc_int_common {
   template <int V> sc_inline sc_int_common(const sc_int_common<S,V>& x)
     : m_value(sc_int_wrap_if<traits_type,(W<V)>::wrap(x.m_value)) {}
   template <typename SS, bool WIDE>
-  sc_inline sc_int_common(const sc_int_ranged<SS,WIDE>& x) : m_value(traits_type::wrap(x, x.width(S()))) {}
+  sc_inline sc_int_common(const sc_int_ranged<SS,WIDE>& x)
+    : m_value(traits_type::wrap(x, sc_int_assign_width<WIDE,(W>32)>(x,S()))) {}
   sc_inline const ranged_type to_ranged() const
     { return ranged_type(m_value, traits_type::MINVAL, traits_type::MAXVAL-traits_type::MINVAL); }
 
