@@ -15,7 +15,6 @@
 #define BCASYSC_COMMUNICATION_SCSIGNAL_H
 
 #include "../kernel/sc_simcontext.h"
-#include <vector>
 
 namespace sc_core {
 
@@ -50,14 +49,32 @@ public:
 template <typename T> class sc_in;
 template <typename T> class sc_out;
 
+class sc_in_ports_generic {
+public:
+  sc_in_ports_generic();
+  ~sc_in_ports_generic();
+  int size();
+  void push_back(void *);
+  void * const operator[](int) const;
+private:
+  struct impl_t;
+  impl_t& m;
+};
+
+template <typename T> class sc_in_ports : public sc_in_ports_generic {
+public:
+  typedef sc_in<T> *value_type;
+  const value_type operator[](int n) const { return static_cast<const value_type>(sc_in_ports_generic::operator[](n)); }
+};
+
 template <typename T> class sc_in_data {
 public:
   sc_in_data() : m_info(new dstinfo_t) {}
   void sensitive_add(int method_id) { m_info->smeths.add(method_id); }
 protected:
   struct dstinfo_t {
-    ::std::vector<sc_in<T>*> ports;
-    sc_sensitive_methods     smeths;
+    sc_in_ports<T>       ports;
+    sc_sensitive_methods smeths;
   };
   union {
     dstinfo_t    *m_info;
@@ -108,9 +125,9 @@ public:
   void sensitive_add(int method_id) { m_info->smeths.add(method_id); }
 protected:
   struct info_t {
-    sc_out<T>                *srcport;
-    ::std::vector<sc_in<T>*> dstports;
-    sc_sensitive_methods     smeths;
+    sc_out<T>            *srcport;
+    sc_in_ports<T>       dstports;
+    sc_sensitive_methods smeths;
     info_t() : srcport(0) {}
   };
   union {

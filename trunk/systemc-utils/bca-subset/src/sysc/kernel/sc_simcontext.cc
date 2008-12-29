@@ -14,6 +14,7 @@
 #include "../communication/sc_signal.h"
 #include <iostream>
 #include <stdexcept>
+#include <vector>
 #include <stack>
 #include <set>
 
