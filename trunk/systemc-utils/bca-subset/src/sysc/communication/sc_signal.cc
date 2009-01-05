@@ -15,7 +15,7 @@
 namespace sc_core {
 
 struct sc_in_ports_generic::impl_t {
-  ::std::vector<value_type> vec;
+  ::std::vector<void *> vec;
 };
 
 sc_in_ports_generic::sc_in_ports_generic() : m(*(new impl_t)) {}
