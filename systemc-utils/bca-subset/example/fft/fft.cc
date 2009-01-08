@@ -78,26 +78,26 @@
     tmp_imag2 = imag1_in - imag2_in;
 
     //   <s,13,20> = <s,6,10>*<s,5,10> - <s,6,10>*<s,5,10>
-    tmp_real3 = tmp_real2*w_real - tmp_imag2*w_imag;
+    tmp_real3 = ((long long)tmp_real2)*w_real - ((long long)tmp_imag2)*w_imag;
 
     //   <s,13,20> = <s,6,10>*<s,5,10> - <s,6,10>*<s,5,10>
-    tmp_imag3 = tmp_real2*w_imag + tmp_imag2*w_real; 
+    tmp_imag3 = ((long long)tmp_real2)*w_imag + ((long long)tmp_imag2)*w_real; 
 
     // assign the sign-bit(MSB)      
     real1_out[15] = tmp_real1[16];
     imag1_out[15] = tmp_imag1[16];
 
     // assign the rest of the bits
-    real1_out.range(14,0) = tmp_real1.range(14,0);
-    imag1_out.range(14,0) = tmp_imag1.range(14,0);
+    real1_out(14,0) = tmp_real1(14,0);
+    imag1_out(14,0) = tmp_imag1(14,0);
 
    // assign the sign-bit(MSB)      
     real2_out[15] = tmp_real3[33];
     imag2_out[15] = tmp_imag3[33];          
 
    // assign the rest of the bits
-    real2_out.range(14,0) = tmp_real3.range(24,10);
-    imag2_out.range(14,0) = tmp_imag3.range(24,10);
+    real2_out(14,0) = tmp_real3(24,10);
+    imag2_out(14,0) = tmp_imag3(24,10);
 
  }; // end func_butterfly
 
@@ -209,8 +209,8 @@ void fft::entry()
            W_imag[w_index][15] = w_temp6[32];
 
 	  // assign the rest of the bits
-           W_real[w_index].range(14,0) = w_temp5.range(24,10);
-           W_imag[w_index].range(14,0) = w_temp6.range(24,10);
+           W_real[w_index](14,0) = w_temp5(24,10);
+           W_imag[w_index](14,0) = w_temp6(24,10);
 
 	  // update w_rec.. values for the next iteration
 	   w_rec_real = W_real[w_index];

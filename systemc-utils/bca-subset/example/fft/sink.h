@@ -34,12 +34,12 @@
  *****************************************************************************/
 
 
-struct sink: sc_module {
+SC_MODULE(sink) {
  sc_in<bool>  data_ready; 
  sc_out<bool> data_ack; 
  sc_in< sc_int<16> > in_real; 
  sc_in< sc_int<16> > in_imag; 
- sc_in_clk CLK;
+ sc_in<bool> CLK;
 
  FILE* fp_real;
  FILE* fp_imag;

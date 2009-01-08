@@ -34,7 +34,7 @@
  *****************************************************************************/
 
 
-struct fft: sc_module {
+SC_MODULE(fft) {
   sc_in<sc_int<16> >  in_real; 
   sc_in<sc_int<16> >  in_imag;
   sc_in<bool> data_valid;                       
@@ -43,7 +43,7 @@ struct fft: sc_module {
   sc_out<sc_int<16> > out_imag;
   sc_out<bool> data_req;
   sc_out<bool> data_ready;       
-  sc_in_clk CLK;                       
+  sc_in<bool> CLK;                       
 
   SC_CTOR(fft)
     {
