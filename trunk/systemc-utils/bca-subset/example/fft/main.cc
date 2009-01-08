@@ -51,7 +51,7 @@ int sc_main(int ac, char* av[])
  sc_signal<bool> data_req;
  sc_signal<bool> data_ready;
 
- sc_clock clock("CLOCK", 10, SC_NS, 0.5, 0.0, SC_NS);
+ sc_clock clock("CLOCK", 10, SC_NS);
 
  fft FFT1("FFTPROCESS"); 
  FFT1.in_real(in_real);
