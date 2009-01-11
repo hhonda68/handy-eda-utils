@@ -37,24 +37,31 @@
 #include "stimulus.h"
 
 void stimulus::entry() {
-
-  cycle++;
-  // sending some reset values
-  if (cycle<4) {
-    reset.write(true);
-    input_valid.write(false);
-  } else {
-    reset.write(false);
-    input_valid.write( false );
-    // sending normal mode values
-    if (cycle%10==0) {
-      input_valid.write(true);
-      sample.write( (int)send_value1 );
-      cout << "Stimuli : " << (int)send_value1 << " at time "
-	   /* << sc_time_stamp() << endl; */
-	   << sc_time_stamp().to_double() << endl;
-      send_value1++;
-    };
+  send_value1 = 0;
+  cycle       = 0;
+  reset.write(false);
+  input_valid.write(false);
+  sample.write(0);
+  wait();
+  while (true) {
+    cycle++;
+    // sending some reset values
+    if (cycle<4) {
+      reset.write(false);
+      input_valid.write(false);
+    } else {
+      reset.write(true);
+      input_valid.write( false );
+      // sending normal mode values
+      if (cycle%10==0) {
+	input_valid.write(true);
+	sample.write( (int)send_value1 );
+	cout << "Stimuli : " << (int)send_value1 << " at time "
+	     << sc_time_stamp() << endl;
+	send_value1++;
+      };
+    }
+    wait();
   }
 }
 

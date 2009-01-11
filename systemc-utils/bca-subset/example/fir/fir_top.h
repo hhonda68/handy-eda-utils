@@ -66,6 +66,10 @@ SC_MODULE(fir_top) {
       fir_data1 -> result(RESULT);
       fir_data1 -> output_data_ready(OUTPUT_DATA_READY);
 
+      SC_CTHREAD(reset_declarer, CLK.pos());
+      reset_signal_is(RESET, false);
     }
+ private:
+  void reset_declarer() { wait(100); }
 };
 

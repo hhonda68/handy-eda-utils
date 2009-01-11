@@ -45,11 +45,7 @@ SC_MODULE(stimulus) {
 
   SC_CTOR(stimulus)
   {
-      SC_METHOD(entry);
-      dont_initialize();
-      sensitive << CLK.pos();
-      send_value1 = 0;
-      cycle       = 0;
+    SC_CTHREAD(entry, CLK.pos());
   }  
   void entry();
 };
