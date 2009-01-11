@@ -189,9 +189,9 @@ void sc_simcontext::sensitive_merge(sc_signal_access_manager& sig, sc_sensitive_
 
 void sc_simcontext::impl_t::cthread_wrapper(void *arg)
 {
-  int cthread_ix = reinterpret_cast<long long>(arg);  // reinterpret to long long because "void*" may not fit in "int"
-  sc_cthread_desc *desc = &the_simcontext->m.cthreads[cthread_ix];
   try {
+    int cthread_ix = reinterpret_cast<long long>(arg);  // reinterpret to long long because "void*" may not fit in "int"
+    sc_cthread_desc *desc = &the_simcontext->m.cthreads[cthread_ix];
     sc_module *mod = desc->mod;
     void (sc_module::*func)() = desc->func;
     (mod->*func)();
@@ -200,9 +200,13 @@ void sc_simcontext::impl_t::cthread_wrapper(void *arg)
   } catch (...) {
     ::std::cerr << "Unhandled exception in a cthread.\n";
   }
-  desc->mod = 0;
-  the_simcontext->m.cthread_aborted = true;
-  sc_cor_ut::yield(&the_simcontext->m.cthreads_ctx[cthread_ix], &the_simcontext->m.cthreads_ctx[cthread_ix+1]);
+  {
+    // cthead_ix may have been changed during execution
+    int cthread_ix = the_simcontext->m.cthread_tick_index;
+    the_simcontext->m.cthreads[cthread_ix].mod = 0;
+    the_simcontext->m.cthread_aborted = true;
+    the_simcontext->wait();
+  }
 }
 
 void sc_simcontext::impl_t::setup_simulation()
