@@ -31,6 +31,7 @@ check-%: a.out.%
 	./a.out.$*
 	diff out_real out_real.golden
 	diff out_imag out_imag.golden
+	@rm -f out_real out_imag
 
 obj-org/%.o: %.cc
 	@test -d obj-org || mkdir -p obj-org
@@ -52,4 +53,4 @@ dep:
 -include Makefile.dep
 
 clean:
-	rm -rf obj-org obj-bca a.out* *~
+	rm -rf obj-org obj-bca a.out* *~ out_real out_imag
