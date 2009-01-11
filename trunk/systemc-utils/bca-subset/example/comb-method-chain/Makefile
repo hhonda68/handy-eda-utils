@@ -10,9 +10,6 @@ BCA_CXX := g++ -isystem $(BCA_SYSTEMC)/src
 CXXFLAGS := -O2 -fomit-frame-pointer -Wall
 #CXXFLAGS := -g -Wall
 
-ORG_LIBSYSTEMC := $(ORG_SYSTEMC)/lib-linux/libsystemc.a
-BCA_LIBSYSTEMC := $(BCA_SYSTEMC)/objdir/libsystemc.a
-
 OBJS := main.o
 ORG_OBJS := $(addprefix obj-org/,$(OBJS))
 BCA_OBJS := $(addprefix obj-bca/,$(OBJS))
