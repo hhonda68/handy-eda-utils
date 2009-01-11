@@ -50,7 +50,7 @@ public:
   void reset_signal_is(sc_in<bool>& port, bool polarity);
   void reset_signal_is(sc_signal<bool>& sig, bool polarity);
   void set_stack_size(int size);
-  sc_sensitive sensitive;
+  static sc_sensitive sensitive;
   void dont_initialize() {}
   void wait() { ::sc_core::wait(); }
   void wait(int n) { ::sc_core::wait(n); }
