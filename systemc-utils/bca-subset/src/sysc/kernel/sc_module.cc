@@ -12,6 +12,8 @@
 
 namespace sc_core {
 
+sc_sensitive sc_module::sensitive;
+
 struct sc_module::impl_t {
   const ::std::string basename;
   const sc_module* parent;
