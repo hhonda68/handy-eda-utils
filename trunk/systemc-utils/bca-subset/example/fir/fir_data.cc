@@ -42,7 +42,7 @@ void fir_data::entry()
   sc_int<8> sample_tmp;
 
   // reset functionality
-  if(reset.read()==true) {
+  if(! reset.read()) {
     sample_tmp   = 0;
     acc = 0;
     for (int i=0; i<=15; i++) 

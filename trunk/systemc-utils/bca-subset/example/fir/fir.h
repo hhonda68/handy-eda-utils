@@ -40,14 +40,14 @@ SC_MODULE(fir) {
   sc_in<int>   sample;  	    
   sc_out<bool> output_data_ready;
   sc_out<int>  result;
-  sc_in_clk    CLK;
+  sc_in<bool>  CLK;
 
   sc_int<9> coefs[16];
 
   SC_CTOR(fir)
      {      
       SC_CTHREAD(entry, CLK.pos());
-	  reset_signal_is(reset,true);
+	  reset_signal_is(reset,false);
       #include "fir_const.h"
     }
   

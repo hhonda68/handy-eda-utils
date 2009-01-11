@@ -41,8 +41,10 @@ void fir_fsm::entry() {
   sc_uint<3> state_tmp;
 
   // reset behavior
-  if(reset.read()==true) {
+  if(! reset.read()) {
     state = reset_s;
+    state_tmp = 0;
+    state_out.write((unsigned)state_tmp);
   } else {
 #ifdef DEBUG
     cout << "debug: " << state << " " << state_tmp << " " << reset.read() << endl;

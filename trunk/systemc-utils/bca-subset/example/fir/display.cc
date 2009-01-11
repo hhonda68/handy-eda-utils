@@ -39,15 +39,16 @@
 void display::entry(){
 
   //  Reading Data when valid if high
+  if (! rst.read())  return;
+  if (! output_data_ready.read())  return;
+
   tmp1 = result.read();
   cout << "Display : " << tmp1 << " " 
-       /* << " at time " << sc_time_stamp() << endl; */
-       << " at time " << sc_time_stamp().to_double() << endl;
+       << " at time " << sc_time_stamp() << endl;
   i++;
   if(i == 24) {
     cout << "Simulation of " << i << " items finished" 
-	 /* << " at time " << sc_time_stamp() << endl; */
-	 << " at time " << sc_time_stamp().to_double() << endl;
+	 << " at time " << sc_time_stamp() << endl;
     sc_stop();
   };
 }

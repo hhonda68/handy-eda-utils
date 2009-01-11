@@ -34,7 +34,7 @@
  *****************************************************************************/
 
 SC_MODULE(display) {
-
+  sc_in<bool>  clk, rst;
   sc_in<bool>  output_data_ready;
   sc_in<int>   result;
 
@@ -44,7 +44,7 @@ SC_MODULE(display) {
     {
       SC_METHOD(entry);
       dont_initialize();
-      sensitive << output_data_ready.pos();
+      sensitive << clk.pos();
       i = 0;
     }
 
