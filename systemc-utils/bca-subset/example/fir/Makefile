@@ -26,8 +26,10 @@ check: check-org-beh check-bca-beh check-org-rtl check-bca-rtl
 	@
 
 check-%: a.out.% log-%.golden
-	./a.out.$* > log-$*
-	diff log-$* log-$*.golden
+	@rm -f log
+	./a.out.$* > log
+	diff log log-$*.golden
+	@rm -f log
 
 log-bca-beh.golden: log-org-beh.golden
 	@echo '[Generating $@ ...]'
@@ -65,4 +67,4 @@ dep:
 -include Makefile.dep
 
 clean:
-	rm -rf obj-org obj-bca a.out* *~ log-bca-*.golden
+	rm -rf obj-org obj-bca a.out* *~ log-bca-*.golden log
