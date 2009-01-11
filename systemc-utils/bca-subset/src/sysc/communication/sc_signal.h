@@ -18,6 +18,8 @@
 
 namespace sc_core {
 
+#define sc_inline __attribute__((always_inline)) inline
+
 class sc_signal_sensitive_delegator : public sc_signal_access_manager {
 public:
   void sensitive_add(int method_id) { the_simcontext->sensitive_add(*this, method_id); }
@@ -31,17 +33,17 @@ protected:
 
 template <typename T> class sc_signal_accessor : public sc_signal_data<T> {
 public:
-  const T& read() const { return this->m_val[this->m_rix]; };
-  void write(const T& val) { this->m_val[this->m_wix] = val;  this->m_written = true; }
-  operator const T&() const { return read(); }
-  void operator=(const T& val) { write(val); }
+  sc_inline const T& read() const { return this->m_val[this->m_rix]; };
+  sc_inline void write(const T& val) { this->m_val[this->m_wix] = val;  this->m_written = true; }
+  sc_inline operator const T&() const { return read(); }
+  sc_inline void operator=(const T& val) { write(val); }
 };
 
 template <typename T> class sc_signal : public sc_signal_accessor<T> {
 public:
   sc_signal() { the_simcontext->register_signal(*this); }
   using sc_signal_accessor<T>::operator=;
-  void operator=(const sc_signal& rhs) { operator=(rhs.read()); }
+  sc_inline void operator=(const sc_signal& rhs) { operator=(rhs.read()); }
 };
 
 ////////////////////////////////////////////////////////////////
@@ -84,8 +86,8 @@ protected:
 
 template <typename T> class sc_in_reader : public sc_in_data<T> {
 public:
-  const T& read() const { return this->m_sig->read(); }
-  operator const T&() const { return read(); }
+  sc_inline const T& read() const { return this->m_sig->read(); }
+  sc_inline operator const T&() const { return read(); }
 };
 
 class sc_clock_edge {
@@ -138,10 +140,10 @@ protected:
 
 template <typename T> class sc_out_accessor : public sc_out_data<T> {
 public:
-  const T& read() const { return this->m_sig->read(); }
-  void write(const T& val) { this->m_sig->write(val); }
-  operator const T&() const { return read(); }
-  void operator=(const T& val) { write(val); }
+  sc_inline const T& read() const { return this->m_sig->read(); }
+  sc_inline void write(const T& val) { this->m_sig->write(val); }
+  sc_inline operator const T&() const { return read(); }
+  sc_inline void operator=(const T& val) { write(val); }
 };
 
 template <typename T> class sc_out : public sc_out_accessor<T> {
@@ -152,7 +154,7 @@ public:
   void bind(sc_signal<T>& dst);
   template <typename D> void operator()(D& dst) { bind(dst); }
   using sc_out_accessor<T>::operator=;
-  void operator=(const sc_out& rhs) { write(rhs.read()); }
+  sc_inline void operator=(const sc_out& rhs) { write(rhs.read()); }
 };
 
 template <typename T> void sc_out<T>::bind(sc_signal<T>& dst) {
@@ -163,6 +165,8 @@ template <typename T> void sc_out<T>::bind(sc_signal<T>& dst) {
   delete m_info;
   m_sig = &dst;
 }
+
+#undef sc_inline
 
 } // namespace sc_core
 
