@@ -48,9 +48,11 @@ template <> struct sc_int_traits_body<unsigned, true>  { typedef unsigned long l
 
 template <typename S, int W> struct sc_int_traits;
 template <int W> struct sc_int_traits<signed,W> {
-  typedef typename sc_int_traits_body<signed,(W>32)>::value_type value_type;
+  typedef typename sc_int_traits_body<  signed,(W>32)>::value_type value_type;
+  typedef typename sc_int_traits_body<unsigned,(W>32)>::value_type uvalue_type;
   static const value_type MINVAL = static_cast<value_type>(-1) << (W-1);
   static const value_type MAXVAL = -MINVAL-1;
+  static const uvalue_type RANGE = static_cast<uvalue_type>(-1) >> (sizeof(uvalue_type)*8-W);
   sc_inline static value_type wrap(value_type value) { return (value << (sizeof(value_type)*8-W)) >> (sizeof(value_type)*8-W); }
   sc_inline static value_type wrap(value_type value, int width) { return (width <= W) ? value : wrap(value); }
   sc_inline static value_type adjust_setbit(value_type newvalue, int pos)
@@ -58,8 +60,10 @@ template <int W> struct sc_int_traits<signed,W> {
 };
 template <int W> struct sc_int_traits<unsigned,W> {
   typedef typename sc_int_traits_body<unsigned,(W>32)>::value_type value_type;
+  typedef value_type uvalue_type;
   static const value_type MINVAL = 0;
   static const value_type MAXVAL = static_cast<value_type>(-1) >> (sizeof(value_type)*8-W);
+  static const uvalue_type RANGE = MAXVAL;
   sc_inline static value_type wrap(value_type value) {
     value_type max_value = static_cast<value_type>(-1) >> (sizeof(value_type)*8-W);
     return value & max_value;
@@ -640,7 +644,7 @@ struct sc_int_common {
   sc_inline sc_int_common(const sc_int_ranged<SS,WIDE>& x)
     : m_value(traits_type::wrap(x, sc_int_assign_width<WIDE,(W>32)>(x,S()))) {}
   sc_inline const ranged_type to_ranged() const
-    { return ranged_type(m_value, traits_type::MINVAL, traits_type::MAXVAL-traits_type::MINVAL); }
+    { return ranged_type(m_value, traits_type::MINVAL, traits_type::RANGE); }
 
   template <typename SS, bool WIDE> struct binop_traits : sc_int_ranged_binop_traits<sc_int_ranged<SS,WIDE>,ranged_type> {};
   typedef typename binop_traits<  signed,false>::result_type binop_si_type;
