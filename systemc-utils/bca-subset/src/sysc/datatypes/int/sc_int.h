@@ -640,12 +640,9 @@ struct sc_int_common {
   sc_inline sc_int_common(unsigned int       x) : m_value(wrap(sc_int_rui(x))) {}
   sc_inline sc_int_common(signed long long   x) : m_value(wrap(sc_int_rsl(x))) {}
   sc_inline sc_int_common(unsigned long long x) : m_value(wrap(sc_int_rul(x))) {}
-  template <typename SS, bool WIDE>
-  sc_inline sc_int_common(const sc_int_ranged<SS,WIDE>& x) : m_value(wrap(x)) {}
-  template <typename SS, int WW>
-  sc_inline sc_int_common(const sc_int_common<SS,WW>& x) : m_value(wrap(x.to_ranged())) {}
-  sc_inline const ranged_type to_ranged() const
-    { return ranged_type(m_value, traits_type::MINVAL, traits_type::RANGE); }
+  template <typename SS, bool WIDE> sc_inline sc_int_common(const sc_int_ranged<SS,WIDE>& x) : m_value(wrap(x)) {}
+  template <int V> sc_inline sc_int_common(const sc_int_common<S,V>& x) : m_value(wrap(x.to_ranged())) {}
+  sc_inline const ranged_type to_ranged() const { return ranged_type(m_value, traits_type::MINVAL, traits_type::RANGE); }
 
   template <typename SS, bool WIDE> struct binop_traits : sc_int_ranged_binop_traits<sc_int_ranged<SS,WIDE>,ranged_type> {};
   typedef typename binop_traits<  signed,false>::result_type binop_si_type;
