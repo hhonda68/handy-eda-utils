@@ -609,16 +609,6 @@ sc_inline const sc_int_rul operator>>(unsigned long long a, const sc_int_ranged<
 
 ////////////////////////////////////////////////////////////////
 
-template <bool SWIDE, bool DWIDE>
-sc_inline int sc_int_assign_width(const sc_int_ranged<signed,SWIDE>& x, signed) { return x.width(); }
-template <bool SWIDE, bool DWIDE>
-sc_inline int sc_int_assign_width(const sc_int_ranged<signed,SWIDE>& x, unsigned)
-  { return sc_int_ranged<unsigned,(SWIDE||DWIDE)>(x).width(); }
-template <bool SWIDE, bool DWIDE>
-sc_inline int sc_int_assign_width(const sc_int_ranged<unsigned,SWIDE>& x, signed) { return x.width()+1; }
-template <bool SWIDE, bool DWIDE>
-sc_inline int sc_int_assign_width(const sc_int_ranged<unsigned,SWIDE>& x, unsigned) { return x.width(); }
-
 template <typename S, int W>
 struct sc_int_common {
   typedef sc_int_traits<S,W>  traits_type;
@@ -628,9 +618,8 @@ struct sc_int_common {
   sc_inline operator value_type() const { return m_value; }
   sc_inline sc_int_common() {}
   template <typename SS, bool WIDE>
-  sc_inline static value_type wrap(const sc_int_ranged<SS,WIDE>& x) {
-    return traits_type::wrap(x, sc_int_assign_width<WIDE,(W>32)>(x,S()));
-  }
+  sc_inline static value_type wrap(const sc_int_ranged<SS,WIDE>& x)
+    { return traits_type::wrap(x, sc_int_ranged<SS,(WIDE||(W>32))>(x).width(S())); }
   sc_inline sc_int_common(bool               x) : m_value(wrap(sc_int_rsi(x))) {}
   sc_inline sc_int_common(signed char        x) : m_value(wrap(sc_int_rsi(x))) {}
   sc_inline sc_int_common(unsigned char      x) : m_value(wrap(sc_int_rsi(x))) {}
