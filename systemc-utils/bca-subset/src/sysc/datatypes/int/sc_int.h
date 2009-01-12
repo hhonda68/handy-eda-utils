@@ -281,7 +281,7 @@ template <> struct sc_int_ranged<unsigned,true> : public sc_int_ranged_body<unsi
   typedef sc_int_ranged_body<unsigned,true> base_type;
   using typename base_type::uvalue_type;
   sc_inline sc_int_ranged(uvalue_type val, uvalue_type minval, uvalue_type range) : base_type(val, minval, range) {}
-  sc_inline explicit sc_int_ranged(unsigned long long x) : base_type(x, 0, 0xfffffffffffffffful) {}
+  sc_inline explicit sc_int_ranged(unsigned long long x) : base_type(x, 0, 0xffffffffffffffffull) {}
   sc_inline explicit sc_int_ranged(const sc_int_rsi& x)
     : base_type(static_cast<int>(x.m_uval),
 		x.overflow_as_signed() ? static_cast<int>(0x80000000u) : static_cast<int>(x.m_minval),
