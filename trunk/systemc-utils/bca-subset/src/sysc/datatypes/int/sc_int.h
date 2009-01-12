@@ -74,16 +74,6 @@ template <int W> struct sc_int_traits<unsigned,W> {
   sc_inline static value_type adjust_setbit(value_type newvalue, int pos) { return newvalue; }
 };
 
-template <typename Traits, bool B> struct sc_int_wrap_if;
-template <typename Traits> struct sc_int_wrap_if<Traits,false> {
-  typedef typename Traits::value_type value_type;
-  sc_inline static value_type wrap(value_type value) { return value; }
-};
-template <typename Traits> struct sc_int_wrap_if<Traits,true> {
-  typedef typename Traits::value_type value_type;
-  sc_inline static value_type wrap(value_type value) { return Traits::wrap(value); }
-};
-
 struct sc_int_bitref_r {
   const bool m_val;
   sc_inline explicit sc_int_bitref_r(bool val) : m_val(val) {}
@@ -637,12 +627,23 @@ struct sc_int_common {
   value_type m_value;
   sc_inline operator value_type() const { return m_value; }
   sc_inline sc_int_common() {}
-  sc_inline sc_int_common(value_type x) : m_value(traits_type::wrap(x)) {}
-  template <int V> sc_inline sc_int_common(const sc_int_common<S,V>& x)
-    : m_value(sc_int_wrap_if<traits_type,(W<V)>::wrap(x.m_value)) {}
   template <typename SS, bool WIDE>
-  sc_inline sc_int_common(const sc_int_ranged<SS,WIDE>& x)
-    : m_value(traits_type::wrap(x, sc_int_assign_width<WIDE,(W>32)>(x,S()))) {}
+  sc_inline static value_type wrap(const sc_int_ranged<SS,WIDE>& x) {
+    return traits_type::wrap(x, sc_int_assign_width<WIDE,(W>32)>(x,S()));
+  }
+  sc_inline sc_int_common(bool               x) : m_value(wrap(sc_int_rsi(x))) {}
+  sc_inline sc_int_common(signed char        x) : m_value(wrap(sc_int_rsi(x))) {}
+  sc_inline sc_int_common(unsigned char      x) : m_value(wrap(sc_int_rsi(x))) {}
+  sc_inline sc_int_common(signed short       x) : m_value(wrap(sc_int_rsi(x))) {}
+  sc_inline sc_int_common(unsigned short     x) : m_value(wrap(sc_int_rsi(x))) {}
+  sc_inline sc_int_common(signed int         x) : m_value(wrap(sc_int_rsi(x))) {}
+  sc_inline sc_int_common(unsigned int       x) : m_value(wrap(sc_int_rui(x))) {}
+  sc_inline sc_int_common(signed long long   x) : m_value(wrap(sc_int_rsl(x))) {}
+  sc_inline sc_int_common(unsigned long long x) : m_value(wrap(sc_int_rul(x))) {}
+  template <typename SS, bool WIDE>
+  sc_inline sc_int_common(const sc_int_ranged<SS,WIDE>& x) : m_value(wrap(x)) {}
+  template <typename SS, int WW>
+  sc_inline sc_int_common(const sc_int_common<SS,WW>& x) : m_value(wrap(x.to_ranged())) {}
   sc_inline const ranged_type to_ranged() const
     { return ranged_type(m_value, traits_type::MINVAL, traits_type::RANGE); }
 
