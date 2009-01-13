@@ -28,6 +28,7 @@ CXXFLAGS := -O2 -Wall -fomit-frame-pointer
 
 INSTALL_HEADERS := \
   systemc \
+  systemc.h \
   sysc/datatypes/int/sc_int.h \
   sysc/kernel/sc_time.h \
   sysc/kernel/sc_module.h \
