@@ -51,7 +51,7 @@ template <int W> struct sc_int_traits<signed,W> {
   typedef typename sc_int_traits_body<  signed,(W>32)>::value_type value_type;
   typedef typename sc_int_traits_body<unsigned,(W>32)>::value_type uvalue_type;
   static const value_type MINVAL = static_cast<value_type>(-1) << (W-1);
-  static const value_type MAXVAL = -MINVAL-1;
+  static const value_type MAXVAL = ~MINVAL;
   static const uvalue_type RANGE = static_cast<uvalue_type>(-1) >> (sizeof(uvalue_type)*8-W);
   sc_inline static value_type wrap(value_type value) { return (value << (sizeof(value_type)*8-W)) >> (sizeof(value_type)*8-W); }
   sc_inline static value_type wrap(value_type value, int width) { return (width <= W) ? value : wrap(value); }
