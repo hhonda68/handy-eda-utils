@@ -28,10 +28,6 @@
 //   * sc_uint<32> a = 0xffffffff;
 //     sc_uint<32> b = 0xffffffff;
 //     sc_uint<32> c = (a+b)>>1;   <-- "0xffffffff" in SystemC, "0x7fffffff" in BCA-subset
-// These incompatibilities can be fixed by changing
-// "sc_int_common<>::operator value_type() const" to
-// "sc_int_common<>::operator sc_traits<S,64>::value_type() const",
-// which reults in slight performance loss.
 
 #ifndef BCASYSC_DATATYPES_INT_SCINT_H
 #define BCASYSC_DATATYPES_INT_SCINT_H
