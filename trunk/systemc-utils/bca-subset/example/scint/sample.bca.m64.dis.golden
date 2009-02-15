@@ -5227,6 +5227,26 @@ c1 e8 02             	shr    $0x2,%eax
 89 07                	mov    %eax,(%rdi)
 c3                   	retq   
 
+<bitass_s13_5_s13c_5(sc_dt::sc_int<13>&, sc_dt::sc_int<13> const&)>:
+8b 06                	mov    (%rsi),%eax
+8b 17                	mov    (%rdi),%edx
+83 e0 20             	and    $0x20,%eax
+83 e2 df             	and    $0xffffffffffffffdf,%edx
+09 d0                	or     %edx,%eax
+89 07                	mov    %eax,(%rdi)
+c3                   	retq   
+90                   	nop    
+
+<bitass_s13_5_s13_5(sc_dt::sc_int<13>&, sc_dt::sc_int<13>&)>:
+8b 06                	mov    (%rsi),%eax
+8b 17                	mov    (%rdi),%edx
+83 e0 20             	and    $0x20,%eax
+83 e2 df             	and    $0xffffffffffffffdf,%edx
+09 d0                	or     %edx,%eax
+89 07                	mov    %eax,(%rdi)
+c3                   	retq   
+90                   	nop    
+
 <bitassand_s13_5_b(sc_dt::sc_int<13>&, bool)>:
 8b 17                	mov    (%rdi),%edx
 89 d0                	mov    %edx,%eax
@@ -5496,6 +5516,24 @@ d1 e8                	shr    %eax
 89 07                	mov    %eax,(%rdi)
 c3                   	retq   
 90                   	nop    
+
+<subass_s11_8_4_s11c_8_4(sc_dt::sc_int<11>&, sc_dt::sc_int<11> const&)>:
+8b 06                	mov    (%rsi),%eax
+8b 17                	mov    (%rdi),%edx
+25 f0 01 00 00       	and    $0x1f0,%eax
+81 e2 0f fe ff ff    	and    $0xfffffe0f,%edx
+09 d0                	or     %edx,%eax
+89 07                	mov    %eax,(%rdi)
+c3                   	retq   
+
+<subass_s11_8_4_s11_8_4(sc_dt::sc_int<11>&, sc_dt::sc_int<11>&)>:
+8b 06                	mov    (%rsi),%eax
+8b 17                	mov    (%rdi),%edx
+25 f0 01 00 00       	and    $0x1f0,%eax
+81 e2 0f fe ff ff    	and    $0xfffffe0f,%edx
+09 d0                	or     %edx,%eax
+89 07                	mov    %eax,(%rdi)
+c3                   	retq   
 
 <subass_s13_7_3_u4c(sc_dt::sc_int<13>&, sc_dt::sc_uint<4> const&)>:
 8b 06                	mov    (%rsi),%eax
