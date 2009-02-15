@@ -141,6 +141,7 @@ template <typename S, int W> struct sc_int_bitref {
 template <typename S, int W> struct sc_int_subref {
   typedef sc_int_common<S,W> obj_type;
   typedef typename obj_type::value_type value_type;
+  typedef typename sc_int_traits<S,W>::uvalue_type uvalue_type;
   obj_type& m_obj;
   const int m_msb, m_lsb;
   sc_inline sc_int_subref(obj_type& obj, int msb, int lsb) : m_obj(obj), m_msb(msb), m_lsb(lsb) {}
@@ -161,7 +162,7 @@ template <typename S, int W> struct sc_int_subref {
   sc_inline const sc_int_subref operator++(int) const { sc_int_subref ret = *this;  ++(*this);  return ret; }
   sc_inline const sc_int_subref operator--(int) const { sc_int_subref ret = *this;  --(*this);  return ret; }
   sc_inline const sc_int_subref_r to_subref_r() const { return (static_cast<const obj_type&>(m_obj))(m_msb, m_lsb); }
-  sc_inline operator value_type() const { return to_subref_r(); }
+  sc_inline operator uvalue_type() const { return to_subref_r(); }
   sc_inline int size() const { return m_msb - m_lsb + 1; }
   sc_inline friend const sc_int_subref_r operator,(const sc_int_subref& lhs, bool rhs)
     { return (lhs.to_subref_r(), sc_int_subref_r(rhs)); }
