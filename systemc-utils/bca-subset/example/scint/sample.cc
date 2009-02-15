@@ -902,6 +902,8 @@ void bitass_u43_si_b(u43_t& a, int n, bool b) { a[n] = b; }
 
 void bitass_s13_5_s11c_7(s13_t& a, const s11_t& b) { a[5] = b[7]; }
 void bitass_s13_5_s11_7 (s13_t& a,       s11_t& b) { a[5] = b[7]; }
+void bitass_s13_5_s13c_5(s13_t& a, const s13_t& b) { a[5] = b[5]; }
+void bitass_s13_5_s13_5 (s13_t& a,       s13_t& b) { a[5] = b[5]; }
 
 void bitassand_s13_5_b     (s13_t& a, bool         b) { a[5] &= b; }     // not optimal
 void bitassand_s13_5_s11c_7(s13_t& a, const s11_t& b) { a[5] &= b[7]; }  // not optimal
@@ -934,6 +936,8 @@ void subass_s13_7_3_s11c_1  (s13_t& a, const s11_t& b) { a(7,3) = b[1];   }
 void subass_s13_7_3_s11_1   (s13_t& a,       s11_t& b) { a(7,3) = b[1];   }
 void subass_s13_7_3_s11c_8_4(s13_t& a, const s11_t& b) { a(7,3) = b(8,4); }
 void subass_s13_7_3_s11_8_4 (s13_t& a,       s11_t& b) { a(7,3) = b(8,4); }
+void subass_s11_8_4_s11c_8_4(s11_t& a, const s11_t& b) { a(8,4) = b(8,4); }
+void subass_s11_8_4_s11_8_4 (s11_t& a,       s11_t& b) { a(8,4) = b(8,4); }
 void subass_s13_7_3_u4c     (s13_t& a, const u4_t&  b) { a(7,3) = b; }  // not optimal
 void subass_s13_7_3_u5c     (s13_t& a, const u5_t&  b) { a(7,3) = b; }  // not optimal
 void subass_s13_7_3_u6c     (s13_t& a, const u6_t&  b) { a(7,3) = b; }
