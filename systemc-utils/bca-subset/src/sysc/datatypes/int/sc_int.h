@@ -235,20 +235,17 @@ typedef sc_int_ranged<unsigned,true >  sc_int_rul; // ranged unsigned long long
 
 template <> struct sc_int_ranged<signed,false> : public sc_int_ranged_body<signed,false> {
   typedef sc_int_ranged_body<signed,false> base_type;
-  using typename base_type::uvalue_type;
-  using typename base_type::value_type;
   sc_inline sc_int_ranged(uvalue_type val, uvalue_type minval, uvalue_type range) : base_type(val, minval, range) {}
   sc_inline explicit sc_int_ranged(bool x)           : base_type(x, 0, 1) {}
-  sc_inline explicit sc_int_ranged(signed char x)    : base_type(x, -128, 255) {}
+  sc_inline explicit sc_int_ranged(signed char x)    : base_type(x, static_cast<uvalue_type>(-128), 255) {}
   sc_inline explicit sc_int_ranged(unsigned char x)  : base_type(x, 0, 255) {}
-  sc_inline explicit sc_int_ranged(signed short x)   : base_type(x, -32768, 65535) {}
+  sc_inline explicit sc_int_ranged(signed short x)   : base_type(x, static_cast<uvalue_type>(-32768), 65535) {}
   sc_inline explicit sc_int_ranged(unsigned short x) : base_type(x, 0, 65535) {}
   sc_inline explicit sc_int_ranged(signed int x)     : base_type(x, 0x80000000u, 0xffffffffu) {}
 };
 
 template <> struct sc_int_ranged<unsigned,false> : public sc_int_ranged_body<unsigned,false> {
   typedef sc_int_ranged_body<unsigned,false> base_type;
-  using typename base_type::uvalue_type;
   sc_inline sc_int_ranged(uvalue_type val, uvalue_type minval, uvalue_type range) : base_type(val, minval, range) {}
   sc_inline explicit sc_int_ranged(unsigned int x)      : base_type(x, 0u, 0xffffffffu) {}
   sc_inline explicit sc_int_ranged(const sc_int_rsi& x) : base_type(x.m_uval, x.m_minval, x.m_range) {}
@@ -256,8 +253,6 @@ template <> struct sc_int_ranged<unsigned,false> : public sc_int_ranged_body<uns
 
 template <> struct sc_int_ranged<signed,true> : public sc_int_ranged_body<signed,true> {
   typedef sc_int_ranged_body<signed,true> base_type;
-  using typename base_type::uvalue_type;
-  using typename base_type::value_type;
   sc_inline sc_int_ranged(uvalue_type val, uvalue_type minval, uvalue_type range) : base_type(val, minval, range) {}
   sc_inline explicit sc_int_ranged(signed long long x) : base_type(x, 0x8000000000000000ull, 0xffffffffffffffffull) {}
   sc_inline explicit sc_int_ranged(const sc_int_rsi& x)
@@ -270,7 +265,6 @@ template <> struct sc_int_ranged<signed,true> : public sc_int_ranged_body<signed
 
 template <> struct sc_int_ranged<unsigned,true> : public sc_int_ranged_body<unsigned,true> {
   typedef sc_int_ranged_body<unsigned,true> base_type;
-  using typename base_type::uvalue_type;
   sc_inline sc_int_ranged(uvalue_type val, uvalue_type minval, uvalue_type range) : base_type(val, minval, range) {}
   sc_inline explicit sc_int_ranged(unsigned long long x) : base_type(x, 0, 0xffffffffffffffffull) {}
   sc_inline explicit sc_int_ranged(const sc_int_rsi& x)

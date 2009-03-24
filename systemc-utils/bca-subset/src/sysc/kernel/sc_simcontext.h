@@ -65,7 +65,6 @@ public:
   void scstop();
   const sc_time& sctimestamp();
   void wait();
-  int elab_and_sim(int argc, char *argv[]);
 private:
   struct impl_t;
   impl_t& m;
