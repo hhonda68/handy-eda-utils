@@ -41,14 +41,15 @@ Example of a hierarchical module written in pimpl style:
     };
     void HierMod::construct() {
       m_impl = new impl_t;
-      m_impl->suba = new SubModA("suba");
-      m_impl->subb = new SubModA("subb");
-      m_impl->suba->clk(clk);
-      m_impl->suba->idata_in(idata_in);
-      m_impl->suba->odata_out(m_impl->atob_sig);
-      m_impl->subb->clk(clk);
-      m_impl->subb->idata_in(m_impl->atob_sig);
-      m_impl->subb->odata_out(odata_out);
+      impl_t& m = *m_impl;
+      m.suba = new SubModA("suba");
+      m.subb = new SubModA("subb");
+      m.suba->clk(clk);
+      m.suba->idata_in(idata_in);
+      m.suba->odata_out(m.atob_sig);
+      m.subb->clk(clk);
+      m.subb->idata_in(m.atob_sig);
+      m.subb->odata_out(odata_out);
     }
     HierMod::~HierMod() {
       delete m_impl->suba;
@@ -184,17 +185,18 @@ Example of a hierarchical module which supports both styles (via #ifdef INLINED_
     {
     #ifdef HIERMOD_PIMPL_CC
       m_impl = new impl_t;
+      impl_t& m = *m_impl;
     #else
-      HierMod *m_impl = this;
+      HierMod& m = *this;
     #endif
-      m_impl->suba = new SubModA("suba");
-      m_impl->subb = new SubModA("subb");
-      m_impl->suba->clk(clk);
-      m_impl->suba->idata_in(idata_in);
-      m_impl->suba->odata_out(m_impl->atob_sig);
-      m_impl->subb->clk(clk);
-      m_impl->subb->idata_in(m_impl->atob_sig);
-      m_impl->subb->odata_out(odata_out);
+      m.suba = new SubModA("suba");
+      m.subb = new SubModA("subb");
+      m.suba->clk(clk);
+      m.suba->idata_in(idata_in);
+      m.suba->odata_out(m.atob_sig);
+      m.subb->clk(clk);
+      m.subb->idata_in(m.atob_sig);
+      m.subb->odata_out(odata_out);
     }
     #endif
 
@@ -259,14 +261,14 @@ Crucial parts of hiermod.h and hiermod.icc
 
     ////////////////////////////////////////////////////////////////
 
-    m_impl->suba = new SubModA("suba");
-    m_impl->subb = new SubModB("subb");
-    m_impl->suba->clk(clk);
-    m_impl->suba->idata_in(idata_in);
-    m_impl->suba->odata_out(m_impl->atob_sig);
-    m_impl->subb->clk(clk);
-    m_impl->subb->idata_in(m_impl->atob_sig);
-    m_impl->subb->odata_out(odata_out);
+    m.suba = new SubModA("suba");
+    m.subb = new SubModB("subb");
+    m.suba->clk(clk);
+    m.suba->idata_in(idata_in);
+    m.suba->odata_out(m.atob_sig);
+    m.subb->clk(clk);
+    m.subb->idata_in(m.atob_sig);
+    m.subb->odata_out(odata_out);
     ================================================================
 
 Automatic generation of .h, .cc, .icc files:
