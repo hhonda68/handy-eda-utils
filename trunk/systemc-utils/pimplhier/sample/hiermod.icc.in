@@ -24,13 +24,13 @@ sc_signal<data_t> atob_sig;
 
 ////////////////////////////////////////////////////////////////
 
-m_impl->suba = new SubModA("suba");
-m_impl->subb = new SubModB("subb");
-m_impl->suba->clk(clk);
-m_impl->suba->rst(rst);
-m_impl->suba->idata_in(idata_in);
-m_impl->suba->odata_out(m_impl->atob_sig);
-m_impl->subb->clk(clk);
-m_impl->subb->rst(rst);
-m_impl->subb->idata_in(m_impl->atob_sig);
-m_impl->subb->odata_out(odata_out);
+m.suba = new SubModA("suba");
+m.subb = new SubModB("subb");
+m.suba->clk(clk);
+m.suba->rst(rst);
+m.suba->idata_in(idata_in);
+m.suba->odata_out(m.atob_sig);
+m.subb->clk(clk);
+m.subb->rst(rst);
+m.subb->idata_in(m.atob_sig);
+m.subb->odata_out(odata_out);

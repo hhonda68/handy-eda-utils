@@ -87,8 +87,8 @@ def gen_icc
   prefix = ""
   dtor_body = ""
   (sections[3][0]..sections[3][1]).each do |ix|
-    if (lines[ix] =~ /^\s*(m_impl->\w+)\s*=\s*new\b/) then
-      dtor_body += "  delete #{$1};\n"
+    if (lines[ix] =~ /^\s*m\.(\w+)\s*=\s*new\b/) then
+      dtor_body += "  delete m_impl->#{$1};\n"
     elsif (lines[ix] !~ /^\s*$/) then
       break
     end
@@ -157,8 +157,9 @@ def gen_icc
       {
       #ifdef #{umod}_PIMPL_CC
         m_impl = new impl_t;
+        impl_t& m = *m_impl;
       #else
-        #{mod} *m_impl = this;
+        #{mod}& m = *this;
       #endif
       EOD
     end
