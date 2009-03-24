@@ -1,0 +1,627 @@
+
+BCASYSC: Minimal Synthesizable BCA Subset of SystemC.
+
+Copyright (c) 2008 the handy-eda-utils developer(s).
+Distributed under the MIT License.
+(See accompanying file COPYING or copy at
+ http://www.opensource.org/licenses/mit-license.php.)
+
+[1] Overview
+[2] Installation
+[3] Specification
+  [3.1] sc_int sc_uint
+  [3.2] sc_in sc_out sc_signal
+  [3.3] sc_clock
+  [3.4] sc_start sc_stop wait
+  [3.5] sc_set_time_resolution sc_time_stamp sc_time SC_NS
+  [3.6] sc_module sc_module_name
+  [3.7] sc_trace_file
+  [3.8] SC_MODULE SC_CTOR SC_HAS_PROCESS SC_CTHREAD SC_METHOD
+[4] Implementation
+  [4.1] Classification of SC_CTHREADs and SC_METHODs
+  [4.2] Blocking and Non-blocking Assignments
+  [4.3] Simulation Flow
+  [4.4] Data Structure inside the Simulation Kernel
+  [4.5] Thread Library
+  [4.6] I/O Port Binding
+  [4.7] sc_int sc_uint
+
+============
+[1] Overview
+============
+
+BCASYSC is a SystemC subset library supporting only the "synthesizable
+BCA (bus-cycle accurate)" code.  The goal of BCASYSC is to get better
+runtime performance than the fully-featured OSCI library.  A user has
+reported that his video codec program (with 50 SC_MODULEs) runs 2x
+faster.
+
+BCASYSC supports the following components of SystemC.
+
+    namespace sc_dt:
+      sc_int sc_uint
+
+    namespace sc_core:
+      sc_in sc_out sc_signal sc_clock
+      sc_start sc_stop wait
+      sc_set_time_resolution sc_time_stamp sc_time SC_NS
+      sc_module sc_module_name
+      sc_trace_file
+
+    preprocessor macros:
+      SC_MODULE SC_CTOR SC_HAS_PROCESS SC_CTHREAD SC_METHOD
+
+A BCASYSC application must be single clocked and completely
+synchronous.  Negative clock edges are not supported.  An application
+can use at most one reset signal, which must be low-active.
+
+================
+[2] Installation
+================
+
+Assuming you use bourne-shell, type the following commands.
+
+[linux]$ WORKDIR=... # the directory containing this README file
+[linux]$ INSTDIR=... # the directory for installation (e.g. $HOME/local/bcasysc)
+[linux]$ cd $WORKDIR
+[linux]$ mkdir objdir
+[linux]$ cd objdir
+[linux]$ ../src/configure --prefix=$INSTDIR
+[linux]$ make
+[linux]$ make install
+[linux]$ cd ..
+[linux]$ rm -r objdir
+
+If you want to test the library, play in the "example" directory
+before deleting "objdir".  Note that you need to adjust the
+definitions of ORG_SYSTEMC and ORG_LIBSYSTEMC in example/*/Makefile.
+
+=================
+[3] Specification
+=================
+
+This section explains the specification of BCASYSC, with intentionally
+simplified code snippets showing the public APIs concisely from a
+user's point of view.
+
+--------------------
+[3.1] sc_int sc_uint
+--------------------
+
+BCASYSC implements sc_int and sc_uint as an int (32bit) or a long long
+(64bit) depending on its width.
+
+  template <int N> struct sc_int {          // ditto for sc_uint
+    typedef int                value_type;  // if N <= 32
+    typedef long long          value_type;  // if N >= 33
+    typedef unsigned int       value_type;  // if N <= 32, for sc_uint
+    typedef unsigned long long value_type;  // if N >= 33, for sc_uint
+    sc_int(value_type);              // implicit conversion from value_type
+    operator value_type() const;     // implicit conversion to value_type
+    sc_int& operator+=(value_type);  // ditto for -=, *=, /= etc.
+    sc_int& operator++();            // ditto for --
+    const sc_int operator++(int);    // ditto for --
+    const sc_int_bitref   operator[](int pos);
+    const sc_int_bitref_r operator[](int pos) const;
+    const sc_int_subref   operator()(int msb, int lsb);
+    const sc_int_subref_r operator()(int msb, int lsb) const;
+  };
+
+  const sc_int_catref   operator,(..., ...);
+  const sc_int_catref_r operator,(const ..., const ...);
+
+Other member functions of SystemC 2.2.0 (e.g. length(), to_int(),
+and_reduce()) are not supported.
+
+Operator[] returns a proxy class (sc_int_bitref or sc_int_bitref_r)
+representing a bit-select.  Expressions can use a bit-select as a
+"bool" rvalue.  A bit-select of an lvalue is also an lvalue.
+
+Operator() returns a proxy class (sc_int_subref or sc_int_subref_r)
+representing a part-select.  Expressions can use a part-select as an
+"unsigned long long" rvalue.  A part-select of an lvalue is also an
+lvalue.
+
+Operator, returns a proxy class (sc_int_catref or sc_int_catref_r)
+representing a concatenation.  Operator, can combine two
+sc_ints/sc_uints/bit-selects/part-selects/concatenations, or any
+combination of them, or any of them and a bool.  Expressions can use a
+concatenation as an "unsigned long long" rvalue.  If both components
+of a concatenation are lvalues, then the concatenation itself is also
+an lvalue.
+
+Note that sc_(u)int is implicitly converted to "value_type", not to "a
+64bit integer".  This leads to a subtle incompatibility with the
+SystemC specification.
+
+  Example 1:
+    sc_int<24> a = 0x100000;
+    sc_int<24> b = 0x100000;
+    sc_int<48> c = a * b;
+      --> "0x10000000000" in SystemC, "0" in BCASYSC
+
+  Example 2:
+    sc_uint<32> a = 0xffffffff;
+    sc_uint<32> b = 0xffffffff;
+    sc_uint<32> c = (a + b) >> 1;
+      --> "0xffffffff" in SystemC, "0x7fffffff" in BCA-subset
+
+Additionally, sc_(u)int variables of BCASYSC are not automatically
+initialized by the compiler, and g++ is aware of it.  This may result
+in extra warning messages upon compilation.  For example, "g++ -O2
+-Wall -I<OSCI_SYSTEMC_INCLUDE_DIR>" happily accepts the following
+code, but "g++ -O2 -Wall -I<BCASYSC_INCLUDE_DIR>" warns that "some_var
+may be used uninitialized".
+
+    sc_int<16>  some_var;
+    bool valid = false;
+    if (...) {
+      some_var = ...;
+      valid = true;
+    }
+    ...;
+    if (valid) {
+      ... = some_var;
+    }
+
+----------------------------
+[3.2] sc_in sc_out sc_signal
+----------------------------
+
+BCASYSC implements read(),write() and bind() member functions for I/O
+ports and signals.
+
+  template <typename T> class sc_in {
+  public:
+    void bind(sc_in& src);
+    void bind(sc_out<T>& src);
+    void bind(sc_signal<T>& src);
+    void operator()(sc_in& src);
+    void operator()(sc_out<T>& src);
+    void operator()(sc_signal<T>& src);
+    const T& read() const;
+    operator const T&() const;
+    const sc_clock_edge pos();  // only for sc_in<bool> (i.e. for clock ports)
+  };
+
+  template <typename T> class sc_out {
+  public:
+    void bind(sc_out& dst);
+    void bind(sc_signal<T>& dst);
+    void operator()(sc_out<T>& dst);
+    void operator()(sc_signal<T>& dst);
+    const T& read() const;
+    operator const T&() const;
+    void write(const T& val);
+    void operator=(const T& val);
+    void operator=(const sc_out& rhs);
+  };
+
+  template <typename T> class sc_signal {
+  public:
+    const T& read() const;
+    operator const T&() const;
+    void write(const T& val);
+    void operator=(const T& val);
+    void operator=(const sc_signal& rhs);
+  };
+
+"sc_clock_edge" is a proxy class to represent a rising edge of a clock
+input port.
+
+--------------
+[3.3] sc_clock
+--------------
+
+BCASYSC assumes that an application uses one global 100MHz clock.
+
+  class sc_clock : public sc_signal<bool> {
+  public:
+    sc_clock(const char* name, double period, sc_time_unit unit);
+  };
+
+The "name" parameter may be arbitrary.
+The "period" parameter must be 10.0.
+The "unit" parameter must be SC_NS.
+BCASYSC silently ignores all these parameters unchecked.
+
+The fixed (100MHz) clock frequency is not a severe restriction,
+because clock period is not important for zero-delay functional
+simulation of a single-clocked circuit.
+
+---------------------------
+[3.4] sc_start sc_stop wait
+---------------------------
+
+BCASYSC supports only these procedures to control simulation flow.
+
+  void sc_start();
+  void sc_stop();
+  void wait();
+  void wait(int n);
+
+--------------------------------------------------------
+[3.5] sc_set_time_resolution sc_time_stamp sc_time SC_NS
+--------------------------------------------------------
+
+BCASYSC holds simulation time as an "unsigned long long" in
+nanoseconds.
+
+  class sc_time { ... };  // no public interfaces
+  enum sc_time_unit { SC_NS };
+  void sc_set_time_resolution(double val, sc_time_unit unit);
+  const sc_time& sc_time_stamp();
+  ::std::ostream& operator<<(::std::ostream& os, const sc_time& tim);
+
+The "val" parameter of sc_set_time_resolution() must be 1.0.
+The "unit" parameter must be SC_NS.
+BCASYSC silently ignores these parameters unchecked.
+
+Operator<< prints the supplied time in "%lluns" format.
+
+------------------------------
+[3.6] sc_module sc_module_name
+------------------------------
+
+BCASYSC supports the following member functions for sc_module and
+sc_module_name.
+
+  class sc_module {
+  public:
+    const char* basename() const;
+    const char* name() const;
+    void reset_signal_is(sc_in<bool>& port, bool polarity);
+    void reset_signal_is(sc_signal<bool>& sig, bool polarity);
+    void set_stack_size(int size);
+    static sc_sensitive sensitive;
+    void dont_initialize();
+    void wait();
+    void wait(int n);
+  };
+
+  class sc_module_name {
+  public:
+    sc_module_name(const char *name);
+    sc_module_name(const sc_module_name& x);
+    operator const char*() const;
+  };
+
+The "polarity" parameter of reset_signal_is() must be false (although
+unchecked).
+
+An application must call reset_signal_is() in at least one place if it
+has a reset signal.  In other words, if an application uses a reset
+signal only in SC_METHODs (not in SC_CTHREADs), you must add a dummy
+"SC_CTHREAD with reset" only to call reset_signal_is().  The internal
+implementation of BCASYSC imposes this restriction.
+
+The waveform of the reset signal is also restricted.  Specifically,
+the reset signal must start as "false" (asserted), keep "false" for
+some clock cycles, change to "true" (negated), and keep "true" until
+the end of simulation.
+
+"sc_sensitive" is an auxiliary class to register sensitivity
+information.
+
+  class sc_sensitive {
+  public:
+    template <T> sc_sensitive& operator<<(sc_in<T>& port);
+    template <T> sc_sensitive& operator<<(sc_out<T>& port);
+    template <T> sc_sensitive& operator<<(sc_signal<T>& sig);
+    sc_sensitive& operator<<(const sc_clock_edge& posedge);
+  };
+
+-------------------
+[3.7] sc_trace_file
+-------------------
+
+BCASYSC declares sc_trace_file without defining it.
+
+  class sc_trace_file;
+
+An application can define sc_trace() procedures for user-defined
+aggregates.  However, those sc_trace() procedures cannot perform
+useful actions because BCASYSC does not provide sc_trace() for
+primitive types.  All you can do is to write empty sc_trace()
+definitions so that you can compile an application successfully on
+both BCASYSC and OSCI SystemC environments.
+
+-----------------------------------------------------------
+[3.8] SC_MODULE SC_CTOR SC_HAS_PROCESS SC_CTHREAD SC_METHOD
+-----------------------------------------------------------
+
+A user can use these SystemC preprocessor macros.
+
+  #define SC_MODULE(user_module_name)       ...
+  #define SC_HAS_PROCESS(user_module_name)  ...
+  #define SC_CTOR(user_module_name)         ...
+  #define SC_CTHREAD(func, edge)            ...
+  #define SC_METHOD(func)                   ...
+
+BCASYSC silently ignores the "edge" parameter of SC_CTHREAD, assuming
+that an application is properly coded as a single-clocked circuit
+ticking at positive edges.
+
+An SC_METHOD can describe either D-type flip flops (sensitive to the
+positive edge of the global clock), or combinational logic (sensitive
+to one or more I/O ports and/or signals).
+
+The "func" procedure of a combinational SC_METHOD must write values to
+all of its output signals even in cases that some of them are
+meaningless.  Additionally, the "func" procedure must accept
+(i.e. must not get panicked upon) irregular input signal values.
+The internal implementation of BCASYSC imposes these restrictions.
+
+==================
+[4] Implementation
+==================
+
+BCASYSC performs simulation in cycle-based manner to pursue runtime
+efficiency.  The simulation model of BCASYSC subtly differs from that
+of the SystemC specification, but it provides enough functionality for
+verification of application circuits written in synthesizable BCA
+style.
+
+--------------------------------------------------
+[4.1] Classification of SC_CTHREADs and SC_METHODs
+--------------------------------------------------
+
+SC_CTHREADs are classified into two groups: SC_CTHREADs with reset
+and SC_CTHREADs without reset.
+
+SC_METHODs are classified into two groups: clocked SC_METHODs and
+combinational SC_METHODs.
+
+-------------------------------------------
+[4.2] Blocking and Non-blocking Assignments
+-------------------------------------------
+
+Each sc_signal<T> holds two instances of type T, representing
+"current" and "next" values.
+
+When an SC_CTHREAD or an SC_METHOD calls read() of an sc_signal, it
+returns the value of the "current" entry.
+
+When an SC_CTHREAD or a clocked SC_METHOD calls write() of an
+sc_signal, it sets value to the "next" entry.  This is so-called a
+non-blocking assignment.
+
+When a combinational SC_METHOD calls write() of an sc_signal, it sets
+value to the "current" entry.  This is so-called a blocking
+assignment.
+
+---------------------
+[4.3] Simulation Flow
+---------------------
+
+The scheduler of BCASYSC performs simulation in the following ordered
+steps (after the elaboration phase).
+
+(1) Initialize as follows.
+  (1-1) Set "current simulation time" as 0.
+  (1-2) Set the reset signal as false (if it exists).
+
+(2) Perform simulation of the first cycle.
+  (2-1) Evaluate all SC_CTHREADs.
+  (2-2) Evaluate all clocked SC_METHODs.
+  (2-3) Update non-blocking assignment effects made in (2-1) and (2-2).
+  (2-4) Sort combinational SC_METHODs from source to sink.
+    (2-4-1) Evaluate each combinational SC_METHOD and recognize its
+            output signals.  Note that input signals are recognized at
+            the elaboration phase as the sensitivity information.
+    (2-4-2) Construct a DAG (directed acyclic graph) representing
+            dependencies of combinational SC_METHODs.
+    (2-4-3) Topologically sort the DAG and re-order the combinational
+            SC_METHODs from source to sink.
+  (2-5) Re-evaluate all combinational SC_METHODs from source to sink.
+  (2-6) Increment "current simulation time" by 10ns.
+
+(3) Perform simulation of resetting cycles.
+  (3-1) If sc_stop() has been called, exit.
+        If the reset signal has been negated, goto (4).
+  (3-2) Evaluate all SC_CTHREADs without reset.
+  (3-3) Evaluate all clocked SC_METHODs.
+  (3-4) Update non-blocking assignment effects made in (3-2) and (3-3).
+  (3-5) Evaluate all combinational SC_METHODs from source to sink.
+  (3-6) Increment "current simulation time" by 10ns and goto (3-1).
+
+(4) Perform simulation of operating cycles.
+  (4-1) If sc_stop() has been called, exit.
+  (4-2) Evaluate all SC_CTHREADs.
+  (4-3) Evaluate all clocked SC_METHODs.
+  (4-4) Update non-blocking assignment effects made in (4-2) and (4-3).
+  (4-5) Evaluate all combinational SC_METHODs from source to sink.
+  (4-6) Increment "current simulation time" by 10ns and goto (4-1).
+  
+-------------------------------------------------
+[4.4] Data Structure inside the Simulation Kernel
+-------------------------------------------------
+
+The simulation kernel of BCASYSC is the "sc_simcontext" class in
+src/sysc/kernel/sc_simcontext.h.  Its implementation class is
+"sc_simcontext::impl_t" in src/sysc/kernel/sc_simcontext.cc.
+
+int nr_cthreads_with_reset;
+
+  Holds the number of SC_CTHREADs with reset.
+
+::std::vector<sc_cthread_desc> cthreads;
+
+  Holds SC_CTHREADs.
+  The first "nr_cthread_with_reset" entries are SC_CTHREADs with reset.
+  The remaining entries are SC_CTHREADs without reset.
+
+::std::vector<sc_cor_ctx> cthreads_ctx;
+
+  Holds the coroutine contexts for SC_CTHREADs and the main thread.
+  When "cthreads" holds N entries, "cthreads_ctx" holds N+1 entries.
+  The last entry of "cthreads_ctx" is the coroutine context for the
+  main thread.
+
+int cthread_tick_index;
+
+  Holds the entry index (in "cthreads_ctx") of the running SC_CTHREAD.
+
+  At step (3-2) in section [4.3], the scheduler saves the coroutine
+  context of the main thread to the last entry of "cthreads_ctx",
+  assign the "nr_cthreads_with_reset" value to "cthread_tick_index",
+  and loads an SC_CTHREAD context from "cthreads_ctx[cthread_tick_index]".
+
+  At step (4-2) in section [4.3], the scheduler saves the coroutine
+  context of the main thread to the last entry of "cthreads_ctx",
+  assign 0 to "cthread_tick_index", and loads an SC_CTHREAD context
+  from "cthreads_ctx[0]".
+
+  When a running SC_CTHREAD calls wait(), it simply saves its
+  coroutine context to "cthreads_ctx[cthread_tick_index]" and loads a
+  new coroutine context from "cthreads_ctx[++cthread_tick_index]".
+  This means that control gets back to the scheduler when the last
+  SC_CTHREAD calls wait().
+
+::std::vector<sc_method_desc> methods;
+
+  Holds combinational SC_METHODs.
+  The order of entries is unspecified at the elaboration phase.
+  After step (2) in section [4.3], the entries are sorted from
+  source to sink.
+
+::std::vector<sc_method_desc> cmethods;
+
+  Holds clocked SC_METHODs.
+
+::std::vector<sc_signal_access_manager*> signals;
+
+  Holds pointers to control information of sc_signal instances.
+  A control information of an sc_signal consists of following members.
+
+    member     value          description
+    -----------------------------------------------------------------------
+    m_rix      0 or 1         read index
+    m_wix      0 or 1         write index
+    m_written  false or true  flag to indicate that write() has been called
+    m_id       0 to 255       the signal ID (index in "signals") % 256
+
+  An sc_signal<T> holds the above control information plus an 2-entry
+  array "m_val[2]" of type T.  The read() procedure of an sc_signal<T>
+  returns "m_val[m_rix]".  The write() procedure of an sc_signal<T> writes
+  value to "m_val[m_wix]" and sets "m_written".
+
+  Before steps (3-2) and (4-2) of section [4.3], "m_wix" is the
+  opposite of "m_rix", and "m_written" is unset.
+
+  At steps (3-4) and (4-4) of section [4.3], the scheduler scans all
+  entries in "signals" and modifies the control information as follows.
+     1. Swaps "m_rix" and "m_wix" if "m_written" is set.
+     2. Clears "m_written".
+     3. Flips "m_wix" (i.e. makes "m_wix" the same as "m_rix") if the
+        signal is one of the outputs of combinational SC_METHODs.
+
+  After steps (3-5) and (4-5) of section [4.3], the scheduler scans
+  "signals" (only for outputs of combinational SC_METHODs) and
+  modifies the control information as follows.
+     1. Flips "m_wix" (i.e. makes "m_wix" the opposite of "m_rix").
+     2. Clears "m_written".
+
+  The "m_id" member of the control information is used only at the
+  elaboration phase, specifically upon sensitivity registration, to
+  quickly identify the signal ID of a given sc_signal instance.
+
+::std::vector<int> methodsigs;
+
+  Holds the IDs (indices in "signals") of output signals of
+  combinational SC_METHODs.  The entries are numerically sorted.
+  Additionally, "methodsigs" has one sentinel entry containing
+  "signals.size()".
+
+  The scheduler builds up this data at step (2-4) in section [4.3].
+
+  This data helps the scheduler to judge whether or not an sc_signal
+  is one of the outputs of combinational SC_METHODs, when the
+  scheduler scans "signals".
+
+::std::vector<sc_sensitive_methods*> smeths;
+
+  Holds a list of sensitive (combinational) SC_METHODs for each
+  sc_signal.  More precisely, "smeths[i]" holds a list of method IDs
+  (indices in "methods" before sorting) of the combinational
+  SC_METHODs sensitive to "signals[i]".
+
+  The scheduler builds up this data at the elaboration phase, upon
+  sensitivity registration and signal/port binding.  The scheduler
+  uses this data at step (2-4-2) in section [4.3].
+
+  Note that the method IDs in "smeths" become no longer valid after
+  step (2-4-3) in section [4.3].  However, this is not a problem
+  because the scheduler does not use "smeths" after step (2-4-3).
+
+const sc_in<bool> *reset_port;
+
+  Holds a pointer to a reset port.
+
+  This data is set when an SC_CTHREAD calls reset_signal_is() for the
+  first time in an application.  If no SC_CTHREADs call
+  reset_signal_is() during the elaboration phase, the scheduler treats
+  the application as a circuit without reset.
+
+bool cthread_aborted;
+
+  Indicates that some SC_CTHREADs have been exited.
+
+  At steps (2-1), (3-2) and (4-2) in section [4.3], the scheduler clears
+  this flag before transferring control to the SC_CTHREADs.  When an
+  SC_CTHREAD returns or throws an exception, its coroutine wrapper sets
+  this flag and transfers control to the next thread.  When the control
+  gets back to the scheduler, the scheduler checks this flag, and if this
+  flag is set, the scheduler performs garbage collection on "cthreads"
+  and "cthreads_ctx".
+
+bool stopping;
+
+  Indicates that sc_stop() has been called.
+
+sc_time current_time;
+
+  Holds the current simulation time in nanoseconds.
+
+--------------------
+[4.5] Thread Library
+--------------------
+
+BCASYSC uses a customized thread library based on QuickThreads (which
+is used in OSCI SystemC).  The customization has eliminated
+unnecessary generalities to pursue runtime performance.  It supports
+only __i386 and __x86_64__ targets.
+
+----------------------
+[4.6] I/O Port Binding
+----------------------
+
+After the elaboration phase, BCASYSC implements sc_in<T> and sc_out<T>
+as a pointer to sc_signal<T>.  That is, each sc_in<T>/sc_out<T> points
+to an sc_signal<T> bound to it.  The read() and write() procedures of
+sc_in<T>/sc_out<T> simply call those procedures of the pointed
+sc_signal<T>, minimizing runtime overhead.
+
+--------------------
+[4.7] sc_int sc_uint
+--------------------
+
+BCASYSC extensively optimizes the implementation of sc_(u)int.
+Especially, BCASYSC performs range analysis upon
+addition/subtraction/shift to eliminate unnecessary wrap instructions.
+For example, BCASYSC recognizes that a sum of two sc_uint<13>s is at
+most 14bits, and allows simple assignment to an sc_uint<14>.  More
+intelligently, BCASYSC can recognize that a three-operand sum of
+sc_uint<13> and sc_uint<13> and sc_uint<1> is at most 14bits.
+
+The range analysis of BCASYSC heavily relies on optimization
+capability of a compiler such as function inlining, constant
+propagation of aggregate components, and dead code elimination.  If
+your compiler does not have enough optimization capability, runtime
+performance will be severely damaged.  For example, a user has
+reported that his video codec program (using only sc_(u)ints without
+SC_MODULEs) compiled by g++ version 3.2 runs 5x slower than the same
+program compiled by g++ version 4.1.
+
+---
+EOF
