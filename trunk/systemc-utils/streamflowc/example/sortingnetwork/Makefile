@@ -23,7 +23,7 @@ all: a.out
 run: a.out
 	@./a.out
 
-$(LIBOBJS): %.o:
+$(LIBOBJS): %:
 	@
 
 $(SFC_H): %.h: %.sfc $(SFC2CC)
