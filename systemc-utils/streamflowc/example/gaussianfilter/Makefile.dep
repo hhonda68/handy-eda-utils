@@ -1,0 +1,14 @@
+div16.o: div16.cc div16.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h
+filt1d.o: filt1d.cc
+filt2d.o: filt2d.cc filt2d.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h hvcounter.h filt1d.h pelbuf.h linebuf.h div16.h
+hvcounter.o: hvcounter.cc
+linebuf.o: linebuf.cc linebuf.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h
+pelbuf.o: pelbuf.cc pelbuf.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h
+tb.o: tb.cc tb.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h
+main.o: main.cc filt2d.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h tb.h

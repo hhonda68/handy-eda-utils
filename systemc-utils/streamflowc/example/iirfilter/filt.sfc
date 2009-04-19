@@ -1,0 +1,35 @@
+// -*- c++ -*-
+#ifndef FILT_H
+#define FILT_H
+
+#include "common.h"
+#include "filt-coeff.h"
+
+module Filt {
+  typedef filt_dt::coeff_t coeff_t;
+ param:
+  coeff_t coeff;
+ input:
+  float x;
+ output:
+  float y;
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "filt.h"
+#include "subfilt.h"
+
+struct Filt {
+  SubFilt sub0, sub1, sub2;
+};
+
+Filt() {
+  sub0(coeff.sub[0], x);
+  sub1(coeff.sub[1], sub0);
+  sub2(coeff.sub[2], sub1);
+  y = sub2;
+}
+

@@ -1,0 +1,30 @@
+// -*- c++ -*-
+
+//
+// StreamFlowC : A C++ coding style to describe hardware structure for stream processing
+//
+
+// Copyright (c) 2009 the handy-eda-utils developer(s).
+// Distributed under the MIT License.
+// (See accompanying file COPYING or copy at
+//  http://www.opensource.org/licenses/mit-license.php.)
+
+template <typename T, int N>
+module buf {
+ param:
+  int chunk;  // output "chunk" data upon trigger input
+ input:
+  T      a;
+  trig_t t;
+ output:
+  T      y;
+};
+
+struct buf {
+  fbbuf<T,N> u;
+};
+
+buf() {
+  u(chunk, 0, t, a);
+  y = u;
+}

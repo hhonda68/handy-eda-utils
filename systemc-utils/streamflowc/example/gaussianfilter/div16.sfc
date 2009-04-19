@@ -1,0 +1,20 @@
+// -*- c++ -*-
+#ifndef DIV16_H
+#define DIV16_H
+
+#include "common.h"
+
+module Div16 {
+ input:
+  pel4_t  a;
+ output:
+  pel_t   y;
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "div16.h"
+
+Div16(a) { y_out(a>>4); }

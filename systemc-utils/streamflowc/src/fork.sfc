@@ -1,0 +1,31 @@
+// -*- c++ -*-
+
+//
+// StreamFlowC : A C++ coding style to describe hardware structure for stream processing
+//
+
+// Copyright (c) 2009 the handy-eda-utils developer(s).
+// Distributed under the MIT License.
+// (See accompanying file COPYING or copy at
+//  http://www.opensource.org/licenses/mit-license.php.)
+
+template <typename T, int N>
+module fork {
+ input:
+  T  a;
+ output:
+  T  y0,y1,y2,y3,y4,y5,y6,y7,y8,y9;	// max 10 outputs
+};
+
+fork(a) {
+  if (N >= 1)   y0_out(a);
+  if (N >= 2)   y1_out(a);
+  if (N >= 3)   y2_out(a);
+  if (N >= 4)   y3_out(a);
+  if (N >= 5)   y4_out(a);
+  if (N >= 6)   y5_out(a);
+  if (N >= 7)   y6_out(a);
+  if (N >= 8)   y7_out(a);
+  if (N >= 9)   y8_out(a);
+  if (N >= 10)  y9_out(a);
+}

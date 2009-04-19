@@ -1,0 +1,43 @@
+// -*- c++ -*-
+#ifndef CMP_H
+#define CMP_H
+
+#include "common.h"
+
+module Cmp {
+ input:
+  u16_t  a, b;
+ output:
+  u16_t  x, y;		// output min(a,b) and max(a,b)
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "cmp.h"
+
+struct Cmp {
+  bool  m_odd;
+  u16_t m_val;
+  void process_input(u16_t val);
+};
+
+Cmp() { m_odd = false; }
+Cmp(a) { process_input(a); }
+Cmp(b) { process_input(b); }
+
+void Cmp::impl_t::process_input(u16_t val) {
+  if (! m_odd) {
+    m_val = val;
+  } else {
+    if (m_val < val) {
+      x_out(m_val);
+      y_out(val);
+    } else {
+      x_out(val);
+      y_out(m_val);
+    }
+  }
+  m_odd = ! m_odd;
+}

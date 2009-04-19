@@ -1,0 +1,96 @@
+// -*- c++ -*-
+#ifndef SUBFILT_H
+#define SUBFILT_H
+
+#include "common.h"
+#include "subfilt-coeff.h"
+
+module SubFilt {
+  typedef subfilt_dt::coeff_t coeff_t;
+ param:
+  coeff_t coeff;
+ input:
+  float x;
+ output:
+  float y;
+};
+
+//         k                             a0
+//       .---.    .---.                 .---.   .---.
+// x --->|MUL|--->|ADD|------------+----|MUL|-->|ADD|---> y
+//       `---'    `---'            |    `---'   `---'
+//                  A              V              A
+//                  |           .-----.           |
+//                  |           |Delay|           |
+//                  |           `-----'           |
+//                  |      -b1     |     a1       |
+//                .---.   .---.    |    .---.   .---.
+//                |ADD|<--|MUL|<---+--->|MUL|-->|ADD|
+//                `---'   `---'    |    `---'   `---'
+//                  A              V              A
+//                  |           .-----.           |
+//                  |           |Delay|           |
+//                  |           `-----'           |
+//                  |      -b2     |     a2       |
+//                  |     .---.    |    .---.     |
+//                  `-----|MUL|<---+--->|MUL|-----'
+//                        `---'         `---'
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "subfilt.h"
+#include "delay.h"
+#include "muladd.h"
+
+//               2
+//          .-----------------.
+//          |                 |
+//    1  .----. 12  .---. 13  |       .-----.  15   .---.  16
+// x --->|trig|---->|   |------------>|fork2|------>|   |------> y
+//       `----'     |   |     |       `-----'       |   |
+//                  | M |     |        14|          | M |
+//                  |   |     V          V          |   |
+//                  |   |  .-----. 7  .-----.       |   |
+//                  | U |  |fork2|--->|Delay|       | U |
+//                  |   |  `-----'    `-----'       |   |
+//                  |   |     |         8|          |   |
+//                  | L |    3|          V          | L |
+//                  |   |     |    9  .-----.  11   |   |
+//                  |   |<------------|fork3|------>|   |
+//                  | A |     |       `-----'       | A |
+//                  |   |     |        10|          |   |
+//                  |   |     |          V          |   |
+//                  | D |     |       .-----.       | D |
+//                  |   |     `------>|Delay|       |   |
+//                  |   |             `-----'       |   |
+//                  | D |               4|          | D |
+//                  |   |                V          |   |
+//                  |   |        5    .-----.   6   |   |
+//                  |   |<------------|fork2|------>|   |
+//                  `---'             `-----'       `---'
+//
+
+struct SubFilt {
+  Delay                              z1, z2;
+  MulAdd                             fa, fb;
+  ::sfcut::trig<float>               trigi;
+  ::sfcut::fork< ::sfcut::trig_t,2 > forkt;
+  ::sfcut::fork<float,2>             fork0, fork2;
+  ::sfcut::fork<float,3>             fork1;
+};
+
+SubFilt() {
+  trigi(-1, x);
+  fb(coeff.k, -coeff.b1, -coeff.b2, trigi, fork1.y0, fork2.y0);
+  fork0(fb);
+  forkt(trigi);
+  z1(forkt.y1, fork0.y0);
+  fork1(z1);
+  z2(forkt.y0, fork1.y1);
+  fork2(z2);
+  fa(coeff.a0, coeff.a1, coeff.a2, fork0.y1, fork1.y2, fork2.y1);
+  y = fa;
+}
+

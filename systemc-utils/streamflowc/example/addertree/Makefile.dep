@@ -1,0 +1,4 @@
+add.o: add.cc
+sum8.o: sum8.cc
+tb.o: tb.cc tb.h common.h ../../include/streamflowc.h
+main.o: main.cc sum8.h common.h ../../include/streamflowc.h add.h tb.h

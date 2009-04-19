@@ -1,0 +1,41 @@
+// -*- c++ -*-
+#ifndef FILT1D_H
+#define FILT1D_H
+
+#include "common.h"
+
+template <int W>
+module Filt1D {
+ input:
+  u2_t         ctrl;   // bit1 : valid flag of current data ;  bit0 : valid flag of prev_prev data
+  sc_uint<W>   prev2;
+  sc_uint<W>   prev;
+  sc_uint<W>   cur;
+ output:
+  sc_uint<W+2> y;
+};
+
+// y = cur + (prev << 1) + prev2
+//  (When "cur" is not valid, use "prev" instead.
+//   When "prev2" is not valid, use "prev" instead.)
+
+struct Filt1D {
+  u2_t         m_ctrl;
+  sc_uint<W>   m_prev, m_prev2;
+};
+
+Filt1D(ctrl)  { m_ctrl = ctrl; }
+Filt1D(prev2) { m_prev2 = prev2; }
+Filt1D(prev)  { m_prev = prev; }
+
+Filt1D(cur) {
+  sc_uint<W>    d0 = m_ctrl[1] ? cur : m_prev;
+  sc_uint<W>    d1 = m_prev;
+  sc_uint<W>    d2 = m_ctrl[0] ? m_prev2 : m_prev;
+  sc_uint<W+1>  tmp0 = d0 + d2;
+  sc_uint<W+1>  tmp1 = d1 << 1;
+  sc_uint<W+2>  ans = tmp0 + tmp1;
+  y_out(ans);
+}
+
+#endif

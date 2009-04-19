@@ -1,0 +1,27 @@
+// -*- c++ -*-
+#ifndef DELAY_H
+#define DELAY_H
+
+#include "common.h"
+
+module Delay {
+ input:
+  ::sfcut::trig_t t;
+  float           a;
+ output:
+  float           y;
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "delay.h"
+
+struct Delay {
+  float m_buf;
+};
+
+Delay()  { m_buf = 0.0f; }
+Delay(t) { y_out(m_buf); }
+Delay(a) { m_buf = a;    }

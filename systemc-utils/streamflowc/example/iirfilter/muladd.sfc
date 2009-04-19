@@ -1,0 +1,29 @@
+// -*- c++ -*-
+#ifndef MULADD_H
+#define MULADD_H
+
+#include "common.h"
+
+module MulAdd {
+ param:
+  float a0, a1, a2;
+ input:
+  float d0, d1, d2;	// expect d2 -> d1 -> d0 order
+ output:
+  float y;		// y = a0*d0 + a1*d1 + a2*d2
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "muladd.h"
+
+struct MulAdd {
+  float m_d2, m_d1;
+};
+
+MulAdd(d2) { m_d2 = d2; }
+MulAdd(d1) { m_d1 = d1; }
+MulAdd(d0) { y_out(m_a2*m_d2 + m_a1*m_d1 + m_a0*d0); }
+

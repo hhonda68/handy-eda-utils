@@ -1,0 +1,34 @@
+// -*- c++ -*-
+#ifndef HVCOUNTER_H
+#define HVCOUNTER_H
+
+#include "common.h"
+
+template <int W>
+module HVCounter {
+ param:
+  sc_uint<W>       period;
+ input:
+  ::sfcut::trig_t  t;
+ output:
+  u2_t             ctrl;
+};
+
+struct HVCounter {
+  sc_uint<W>  m_cnt;
+};
+
+HVCounter() {
+  m_cnt = 0;
+}
+
+HVCounter(t) {
+  u2_t ctrl;
+  ctrl[0] = (m_cnt != 1);
+  ctrl[1] = (m_cnt != 0);
+  ctrl_out(ctrl);
+  ++ m_cnt;
+  if (m_cnt == m_period)  m_cnt = 0;
+}
+
+#endif

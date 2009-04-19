@@ -1,0 +1,99 @@
+// -*- c++ -*-
+#ifndef FILT2D_H
+#define FILT2D_H
+
+#include "common.h"
+
+module Filt2D {
+ param:
+  sc_uint<LG_MAX_WIDTH>   width;
+  sc_uint<LG_MAX_HEIGHT>  height;
+ input:
+  pel_t a;
+ output:
+  pel_t y;
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+//        .-----.    3                     .---------.
+//        |     |------------------------->|HVCounter|
+//        |fork3|---------------------.    `---------'
+//        |     |--------.            |         |     
+//        `-----'        |            |         |
+//           A          7|           5|         |
+//          2|           V            V        4|
+//     1  .----. 10  .------.  8  .------.      |
+//  a --->|trig|---->|PelBuf|---->|PelBuf|---.  |
+//        `----'     `------'     `------'   |  |
+//                     11|           9|     6|  |
+//                       V            V      V  V
+//                    .----------------------------. 12  .-------. 13
+//                    |           Filt1D           |---->|headcut|----.
+//                    `----------------------------'     `-------'    |
+//                                                                    |
+//   .----------------------------------------------------------------'
+//   |
+//   |      .-----------------.  one trigger per line  .---------.
+//   |      |       .-----.    `---------------------->|HVCounter|
+//   |      |       |     |-----------------------.    `---------'
+//   |    14|       |fork2|---------.             |         |     
+//   |      |       `-----'         |             |         |
+//   |      |          A          20|           18|         |
+//   |      |        17|            V             V       15|
+//   |   .----. 16  .----. 23  .-------. 21  .-------.      |
+//   `-->|trig|---->|trig|---->|LineBuf|---->|LineBuf|---.  |
+//       `----'     `----'     `-------'     `-------'   |  |
+//                                24|           22|    19|  |
+//                                  V             V      V  V
+//                               .-----------------------------. 25  .-------. 26  .-----. 27
+//                               |            Filt1D           |---->|headcut|---->|Div16|----> y
+//                               `-----------------------------'     `-------'     `-----'
+
+#include "filt2d.h"
+#include "hvcounter.h"
+#include "filt1d.h"
+#include "pelbuf.h"
+#include "linebuf.h"
+#include "div16.h"
+
+using ::sfcut::trig_t;
+
+struct Filt2D {
+  ::sfcut::trig<pel_t>     trigh;
+  ::sfcut::fork<trig_t,3>  forkh;
+  HVCounter<LG_MAX_WIDTH>  hcnt;
+  PelBuf                   pbuf0, pbuf1;
+  Filt1D<BPP>              hfilt;
+  ::sfcut::headcut<pel2_t> hcut;
+  ::sfcut::trig<pel2_t>    trigvc;
+  ::sfcut::trig<pel2_t>    trigv;
+  ::sfcut::fork<trig_t,2>  forkv;
+  HVCounter<LG_MAX_HEIGHT> vcnt;
+  LineBuf                  lbuf0, lbuf1;
+  Filt1D<BPP+2>            vfilt;
+  ::sfcut::headcut<pel4_t> vcut;
+  Div16                    div;
+};
+
+Filt2D() {
+  trigh(-1, a);
+  forkh(trigh);
+  hcnt(width, forkh.y0);
+  pbuf0(forkh.y2, trigh);
+  pbuf1(forkh.y1, pbuf0.yt);
+  hfilt(hcnt, pbuf1.yt, pbuf1.ya, pbuf0.ya);
+  hcut(1, hfilt);
+  trigvc(-width, hcut);  // one trigger per line
+  trigv(-1, trigvc);
+  forkv(trigv);
+  vcnt(height, trigvc);  // count once per line
+  lbuf0(width, forkv.y1, trigv);
+  lbuf1(width, forkv.y0, lbuf0.yt);
+  vfilt(vcnt, lbuf1.yt, lbuf1.ya, lbuf0.ya);
+  vcut(static_cast<int>(width), vfilt);
+  div(vcut);
+  y = div;
+}

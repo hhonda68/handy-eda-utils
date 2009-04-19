@@ -1,0 +1,139 @@
+// -*- c++ -*-
+#ifndef TB_H
+#define TB_H
+
+#include "common.h"
+
+module Tb {
+ param:
+  int    width, height;
+ input:
+  pel_t  y;
+ output:
+  pel_t  a;
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "tb.h"
+#include <iostream>
+#include <vector>
+#include <stdexcept>
+
+namespace {
+
+typedef unsigned char uchar;
+
+class Rng {
+public:
+  Rng(unsigned int seed = 0x12345678) : m_seed(seed) {}
+  uchar get() {
+    m_seed = m_seed * 1103515245u + 12345u;
+    return (m_seed >> 15) & 0xff;
+  }
+private:
+  unsigned int m_seed;
+};
+
+class FrameBuf {
+public:
+  typedef ::std::vector<uchar>     linebuf_t;
+  FrameBuf(int width, int height) : m_buf(height) {
+    for (int v=0; v<height; ++v)  m_buf[v].resize(width);
+  }
+  linebuf_t&       operator[](int ix)       { return m_buf[ix]; }
+  linebuf_t const& operator[](int ix) const { return m_buf[ix]; }
+private:
+  typedef ::std::vector<linebuf_t> framebuf_t;
+  framebuf_t m_buf;
+};
+
+void reference_filter(int width, int height, const FrameBuf& src, FrameBuf* dst)
+{
+  // Simple 3x3 2D Gaussian filter
+  //   1 2 1
+  //   2 4 2
+  //   1 2 1
+  for (int v=0; v<height; ++v) {
+    int vm = v - (v != 0);
+    int vp = v + (v != height-1);
+    for (int h=0; h<width; ++h) {
+      int hm = h - (h != 0);
+      int hp = h + (h != width-1);
+      uchar dmm = src[vm][hm];
+      uchar dm0 = src[vm][h ];
+      uchar dmp = src[vm][hp];
+      uchar d0m = src[v ][hm];
+      uchar d00 = src[v ][h ];
+      uchar d0p = src[v ][hp];
+      uchar dpm = src[vp][hm];
+      uchar dp0 = src[vp][h ];
+      uchar dpp = src[vp][hp];
+      int dm = dmm + (dm0 << 1) + dmp;
+      int d0 = d0m + (d00 << 1) + d0p;
+      int dp = dpm + (dp0 << 1) + dpp;
+      int d = dm + (d0 << 1) + dp;
+      (*dst)[v][h] = d >> 4;
+    }
+  }
+}
+
+} // anonymous namespace
+
+struct Tb {
+  FrameBuf  *m_ref[2];
+  int       m_dstframe, m_dstv, m_dsth;
+};
+
+Tb() {
+  FrameBuf  src(width, height);
+  FrameBuf  ref0(width, height);
+  FrameBuf  ref1(width, height);
+  m_ref[0] = &ref0;
+  m_ref[1] = &ref1;
+  m_dstframe = m_dstv = m_dsth = 0;
+  int srcbank = 0;
+  Rng rng;
+  while (true) {
+    for (int v=0; v<height; ++v) {
+      for (int h=0; h<width; ++h) {
+        src[v][h] = rng.get();
+      }
+    }
+    reference_filter(width, height, src, m_ref[srcbank]);
+    for (int v=0; v<height; ++v) {
+      for (int h=0; h<width; ++h) {
+        uchar a = src[v][h];
+        std::cout << "A[" << v << "][" << h << "] = " << static_cast<int>(a) << '\n';
+        a_out(a);
+        if (m_dstframe >= 10)  return;
+      }
+    }
+    srcbank ^= 1;
+  }
+  //NOTREACHED
+}
+
+Tb(y) {
+  std::cout << "Y[" << m_dstv << "][" << m_dsth << "] = " << y;
+  uchar actual = y;
+  uchar expect = (*m_ref[m_dstframe&1])[m_dstv][m_dsth];
+  if (actual != expect) {
+    std::cout << " !!!ERROR!!! (expect " << static_cast<int>(expect) << ")\n";
+    throw std::runtime_error("verify error");
+  }
+  std::cout << '\n';
+  ++ m_dsth;
+  if (m_dsth != m_width)  return;
+  // HSYNC
+  m_dsth = 0;
+  ++ m_dstv;
+  if (m_dstv != m_height)  return;
+  // VSYNC
+  std::cout << "Frame " << m_dstframe << " verify OK.\n";
+  m_dstv = 0;
+  ++ m_dstframe;
+}
+

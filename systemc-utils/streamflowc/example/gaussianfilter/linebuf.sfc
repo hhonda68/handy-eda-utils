@@ -1,0 +1,43 @@
+// -*- c++ -*-
+#ifndef LINEBUF_H
+#define LINEBUF_H
+
+#include "common.h"
+
+module LineBuf {
+ param:
+  sc_uint<LG_MAX_WIDTH> width;
+ input:
+  ::sfcut::trig_t  t;
+  pel2_t           a;
+ output:
+  pel2_t           yt;  // buffered output upon "t" input
+  pel2_t           ya;  // forwarded output upon "a" input
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "linebuf.h"
+
+//        .-----.
+// t ---->|fbbuf|-----> yt
+//        `-----'
+//           A
+//           |
+//        .-----.
+// a ---->|fork2|-----> ya
+//        `-----'
+
+struct LineBuf {
+  ::sfcut::fork<pel2_t,2>           dup;
+  ::sfcut::fbbuf<pel2_t,MAX_WIDTH>  buf;
+};
+
+LineBuf() {
+  dup(a);
+  buf(1, width, t, dup.y0);
+  yt = buf;
+  ya = dup.y1;
+}
