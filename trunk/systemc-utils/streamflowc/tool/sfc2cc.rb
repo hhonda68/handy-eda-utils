@@ -169,7 +169,7 @@ begin
         Output.each_with_index do |desc,ix|
           next if (OutTypeCount[desc.type] >= 2)
           gtype_ix = desc.gtype.sub(/\s*$/){",#{ix}#{$&}"}
-          print("  operator #{Typename_str}::streamflowc_outtypes::#{Template_str}nth<#{gtype_ix}>::type()",
+          print("  operator #{Typename_str}streamflowc_outtypes::#{Template_str}nth<#{gtype_ix}>::type()",
                 " { return #{desc.name}; }\n")
         end
       end
@@ -335,7 +335,7 @@ begin
   print("\n")
   # Constructor
   print(Template_desc, "#{Modname}#{Template_suffix}::#{Modname}() {\n")
-  print("  m_impl = new impl_t();\n")
+  print("  m_impl = new impl_t;\n")
   unless Hierarchical then
     Output.each do |desc|
       print("  #{desc.name} = m_impl->#{desc.name}_out;\n")
