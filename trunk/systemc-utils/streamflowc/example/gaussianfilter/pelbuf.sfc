@@ -1,0 +1,41 @@
+// -*- c++ -*-
+#ifndef PELBUF_H
+#define PELBUF_H
+
+#include "common.h"
+
+module PelBuf {
+ input:
+  ::sfcut::trig_t  t;
+  pel_t            a;
+ output:
+  pel_t            yt;  // buffered output upon "t" input
+  pel_t            ya;  // forwarded output upon "a" input
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "pelbuf.h"
+
+//        .-----.
+// t ---->|fbbuf|-----> yt
+//        `-----'
+//           A
+//           |
+//        .-----.
+// a ---->|fork2|-----> ya
+//        `-----'
+
+struct PelBuf {
+  ::sfcut::fork<pel_t,2>   dup;
+  ::sfcut::fbbuf<pel_t,1>  buf;
+};
+
+PelBuf() {
+  dup(a);
+  buf(1, 1, t, dup.y0);
+  yt = buf;
+  ya = dup.y1;
+}

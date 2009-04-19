@@ -1,0 +1,44 @@
+// -*- c++ -*-
+
+//
+// StreamFlowC : A C++ coding style to describe hardware structure for stream processing
+//
+
+// Copyright (c) 2009 the handy-eda-utils developer(s).
+// Distributed under the MIT License.
+// (See accompanying file COPYING or copy at
+//  http://www.opensource.org/licenses/mit-license.php.)
+
+struct trig_t {};
+
+template <typename T>
+module trig {
+ param:
+  int     period;  // -N/+N : trigger before/after every N inputs
+ input:
+  T       a;
+ output:
+  T       y;
+  trig_t  t;
+};
+
+struct trig {
+  int  m_count;
+  bool m_preceed;
+};
+
+trig() {
+  m_count = 0;
+  m_preceed = (m_period < 0);
+  if (m_preceed)   m_period = - m_period;
+}
+
+trig(a) {
+  if (m_preceed && m_count == 0)  t_out(trig_t());
+  y_out(a);
+  ++ m_count;
+  if (m_count == m_period) {
+    if (! m_preceed)  t_out(trig_t());
+    m_count = 0;
+  }
+}

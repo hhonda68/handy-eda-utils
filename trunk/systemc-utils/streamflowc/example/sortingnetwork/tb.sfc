@@ -1,0 +1,55 @@
+// -*- c++ -*-
+#ifndef TB_H
+#define TB_H
+
+#include "common.h"
+
+module Tb {
+ input:
+  u16_t p, q, r, s;
+ output:
+  u16_t a, b, c, d;
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "tb.h"
+#include <iostream>
+
+namespace {
+
+class Rng {
+public:
+  Rng(unsigned int seed = 0x12345678) : m_seed(seed) {}
+  u16_t get() {
+    m_seed = m_seed * 1103515245u + 12345u;
+    return (m_seed >> 15) & 0xffff;
+  }
+private:
+  unsigned int m_seed;
+};
+
+} // anonymous namespace
+
+Tb() {
+  Rng      rng;
+  for (int i=0; i<10; ++i) {
+    u16_t a = rng.get();
+    u16_t b = rng.get();
+    u16_t c = rng.get();
+    u16_t d = rng.get();
+    std::cout << "A-D " << a << ' ' << b << ' ' << c << ' ' << d << '\n';
+    a_out(a);
+    b_out(b);
+    c_out(c);
+    d_out(d);
+  }
+}
+
+Tb(p) { std::cout << "P " << p << '\n'; }
+Tb(q) { std::cout << "Q " << q << '\n'; }
+Tb(r) { std::cout << "R " << r << '\n'; }
+Tb(s) { std::cout << "S " << s << '\n'; }
+

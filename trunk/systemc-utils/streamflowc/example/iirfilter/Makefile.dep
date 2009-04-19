@@ -1,0 +1,12 @@
+delay.o: delay.cc delay.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h
+filt.o: filt.cc filt.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h filt-coeff.h subfilt-coeff.h subfilt.h
+muladd.o: muladd.cc muladd.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h
+subfilt.o: subfilt.cc subfilt.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h subfilt-coeff.h delay.h muladd.h
+tb.o: tb.cc tb.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h filt-coeff.h subfilt-coeff.h
+main.o: main.cc filt.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h filt-coeff.h subfilt-coeff.h tb.h

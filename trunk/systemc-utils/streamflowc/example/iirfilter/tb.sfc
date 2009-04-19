@@ -1,0 +1,85 @@
+// -*- c++ -*-
+#ifndef TB_H
+#define TB_H
+
+#include "common.h"
+#include "filt-coeff.h"
+
+module Tb {
+ param:
+  filt_dt::coeff_t coeff;
+ input:
+  float y;
+ output:
+  float x;
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "tb.h"
+#include <iostream>
+#include <stdexcept>
+#include <cmath>
+
+namespace {
+
+class Rng {
+public:
+  Rng(unsigned int seed = 0x12345678) : m_seed(seed) {}
+  float get() {
+    m_seed = m_seed * 1103515245u + 12345u;
+    return (((m_seed >> 15) & 0xffff) / 65535.0f) * 2.0f - 1.0f;
+  }
+private:
+  unsigned int m_seed;
+};
+
+class SubFiltRef {
+public:
+  explicit SubFiltRef(const subfilt_dt::coeff_t& coeff) : m_coeff(coeff), m_z1(0.0f), m_z2(0.0f) {}
+  float calc(float x) {
+    float tmp = (-m_coeff.b2)*m_z2 + (-m_coeff.b1)*m_z1 + m_coeff.k*x;
+    float ans = m_coeff.a2*m_z2 + m_coeff.a1*m_z1 + m_coeff.a0*tmp;
+    m_z2 = m_z1;
+    m_z1 = tmp;
+    return ans;
+  }
+private:
+  subfilt_dt::coeff_t m_coeff;
+  float               m_z1, m_z2;
+};
+
+class FiltRef {
+public:
+  explicit FiltRef(const filt_dt::coeff_t& coeff) : sub0(coeff.sub[0]), sub1(coeff.sub[1]), sub2(coeff.sub[2]) {}
+  float calc(float x) { return sub2.calc(sub1.calc(sub0.calc(x))); }
+private:
+  SubFiltRef sub0, sub1, sub2;
+};
+
+} // anonymous namespace
+
+struct Tb {
+  float m_ans;
+};
+
+Tb() {
+  Rng rng;
+  FiltRef ref(coeff);
+  for (int clk=0; clk<100; ++clk) {
+    float x = rng.get();
+    float expect = ref.calc(x);
+    x_out(x);
+    float actual = m_ans;
+    std::cout << "clk " << clk << ": x=" << x << " y=" << actual;
+    if (fabs(actual - expect) > 1.0e-5) {
+      std::cout << " !!!ERROR!!! (expect " << expect << ")\n";
+      throw std::runtime_error("verify error");
+    }
+    std::cout << '\n';
+  }
+}
+
+Tb(y) { m_ans = y; }
