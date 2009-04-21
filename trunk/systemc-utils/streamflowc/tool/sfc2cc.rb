@@ -68,18 +68,29 @@ def define_default_bind
   pos
 end
 
+def line_control(lineno=nil, autogen_srcline = nil)
+  line = lineno || ARGF.file.lineno
+  file = ARGF.filename + (autogen_srcline ? ".line#{autogen_srcline}" : "")
+  "\#line #{line} \"#{file}\"\n"
+end
+
 begin
   ARGV.size >= 1  or fail "invalid argument(s)"
   opt = ARGV.shift
   (opt == "-h") or (opt == "-cc")  or fail "unrecognized option \"#{opt}\""
   Opt_header = (opt == "-h")
 
+  # Assume the first line is "// -*- c++ -*-"
+  gets  or fail "unexpected EOF"
+  print if (Opt_header)
+
   # search "module" declaration line
   Template_desc = []
+  print(line_control(2))  if (Opt_header)
   while true do
     gets  or fail "unexpected EOF"
     break if ($_ =~ /^module\s+(\w+)\s+/)
-    print  if (Opt_header)
+    print if (Opt_header)
     Template_desc.clear  if ($_ =~ /^template\s*</)
     Template_desc.push($_)
   end
@@ -90,20 +101,26 @@ begin
   print($_.sub(/^module/, "struct"))  if (Opt_header)
 
   # parse module declaration
+  ModDeclLineno = ARGF.file.lineno
   state = nil
   ModSig = Struct.new(:type, :gtype, :atype, :name)
   Param = []
   Input = []
   Output = []
+  piodecllineno = nil
+  PIODeclLines = []
   while (true) do
     gets  or fail "unexpected EOF"
     case $_
     when /^\s*(param|input|output)\s*:\s*(\/\/.*)?$/
+      piodecllineno = ARGF.file.lineno  unless piodecllineno
       state = $1
+      PIODeclLines.push($_.sub(/^\s*/){$&+"//"})
     when /^\};\s*$/
       break
     else
       if (state) then
+        PIODeclLines.push("#{$_}");
         chomp!
         sub!(/\s*\/\/.*$/,"")
         next if ($_ =~ /^\s*$/)
@@ -151,6 +168,12 @@ begin
 
   # auto-generate module declaration
   if (Opt_header) then
+    # dummy struct for syntax check
+    print(line_control(1, ModDeclLineno), "  struct streamflowc_ports_t {\n")
+    print(line_control(piodecllineno), PIODeclLines.map{|line| "  " + line})
+    print("  };\n");
+    # output ports etc.
+    print(line_control(1, ARGF.file.lineno))
     Output.each do |desc|
       print("  #{desc.atype} #{desc.name};\n")
     end
@@ -177,6 +200,7 @@ begin
     print("private:\n",
           "  struct impl_t;\n",
           "  impl_t *m_impl;\n",
+          line_control,
           "};\n")
   end
 
@@ -213,37 +237,51 @@ begin
   genlines_end = nil
   explicit_impl_bind = 0
   state = :none   # none impl bind input
+  GenLines.push(line_control(ARGF.file.lineno+1))  if (! Opt_header)
   while (gets) do
     break if (Opt_header && $_ == Delimiter)
     case $_
     when /^struct\s+#{Modname}\s*\{\s*(\/\/.*)?$/o
       (state == :none)  or fail "syntax error"
-      GenLines.concat(Template_desc)
+      Template_desc.each do |line|
+        GenLines.push(line, line_control)
+      end
       GenLines.push($_.sub(/^struct\s+#{Modname}/o){$&+"#{Template_suffix}::impl_t"})
+      GenLines.push(line_control(1, ARGF.file.lineno))
       state = :impl
       genlines_impl = GenLines.size
       explicit_impl_bind += 1
+      GenLines.push(line_control(ARGF.file.lineno+1))
     when /^#{Modname}\s*\(\s*\)(\s*\{(.*\})?)?\s*(\/\/.*)?$/o
       (state == :none)  or fail "syntax error"
       brace,body = $1,$2
-      genlines_impl ||= define_default_impl
-      GenLines.concat(Template_desc)
-      GenLines.push(Inline_str)
-      GenLines.push(bind_decl(0, "#{Modname}#{Template_suffix}::impl_t::", :impl))
+      curline = line_control
+      unless genlines_impl
+        GenLines.push(line_control(1, ARGF.file.lineno))
+        genlines_impl = define_default_impl
+        GenLines.push(curline)
+      end
+      Template_desc.each do |line|
+        GenLines.push(line, curline)
+      end
+      GenLines.push(Inline_str, curline)
+      GenLines.push(bind_decl(0, "#{Modname}#{Template_suffix}::impl_t::", :impl).gsub(/\n/,"\n#{curline}"))
       GenLines.push(brace ? " {\n" : "\n")
       unless (brace) then
         gets  or fail "unexpected EOF"
         $_ == "{\n"  or fail "syntax error"
         GenLines.push($_)
       end
+      GenLines.push(line_control(1, ARGF.file.lineno))
       genlines_bind = GenLines.size
       if (body) then
         body.sub!(/^\s*/, "  ")
-        body.sub!(/\s+\}$/, "\n}\n")
-        GenLines.push(body)
-        genlines_end = GenLines.size
+        body.sub!(/\s+\}$/, "\n")
+        GenLines.push(curline, body, line_control, "}\n")
+        genlines_end = [ GenLines.size, line_control(1, ARGF.file.lineno+1), line_control(ARGF.file.lineno+1) ]
       else
         state = :bind
+        GenLines.push(line_control(ARGF.file.lineno+1))
       end
       explicit_impl_bind += 1
     when /^#{Modname}\s*\(\s*([a-zA-Z_]\w*)\s*\)(\s*\{(.*\})?)?\s*(\/\/.*)?$/o
@@ -251,19 +289,31 @@ begin
       name,brace,body = $1,$2,$3
       InputIndex.include?(name)  or fail "curious input signal name"
       desc = Input[InputIndex[name]]
-      genlines_impl ||= define_default_impl
-      genlines_bind ||= define_default_bind
-      GenLines.concat(Template_desc)
-      GenLines.push(Inline_str)
+      curline = line_control
+      unless genlines_impl
+        GenLines.push(line_control(1, ARGF.file.lineno))
+        genlines_impl = define_default_impl
+        GenLines.push(curline)
+      end
+      unless genlines_bind then
+        GenLines.push(line_control(1, ARGF.file.lineno))
+        genlines_bind ||= define_default_bind
+        GenLines.push(curline)
+      end
+      Template_desc.each do |line|
+        GenLines.push(line, curline)
+      end
+      GenLines.push(Inline_str, curline)
       GenLines.push("void #{Modname}#{Template_suffix}::impl_t::streamflowc_mproc_#{name}(#{desc.atype} #{name})#{brace}\n")
       Def[name] = true
       if (body) then
         body.scan(/\bm_(\w+)\b/) do |match|
           UsedParam[match[0]] = true
         end
-        genlines_end = GenLines.size
+        genlines_end = [ GenLines.size, line_control(1, ARGF.file.lineno+1), line_control(ARGF.file.lineno+1) ]
       else
         state = :input
+        GenLines.push(line_control(ARGF.file.lineno+1))
       end
     else
       GenLines.push($_)
@@ -272,7 +322,7 @@ begin
       end
       if (state != :none) then
         if ($_ =~ /^\}/) then
-          genlines_end = GenLines.size
+          genlines_end = [ GenLines.size, line_control(1, ARGF.file.lineno+1), line_control(ARGF.file.lineno+1) ]
           state = :none
         end
       end
@@ -288,9 +338,12 @@ begin
     end
   end
 
-  startix = 0
-  if (! Opt_header) then
+  if (Opt_header) then
+    startix = 0
+  else
+    startix = 1
     startix += 1  while (GenLines[startix] =~ /^\s*$/)
+    print(GenLines[0].sub(/^\#line (\d+)/){"#line "+($1.to_i+startix-1).to_s})
   end
   print(GenLines[startix..genlines_impl-1])
   unless Hierarchical then
@@ -331,7 +384,8 @@ begin
       print("  #{desc.name} = streamflowc_port_#{desc.name};\n")
     end
   end
-  print(GenLines[genlines_bind..genlines_end-1])
+  print(GenLines[genlines_bind..genlines_end[0]-1])
+  print(genlines_end[1])
   print("\n")
   # Constructor
   print(Template_desc, "#{Modname}#{Template_suffix}::#{Modname}() {\n")
@@ -361,7 +415,8 @@ begin
       print("}\n\n")
     end
   end
-  print(GenLines[genlines_end..-1])
+  print(genlines_end[2])
+  print(GenLines[genlines_end[0]..-1])
 
 rescue RuntimeError
   if (ARGF.closed?) then
