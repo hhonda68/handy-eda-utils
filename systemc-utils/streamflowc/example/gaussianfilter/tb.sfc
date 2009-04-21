@@ -22,20 +22,7 @@ module Tb {
 #include <vector>
 #include <stdexcept>
 
-namespace {
-
 typedef unsigned char uchar;
-
-class Rng {
-public:
-  Rng(unsigned int seed = 0x12345678) : m_seed(seed) {}
-  uchar get() {
-    m_seed = m_seed * 1103515245u + 12345u;
-    return (m_seed >> 15) & 0xff;
-  }
-private:
-  unsigned int m_seed;
-};
 
 class FrameBuf {
 public:
@@ -48,6 +35,19 @@ public:
 private:
   typedef ::std::vector<linebuf_t> framebuf_t;
   framebuf_t m_buf;
+};
+
+namespace {
+
+class Rng {
+public:
+  Rng(unsigned int seed = 0x12345678) : m_seed(seed) {}
+  uchar get() {
+    m_seed = m_seed * 1103515245u + 12345u;
+    return (m_seed >> 15) & 0xff;
+  }
+private:
+  unsigned int m_seed;
 };
 
 void reference_filter(int width, int height, const FrameBuf& src, FrameBuf* dst)
@@ -117,7 +117,7 @@ Tb() {
 }
 
 Tb(y) {
-  std::cout << "Y[" << m_dstv << "][" << m_dsth << "] = " << y;
+  std::cout << "Y[" << m_dstv << "][" << m_dsth << "] = " << static_cast<int>(y);
   uchar actual = y;
   uchar expect = (*m_ref[m_dstframe&1])[m_dstv][m_dsth];
   if (actual != expect) {
