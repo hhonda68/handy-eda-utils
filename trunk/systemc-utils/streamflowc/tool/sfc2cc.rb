@@ -236,6 +236,7 @@ begin
   genlines_bind = nil
   genlines_end = nil
   explicit_impl_bind = 0
+  instance_id_used = false
   state = :none   # none impl bind input
   GenLines.push(line_control(ARGF.file.lineno+1))  if (! Opt_header)
   while (gets) do
@@ -277,6 +278,7 @@ begin
       if (body) then
         body.sub!(/^\s*/, "  ")
         body.sub!(/\s+\}$/, "\n")
+        instance_id_used = true  if (body =~ /\bstreamflowc_id\b/)
         GenLines.push(curline, body, line_control, "}\n")
         genlines_end = [ GenLines.size, line_control(1, ARGF.file.lineno+1), line_control(ARGF.file.lineno+1) ]
       else
@@ -310,6 +312,7 @@ begin
         body.scan(/\bm_(\w+)\b/) do |match|
           UsedParam[match[0]] = true
         end
+        instance_id_used = true  if (body =~ /\bstreamflowc_id\b/)
         genlines_end = [ GenLines.size, line_control(1, ARGF.file.lineno+1), line_control(ARGF.file.lineno+1) ]
       else
         state = :input
@@ -320,6 +323,7 @@ begin
       $_.scan(/\bm_(\w+)\b/) do |match|   # no care for comments and strings
         UsedParam[match[0]] = true
       end
+      instance_id_used = true  if ($_ =~ /\bstreamflowc_id\b/)
       if (state != :none) then
         if ($_ =~ /^\}/) then
           genlines_end = [ GenLines.size, line_control(1, ARGF.file.lineno+1), line_control(ARGF.file.lineno+1) ]
@@ -357,9 +361,16 @@ begin
       next unless UsedParam.include?(desc.name)
       print("  #{desc.type} m_#{desc.name};\n")
     end
+    if (instance_id_used) then
+      print("  static int streamflowc_nr_instance;\n")
+      print("  int streamflowc_id;\n")
+    end
     print("  impl_t() {\n")
     Input.each do |desc|
       print("    streamflowc_port_#{desc.name}.m_proc = streamflowc_proc_#{desc.name};\n")
+    end
+    if (instance_id_used) then
+      print("    streamflowc_id = streamflowc_nr_instance ++;\n")
     end
     print("  }\n")
     Input.each do |desc|
@@ -396,6 +407,9 @@ begin
     end
   end
   print("}\n\n")
+  if (instance_id_used) then
+    print(Template_desc, "int #{Modname}#{Template_suffix}::impl_t::streamflowc_nr_instance = 0;\n\n")
+  end
   # Descructor
   print(Template_desc, "#{Modname}#{Template_suffix}::~#{Modname}() { delete m_impl; }\n\n")
   # Binder
