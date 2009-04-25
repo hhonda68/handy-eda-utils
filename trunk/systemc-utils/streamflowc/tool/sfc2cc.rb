@@ -74,6 +74,12 @@ def line_control(lineno=nil, autogen_srcline = nil)
   "\#line #{line} \"#{file}\"\n"
 end
 
+def check_member_usage(line)
+  UsedMember[:id]       = true  if (line =~ /\bstreamflowc_id\b/)
+  UsedMember[:basename] = true  if (line =~ /\bstreamflowc_basename\b/)
+  UsedMember[:name]     = true  if (line =~ /\bstreamflowc_name\b/)
+end
+
 begin
   ARGV.size >= 1  or fail "invalid argument(s)"
   opt = ARGV.shift
@@ -177,7 +183,7 @@ begin
     Output.each do |desc|
       print("  #{desc.atype} #{desc.name};\n")
     end
-    print("  #{Modname}();\n")
+    print("  explicit #{Modname}(const ::streamflowc::module_name& = 0);\n")
     print("  ~#{Modname}();\n")
     print(bind_decl(2, ""), ";\n")
     if (! Output.empty?) then
@@ -232,11 +238,11 @@ begin
   GenLines = []
   Inline_str = "__attribute__((always_inline)) inline\n"
   UsedParam = {}
+  UsedMember = { :id => false, :basename => false, :name => false }
   genlines_impl = nil
   genlines_bind = nil
   genlines_end = nil
   explicit_impl_bind = 0
-  instance_id_used = false
   state = :none   # none impl bind input
   GenLines.push(line_control(ARGF.file.lineno+1))  if (! Opt_header)
   while (gets) do
@@ -278,7 +284,7 @@ begin
       if (body) then
         body.sub!(/^\s*/, "  ")
         body.sub!(/\s+\}$/, "\n")
-        instance_id_used = true  if (body =~ /\bstreamflowc_id\b/)
+        check_member_usage(body)
         GenLines.push(curline, body, line_control, "}\n")
         genlines_end = [ GenLines.size, line_control(1, ARGF.file.lineno+1), line_control(ARGF.file.lineno+1) ]
       else
@@ -312,7 +318,7 @@ begin
         body.scan(/\bm_(\w+)\b/) do |match|
           UsedParam[match[0]] = true
         end
-        instance_id_used = true  if (body =~ /\bstreamflowc_id\b/)
+        check_member_usage(body)
         genlines_end = [ GenLines.size, line_control(1, ARGF.file.lineno+1), line_control(ARGF.file.lineno+1) ]
       else
         state = :input
@@ -323,7 +329,7 @@ begin
       $_.scan(/\bm_(\w+)\b/) do |match|   # no care for comments and strings
         UsedParam[match[0]] = true
       end
-      instance_id_used = true  if ($_ =~ /\bstreamflowc_id\b/)
+      check_member_usage($_)
       if (state != :none) then
         if ($_ =~ /^\}/) then
           genlines_end = [ GenLines.size, line_control(1, ARGF.file.lineno+1), line_control(ARGF.file.lineno+1) ]
@@ -350,7 +356,21 @@ begin
     print(GenLines[0].sub(/^\#line (\d+)/){"#line "+($1.to_i+startix-1).to_s})
   end
   print(GenLines[startix..genlines_impl-1])
-  unless Hierarchical then
+  if Hierarchical then
+    # collect submodule instances
+    ix = genlines_impl
+    str = ""
+    while (GenLines[ix] !~ /^\}/) do
+      str += GenLines[ix].chomp.sub(/\s*\/\/.*$/," ")
+      ix += 1
+    end
+    Instances = []
+    str.split(";").each do |s|
+      s =~ /([a-zA-Z_]\w*\s*,\s*)*[a-zA-Z_]\w*\s*$/  or fail "curious instance list in hierarchical module"
+      s0 = $&
+      Instances.concat(s0.gsub(/\s+/,"").split(","))
+    end
+  else
     Input.each do |desc|
       print("  ::streamflowc::port<#{desc.gtype}> streamflowc_port_#{desc.name};\n")
     end
@@ -361,16 +381,32 @@ begin
       next unless UsedParam.include?(desc.name)
       print("  #{desc.type} m_#{desc.name};\n")
     end
-    if (instance_id_used) then
-      print("  static int streamflowc_nr_instance;\n")
-      print("  int streamflowc_id;\n")
-    end
+  end
+  initlist = []
+  if (UsedMember[:id]) then
+    print("  static int streamflowc_nr_instance;\n")
+    print("  const int streamflowc_id;\n")
+    initlist.push("streamflowc_id(streamflowc_nr_instance++)")
+  end
+  if (UsedMember[:basename]) then
+    print("  const char * const streamflowc_basename;\n")
+    initlist.push("streamflowc_basename(::streamflowc::simcontext::get_current_basename())")
+  end
+  if (UsedMember[:name]) then
+    print("  const char * const streamflowc_name;\n")      
+    initlist.push("streamflowc_name(::streamflowc::simcontext::get_current_name())")
+  end
+  initlist.concat(Instances.map{|x| x+'("'+x+'")'})  if (Hierarchical)
+  if (initlist.empty?) then
+    # assert(! Hierarchical)
     print("  impl_t() {\n")
+  else
+    suffix = Hierarchical ? " {}\n" : " {\n"
+    print(format_array("  impl_t() : ", initlist, ",", 100, suffix))
+  end
+  unless Hierarchical then
     Input.each do |desc|
       print("    streamflowc_port_#{desc.name}.m_proc = streamflowc_proc_#{desc.name};\n")
-    end
-    if (instance_id_used) then
-      print("    streamflowc_id = streamflowc_nr_instance ++;\n")
     end
     print("  }\n")
     Input.each do |desc|
@@ -399,7 +435,7 @@ begin
   print(genlines_end[1])
   print("\n")
   # Constructor
-  print(Template_desc, "#{Modname}#{Template_suffix}::#{Modname}() {\n")
+  print(Template_desc, "#{Modname}#{Template_suffix}::#{Modname}(const ::streamflowc::module_name&) {\n")
   print("  m_impl = new impl_t;\n")
   unless Hierarchical then
     Output.each do |desc|
@@ -407,7 +443,7 @@ begin
     end
   end
   print("}\n\n")
-  if (instance_id_used) then
+  if (UsedMember[:id]) then
     print(Template_desc, "int #{Modname}#{Template_suffix}::impl_t::streamflowc_nr_instance = 0;\n\n")
   end
   # Descructor
