@@ -66,6 +66,23 @@ struct outtypes {
   template <typename T, int N> struct nth : nth_judge<T,N,(dupcnt<T>::val>1)> {};
 };
 
+namespace simcontext {
+void push_modulename(const char *name);
+void pop_modulename();
+const char *get_current_basename();
+const char *get_current_name();
+} // namespace simcontext
+
+struct module_name {
+  module_name(const char *name) { simcontext::push_modulename(name); }
+  ~module_name() { simcontext::pop_modulename(); }
+private:
+  // disabled
+  module_name();
+  module_name(const module_name&);
+  module_name& operator=(const module_name&);
+};
+
 } // namespace streamflowc
 
 #endif
