@@ -26,7 +26,12 @@ const char* sc_module::basename() const { return m.basename.c_str(); }
 const char* sc_module::name() const
 {
   if (m.name.empty()) {
-    m.name = (m.parent != 0) ? (m.parent->m.name + "." + m.basename) : m.basename;
+    if (m.parent == 0) {
+      m.name = m.basename;
+    } else {
+      m.parent->name();  // initialize m.parent->m.name if necessary
+      m.name = m.parent->m.name + "." + m.basename;
+    }
   }
   return m.name.c_str();
 }
