@@ -15,6 +15,8 @@
 
 Delimiter = "////////////////////////////////////////////////////////////////\n"
 
+PRINT_INSTANCE_NAME_UPON_BINDING_ERROR = true
+
 def format_array(prefix, arr, sep, width, suffix)
   str_cont = sep.sub(/s+$/,"") + "\n" + (" " * prefix.length)
   width -= prefix.length
@@ -239,6 +241,7 @@ begin
   Inline_str = "__attribute__((always_inline)) inline\n"
   UsedParam = {}
   UsedMember = { :id => false, :basename => false, :name => false }
+  UsedMember[:basename] = true   if (PRINT_INSTANCE_NAME_UPON_BINDING_ERROR)
   genlines_impl = nil
   genlines_bind = nil
   genlines_end = nil
@@ -418,6 +421,9 @@ begin
   end
   print("  ", Inline_str, bind_decl(2, "", :impl), ";\n")
   print(GenLines[genlines_impl..genlines_bind-1])
+  if (PRINT_INSTANCE_NAME_UPON_BINDING_ERROR) then
+    print("  ::streamflowc::binder_scope_marker streamflowc_binder_scope_marker(streamflowc_basename);\n")
+  end
   if Hierarchical then
     Output.each do |desc|
       print("  #{desc.atype}& #{desc.name} = streamflowc_parent->#{desc.name};\n")
