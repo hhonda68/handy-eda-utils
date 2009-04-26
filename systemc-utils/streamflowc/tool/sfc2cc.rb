@@ -422,7 +422,7 @@ begin
   print("  ", Inline_str, bind_decl(2, "", :impl), ";\n")
   print(GenLines[genlines_impl..genlines_bind-1])
   if (PRINT_INSTANCE_NAME_UPON_BINDING_ERROR) then
-    print("  ::streamflowc::binder_scope_marker streamflowc_binder_scope_marker(streamflowc_basename);\n")
+    print("  ::streamflowc::module_name streamflowc_module_name(streamflowc_basename);\n")
   end
   if Hierarchical then
     Output.each do |desc|

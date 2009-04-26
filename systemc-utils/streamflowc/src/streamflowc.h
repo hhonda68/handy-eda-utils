@@ -83,11 +83,6 @@ private:
   module_name& operator=(const module_name&);
 };
 
-struct binder_scope_marker {
-  explicit binder_scope_marker(const char *name) { simcontext::push_modulename(name); }
-  ~binder_scope_marker()                         { simcontext::pop_modulename(); }
-};
-
 } // namespace streamflowc
 
 #endif
