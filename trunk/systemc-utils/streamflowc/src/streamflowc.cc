@@ -37,23 +37,21 @@ const char *get_current_basename()     { return the_simcontext()->name_hierarchy
 const char *get_current_name()
 {
   ::std::vector<const char *>& vec = the_simcontext()->name_hierarchy;
-  int s = vec.size();
-  if (s == 0)  return "";
-  int ix = (vec[0] == 0) ? 1 : 0;  // main() may directly instanciate DUT and TestBench unnamed.
-  if (ix == 1 && s == 1)  return "";
+  int n = vec.size();
   int len = 0;
-  for (int i=ix; i<s; ++i) {
-    len += ((vec[i] != 0) ? ::std::strlen(vec[i]) : 0) + 1;
+  for (int i=0; i<n; ++i) {
+    if (vec[i] != 0)  len += ::std::strlen(vec[i]) + 1;
   }
+  if (len == 0)  return "";  // main() may directly instanciate DUT and TestBench unnamed.
   char *ans = new char[len];	// Never deleted.  Do not mind.
   int cx = 0;
-  for (int i=ix; i<s; ++i) {
+  for (int i=0; i<n; ++i) {
     if (vec[i] != 0) {
       len = ::std::strlen(vec[i]);
       ::std::strncpy(&ans[cx], vec[i], len);
       cx += len;
+      ans[cx++] = '.';
     }
-    ans[cx++] = '.';
   }
   // assert(cx == sizeof(ans[]));
   ans[cx-1] = '\0';  // change the last '.' to '\0'
