@@ -5,6 +5,7 @@
 #endif
 using sc_dt::sc_int;
 using sc_dt::sc_uint;
+using sc_dt::sc_biguint;
 
 typedef bool                  b_t;
 typedef   signed char         sc_t;
@@ -34,12 +35,16 @@ typedef sc_int<15> s15_t;    typedef sc_uint<15> u15_t;
 typedef sc_int<16> s16_t;    typedef sc_uint<16> u16_t;
 typedef sc_int<17> s17_t;    typedef sc_uint<17> u17_t;
 
+typedef sc_int<20> s20_t;    typedef sc_uint<20> u20_t;
+
+typedef sc_int<30> s30_t;    typedef sc_uint<30> u30_t;
 typedef sc_int<31> s31_t;    typedef sc_uint<31> u31_t;
 typedef sc_int<32> s32_t;    typedef sc_uint<32> u32_t;
 typedef sc_int<33> s33_t;    typedef sc_uint<33> u33_t;
 typedef sc_int<34> s34_t;    typedef sc_uint<34> u34_t;
 typedef sc_int<35> s35_t;    typedef sc_uint<35> u35_t;
 
+typedef sc_int<40> s40_t;    typedef sc_uint<40> u40_t;
 typedef sc_int<41> s41_t;    typedef sc_uint<41> u41_t;
 typedef sc_int<42> s42_t;    typedef sc_uint<42> u42_t;
 typedef sc_int<43> s43_t;    typedef sc_uint<43> u43_t;
@@ -1038,3 +1043,14 @@ int concat_cat_cat(sc_int<10>& a0, sc_int<11>& a1, sc_int<12>& b0, sc_int<13>& b
   return (a0(9,2),a1(5,3),(b0(9,2),b1(5,3)));
 }
 
+void bigmerge1(sc_biguint<100>& x, u40_t& a, u20_t& b, u30_t& c, u10_t& d) { x = (a,b,c,d); }
+void bigmerge2(sc_biguint<100>& x, u40_t& a, u20_t& b, u30_t& c, u10_t& d) { x = (d,c,b,a); }
+void bigmerge1a(sc_biguint<100>& x, const u40_t& a, u20_t& b, u30_t& c, u10_t& d) { x = (a,b,c,d); }
+void bigmerge1b(sc_biguint<100>& x, u40_t& a, const u20_t& b, u30_t& c, u10_t& d) { x = (a,b,c,d); }
+void bigmerge1c(sc_biguint<100>& x, u40_t& a, u20_t& b, const u30_t& c, u10_t& d) { x = (a,b,c,d); }
+void bigmerge1d(sc_biguint<100>& x, u40_t& a, u20_t& b, u30_t& c, const u10_t& d) { x = (a,b,c,d); }
+void bigmerge1ab(sc_biguint<100>& x, const u40_t& a, const u20_t& b, u30_t& c, u10_t& d) { x = (a,b,c,d); }
+void bigsplit1(sc_biguint<100>& x, u40_t& a, u20_t& b, u30_t& c, u10_t& d) { (a,b,c,d) = x; }
+void bigsplit2(sc_biguint<100>& x, u40_t& a, u20_t& b, u30_t& c, u10_t& d) { (d,c,b,a) = x; }
+void bigsplit1c(const sc_biguint<100>& x, u40_t& a, u20_t& b, u30_t& c, u10_t& d) { (a,b,c,d) = x; }
+void bigsplit2c(const sc_biguint<100>& x, u40_t& a, u20_t& b, u30_t& c, u10_t& d) { (d,c,b,a) = x; }

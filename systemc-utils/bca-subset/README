@@ -10,13 +10,14 @@ Distributed under the MIT License.
 [2] Installation
 [3] Specification
   [3.1] sc_int sc_uint
-  [3.2] sc_in sc_out sc_signal
-  [3.3] sc_clock
-  [3.4] sc_start sc_stop wait
-  [3.5] sc_set_time_resolution sc_time_stamp sc_time SC_NS
-  [3.6] sc_module sc_module_name
-  [3.7] sc_trace_file
-  [3.8] SC_MODULE SC_CTOR SC_HAS_PROCESS SC_CTHREAD SC_METHOD
+  [3.2] sc_biguint
+  [3.3] sc_in sc_out sc_signal
+  [3.4] sc_clock
+  [3.5] sc_start sc_stop wait
+  [3.6] sc_set_time_resolution sc_time_stamp sc_time SC_NS
+  [3.7] sc_module sc_module_name
+  [3.8] sc_trace_file
+  [3.9] SC_MODULE SC_CTOR SC_HAS_PROCESS SC_CTHREAD SC_METHOD
 [4] Implementation
   [4.1] Classification of SC_CTHREADs and SC_METHODs
   [4.2] Blocking and Non-blocking Assignments
@@ -39,7 +40,7 @@ faster.
 BCASYSC supports the following components of SystemC.
 
     namespace sc_dt:
-      sc_int sc_uint
+      sc_int sc_uint sc_biguint
 
     namespace sc_core:
       sc_in sc_out sc_signal sc_clock
@@ -164,8 +165,41 @@ may be used uninitialized".
       ... = some_var;
     }
 
+----------------
+[3.2] sc_biguint
+----------------
+
+BCASYSC supports sc_biguint to represent wide memories which store
+packed data.  In other words, no arithmetic operations are supported.
+
+  template <int N> struct sc_biguint {
+    sc_biguint();                              // implicit default constructor
+    sc_biguint(const sc_biguint&);             // implicit copy constructor
+    sc_biguint& operator=(const sc_biguint&);  // implicit copy assignment operator
+    template <...>
+    sc_biguint& operator=(const sc_int_catref_r&);  // pack data
+  };
+
+  tepmlate <...> struct sc_int_catref {
+    ...;
+    template <int N>
+    const sc_int_catref& operator=(sc_biguint<N>&);  // unpack data
+  };
+
+Typical usage of sc_biguint is as follows.
+
+  sc_biguint<100> widemem[256];
+  sc_uint<40>     a = ...;
+  sc_uint<20>     b = ...;
+  sc_uint<30>     c = ...;
+  sc_uint<10>     d = ...;
+  sc_uint<8>      wraddr = ...;
+  widemem[wraddr] = (a,b,c,d);  // pack data and write to memory
+  sc_uint<8>      rdaddr = ...;
+  (a,b,c,d) = widemem[rdaddr];  // read from memory and unpack data
+
 ----------------------------
-[3.2] sc_in sc_out sc_signal
+[3.3] sc_in sc_out sc_signal
 ----------------------------
 
 BCASYSC implements read(),write() and bind() member functions for I/O
@@ -210,7 +244,7 @@ ports and signals.
 input port.
 
 --------------
-[3.3] sc_clock
+[3.4] sc_clock
 --------------
 
 BCASYSC assumes that an application uses one global 100MHz clock.
@@ -230,7 +264,7 @@ because clock period is not important for zero-delay functional
 simulation of a single-clocked circuit.
 
 ---------------------------
-[3.4] sc_start sc_stop wait
+[3.5] sc_start sc_stop wait
 ---------------------------
 
 BCASYSC supports only these procedures to control simulation flow.
@@ -241,7 +275,7 @@ BCASYSC supports only these procedures to control simulation flow.
   void wait(int n);
 
 --------------------------------------------------------
-[3.5] sc_set_time_resolution sc_time_stamp sc_time SC_NS
+[3.6] sc_set_time_resolution sc_time_stamp sc_time SC_NS
 --------------------------------------------------------
 
 BCASYSC holds simulation time as an "unsigned long long" in
@@ -260,7 +294,7 @@ BCASYSC silently ignores these parameters unchecked.
 Operator<< prints the supplied time in "%lluns" format.
 
 ------------------------------
-[3.6] sc_module sc_module_name
+[3.7] sc_module sc_module_name
 ------------------------------
 
 BCASYSC supports the following member functions for sc_module and
@@ -312,7 +346,7 @@ information.
   };
 
 -------------------
-[3.7] sc_trace_file
+[3.8] sc_trace_file
 -------------------
 
 BCASYSC declares sc_trace_file without defining it.
@@ -327,7 +361,7 @@ definitions so that you can compile an application successfully on
 both BCASYSC and OSCI SystemC environments.
 
 -----------------------------------------------------------
-[3.8] SC_MODULE SC_CTOR SC_HAS_PROCESS SC_CTHREAD SC_METHOD
+[3.9] SC_MODULE SC_CTOR SC_HAS_PROCESS SC_CTHREAD SC_METHOD
 -----------------------------------------------------------
 
 A user can use these SystemC preprocessor macros.
