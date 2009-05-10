@@ -86,26 +86,61 @@ struct sc_int_subref_r {
   sc_inline sc_int_subref_r(const sc_int_bitref_r& x) : m_value(static_cast<bool>(x)), m_size(1) {}
   sc_inline operator unsigned long long() const { return m_value; }
   sc_inline int size() const { return m_size; }
+  sc_inline const sc_int_subref_r to_catref_r() const { return *this; }
 private:
   void operator=(const sc_int_subref_r&);  // disabled
 };
 
-sc_inline const sc_int_subref_r operator,(const sc_int_subref_r& lhs, const sc_int_subref_r& rhs)
-  { return sc_int_subref_r((lhs << rhs.size()) | rhs, lhs.size() + rhs.size()); }
-sc_inline const sc_int_subref_r operator,(const sc_int_subref_r& lhs, const sc_int_bitref_r& rhs)
-  { return (lhs, sc_int_subref_r(rhs)); }
-sc_inline const sc_int_subref_r operator,(const sc_int_subref_r& lhs, bool rhs)
-  { return (lhs, sc_int_subref_r(rhs)); }
-sc_inline const sc_int_subref_r operator,(const sc_int_bitref_r& lhs, const sc_int_subref_r& rhs)
-  { return (sc_int_subref_r(lhs), rhs); }
-sc_inline const sc_int_subref_r operator,(const sc_int_bitref_r& lhs, const sc_int_bitref_r& rhs)
-  { return (sc_int_subref_r(lhs), sc_int_subref_r(rhs)); }
-sc_inline const sc_int_subref_r operator,(const sc_int_bitref_r& lhs, bool rhs)
-  { return (sc_int_subref_r(lhs), sc_int_subref_r(rhs)); }
-sc_inline const sc_int_subref_r operator,(bool lhs, const sc_int_subref_r& rhs)
-  { return (sc_int_subref_r(lhs), rhs); }
-sc_inline const sc_int_subref_r operator,(bool lhs, const sc_int_bitref_r& rhs)
-  { return (sc_int_subref_r(lhs), sc_int_subref_r(rhs)); }
+template <typename A, typename D>
+struct sc_int_catref_r {
+  const A& m_car;
+  const D& m_cdr;
+  sc_inline sc_int_catref_r(const A& car, const D& cdr) : m_car(car), m_cdr(cdr) {}
+  typedef sc_int_catref_r<sc_int_catref_r,sc_int_subref_r> sc_int_csref_r;
+  typedef sc_int_catref_r<sc_int_subref_r,sc_int_catref_r> sc_int_scref_r;
+  sc_inline friend const sc_int_csref_r operator,(const sc_int_catref_r& lhs, bool rhs)
+    { return sc_int_csref_r(lhs, sc_int_subref_r(rhs)); }
+  sc_inline friend const sc_int_csref_r operator,(const sc_int_catref_r& lhs, const sc_int_bitref_r& rhs)
+    { return sc_int_csref_r(lhs, sc_int_subref_r(rhs)); }
+  sc_inline friend const sc_int_csref_r operator,(const sc_int_catref_r& lhs, const sc_int_subref_r& rhs)
+    { return sc_int_csref_r(lhs, rhs); }
+  sc_inline friend const sc_int_scref_r operator,(bool lhs, const sc_int_catref_r& rhs)
+    { return sc_int_scref_r(sc_int_subref_r(lhs), rhs); }
+  sc_inline friend const sc_int_scref_r operator,(const sc_int_bitref_r& lhs, const sc_int_catref_r& rhs)
+    { return sc_int_scref_r(sc_int_subref_r(lhs), rhs); }
+  sc_inline friend const sc_int_scref_r operator,(const sc_int_subref_r& lhs, const sc_int_catref_r& rhs)
+    { return sc_int_scref_r(lhs, rhs); }
+  sc_inline operator unsigned long long() const { return to_subref_r(); }
+  sc_inline int size() const { return m_car.size() + m_cdr.size(); }
+  sc_inline const sc_int_subref_r to_subref_r() const
+    { return sc_int_subref_r((m_car << m_cdr.size()) | m_cdr, m_car.size() + m_cdr.size()); }
+private:
+  void operator=(const sc_int_catref_r&);  // disabled
+};
+
+typedef sc_int_catref_r<sc_int_subref_r,sc_int_subref_r> sc_int_ssref_r;
+
+sc_inline const sc_int_ssref_r operator,(const sc_int_subref_r& lhs, const sc_int_subref_r& rhs)
+  { return sc_int_ssref_r(lhs, rhs); }
+sc_inline const sc_int_ssref_r operator,(const sc_int_subref_r& lhs, const sc_int_bitref_r& rhs)
+  { return sc_int_ssref_r(lhs, sc_int_subref_r(rhs)); }
+sc_inline const sc_int_ssref_r operator,(const sc_int_subref_r& lhs, bool rhs)
+  { return sc_int_ssref_r(lhs, sc_int_subref_r(rhs)); }
+sc_inline const sc_int_ssref_r operator,(const sc_int_bitref_r& lhs, const sc_int_subref_r& rhs)
+  { return sc_int_ssref_r(sc_int_subref_r(lhs), rhs); }
+sc_inline const sc_int_ssref_r operator,(const sc_int_bitref_r& lhs, const sc_int_bitref_r& rhs)
+  { return sc_int_ssref_r(sc_int_subref_r(lhs), sc_int_subref_r(rhs)); }
+sc_inline const sc_int_ssref_r operator,(const sc_int_bitref_r& lhs, bool rhs)
+  { return sc_int_ssref_r(sc_int_subref_r(lhs), sc_int_subref_r(rhs)); }
+sc_inline const sc_int_ssref_r operator,(bool lhs, const sc_int_subref_r& rhs)
+  { return sc_int_ssref_r(sc_int_subref_r(lhs), rhs); }
+sc_inline const sc_int_ssref_r operator,(bool lhs, const sc_int_bitref_r& rhs)
+  { return sc_int_ssref_r(sc_int_subref_r(lhs), sc_int_subref_r(rhs)); }
+
+template <typename A1, typename D1, typename A2, typename D2>
+sc_inline const sc_int_catref_r< sc_int_catref_r<A1,D1>, sc_int_catref_r<A2,D2> >
+operator,(const sc_int_catref_r<A1,D1>& lhs, const sc_int_catref_r<A2,D2>& rhs)
+  { return sc_int_catref_r< sc_int_catref_r<A1,D1>, sc_int_catref_r<A2,D2> >(lhs, rhs); }
 
 template <typename S, int W> struct sc_int_common;
 
@@ -121,21 +156,23 @@ template <typename S, int W> struct sc_int_bitref {
   template <typename T> sc_inline const sc_int_bitref& operator|=(T val) const { return *this = *this | val; }
   template <typename T> sc_inline const sc_int_bitref& operator^=(T val) const { return *this = *this ^ val; }
   sc_inline operator bool() const { return (static_cast<const obj_type&>(m_obj))[m_pos]; }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_bitref& lhs, bool rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_bitref& lhs, bool rhs)
     { return (lhs.to_subref_r(), sc_int_subref_r(rhs)); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_bitref& lhs, const sc_int_bitref_r& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_bitref& lhs, const sc_int_bitref_r& rhs)
     { return (lhs.to_subref_r(), sc_int_subref_r(rhs)); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_bitref& lhs, const sc_int_subref_r& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_bitref& lhs, const sc_int_subref_r& rhs)
     { return (lhs.to_subref_r(), rhs); }
-  sc_inline friend const sc_int_subref_r operator,(bool lhs, const sc_int_bitref& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(bool lhs, const sc_int_bitref& rhs)
     { return (sc_int_subref_r(lhs), rhs.to_subref_r()); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_bitref_r& lhs, const sc_int_bitref& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_bitref_r& lhs, const sc_int_bitref& rhs)
     { return (sc_int_subref_r(lhs), rhs.to_subref_r()); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_subref_r& lhs, const sc_int_bitref& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_subref_r& lhs, const sc_int_bitref& rhs)
     { return (lhs, rhs.to_subref_r()); }
   // API for sc_int_catref
   sc_inline int size() const { return 1; }
   sc_inline const sc_int_subref_r to_subref_r() const { return sc_int_subref_r(*this); }
+  typedef sc_int_subref_r catref_r_type;
+  sc_inline const catref_r_type to_catref_r() const { return to_subref_r(); }
 };
 
 template <typename S, int W> struct sc_int_subref {
@@ -162,19 +199,21 @@ template <typename S, int W> struct sc_int_subref {
   sc_inline const sc_int_subref operator++(int) const { sc_int_subref ret = *this;  ++(*this);  return ret; }
   sc_inline const sc_int_subref operator--(int) const { sc_int_subref ret = *this;  --(*this);  return ret; }
   sc_inline const sc_int_subref_r to_subref_r() const { return (static_cast<const obj_type&>(m_obj))(m_msb, m_lsb); }
+  typedef sc_int_subref_r catref_r_type;
+  sc_inline const catref_r_type to_catref_r() const { return to_subref_r(); }
   sc_inline operator uvalue_type() const { return to_subref_r(); }
   sc_inline int size() const { return m_msb - m_lsb + 1; }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_subref& lhs, bool rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_subref& lhs, bool rhs)
     { return (lhs.to_subref_r(), sc_int_subref_r(rhs)); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_subref& lhs, const sc_int_bitref_r& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_subref& lhs, const sc_int_bitref_r& rhs)
     { return (lhs.to_subref_r(), sc_int_subref_r(rhs)); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_subref& lhs, const sc_int_subref_r& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_subref& lhs, const sc_int_subref_r& rhs)
     { return (lhs.to_subref_r(), rhs); }
-  sc_inline friend const sc_int_subref_r operator,(bool lhs, const sc_int_subref& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(bool lhs, const sc_int_subref& rhs)
     { return (sc_int_subref_r(lhs), rhs.to_subref_r()); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_bitref_r& lhs, const sc_int_subref& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_bitref_r& lhs, const sc_int_subref& rhs)
     { return (sc_int_subref_r(lhs), rhs.to_subref_r()); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_subref_r& lhs, const sc_int_subref& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_subref_r& lhs, const sc_int_subref& rhs)
     { return (lhs, rhs.to_subref_r()); }
 };
 
@@ -751,37 +790,46 @@ struct sc_int_common {
     value_type newval = (m_value & ~mask) | (value << lsb);
     m_value = traits_type::adjust_setbit(newval, msb);
   }
-  sc_inline friend const sc_int_subref_r operator,(bool lhs, const sc_int_common& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(bool lhs, const sc_int_common& rhs)
     { return (sc_int_subref_r(lhs), rhs.to_subref_r()); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_bitref_r& lhs, const sc_int_common& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_bitref_r& lhs, const sc_int_common& rhs)
     { return (sc_int_subref_r(lhs), rhs.to_subref_r()); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_subref_r& lhs, const sc_int_common& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_subref_r& lhs, const sc_int_common& rhs)
     { return (lhs, rhs.to_subref_r()); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_common& lhs, bool rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_common& lhs, bool rhs)
     { return (lhs.to_subref_r(), sc_int_subref_r(rhs)); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_common& lhs, const sc_int_bitref_r& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_common& lhs, const sc_int_bitref_r& rhs)
     { return (lhs.to_subref_r(), sc_int_subref_r(rhs)); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_common& lhs, const sc_int_subref_r& rhs)
+  sc_inline friend const sc_int_ssref_r operator,(const sc_int_common& lhs, const sc_int_subref_r& rhs)
     { return (lhs.to_subref_r(), rhs); }
   // API for sc_int_catref
   sc_inline int size() const { return W; }
   sc_inline const sc_int_subref_r to_subref_r() const { return (*this)(W-1,0); }
+  typedef sc_int_subref_r catref_r_type;
+  sc_inline const catref_r_type to_catref_r() const { return to_subref_r(); }
 };
 
+template <typename A, typename D, typename S2, int W2>
+sc_inline const sc_int_catref_r< sc_int_catref_r<A,D>,sc_int_subref_r >
+operator,(const sc_int_catref_r<A,D>& lhs, const sc_int_common<S2,W2>& rhs) { return (lhs, rhs.to_subref_r()); }
+template <typename S1, int W1, typename A, typename D>
+sc_inline const sc_int_catref_r< sc_int_subref_r,sc_int_catref_r<A,D> >
+operator,(const sc_int_common<S1,W1>& lhs, const sc_int_catref_r<A,D>& rhs) { return (lhs.to_subref_r(), rhs); }
+
 template <typename S1, int W1, typename S2, int W2>
-sc_inline const sc_int_subref_r operator,(const sc_int_common<S1,W1>& lhs, const sc_int_bitref<S2,W2>& rhs)
+sc_inline const sc_int_ssref_r operator,(const sc_int_common<S1,W1>& lhs, const sc_int_bitref<S2,W2>& rhs)
   { return (lhs.to_subref_r(), rhs.to_subref_r()); }
 template <typename S1, int W1, typename S2, int W2>
-sc_inline const sc_int_subref_r operator,(const sc_int_bitref<S2,W2>& lhs, const sc_int_common<S1,W1>& rhs)
+sc_inline const sc_int_ssref_r operator,(const sc_int_bitref<S2,W2>& lhs, const sc_int_common<S1,W1>& rhs)
   { return (lhs.to_subref_r(), rhs.to_subref_r()); }
 template <typename S1, int W1, typename S2, int W2>
-sc_inline const sc_int_subref_r operator,(const sc_int_common<S1,W1>& lhs, const sc_int_subref<S2,W2>& rhs)
+sc_inline const sc_int_ssref_r operator,(const sc_int_common<S1,W1>& lhs, const sc_int_subref<S2,W2>& rhs)
   { return (lhs.to_subref_r(), rhs.to_subref_r()); }
 template <typename S1, int W1, typename S2, int W2>
-sc_inline const sc_int_subref_r operator,(const sc_int_subref<S1,W1>& lhs, const sc_int_common<S2,W2>& rhs)
+sc_inline const sc_int_ssref_r operator,(const sc_int_subref<S1,W1>& lhs, const sc_int_common<S2,W2>& rhs)
   { return (lhs.to_subref_r(), rhs.to_subref_r()); }
 template <typename S1, int W1, typename S2, int W2>
-sc_inline const sc_int_subref_r operator,(const sc_int_common<S1,W1>& lhs, const sc_int_common<S2,W2>& rhs)
+sc_inline const sc_int_ssref_r operator,(const sc_int_common<S1,W1>& lhs, const sc_int_common<S2,W2>& rhs)
   { return (lhs.to_subref_r(), rhs.to_subref_r()); }
 
 template <typename S1, int W1, typename S2, int W2>
@@ -801,6 +849,9 @@ operator>>(const sc_int_common<S1,W1>& a, const sc_int_common<S2,W2>& b) { retur
 
 ////////////////////////////////////////////////////////////////
 
+template <int W> struct sc_biguint;
+template <int W> struct sc_biguint_subref_r;
+
 template <typename A, typename D> struct sc_int_catref {
   A& m_car;
   D& m_cdr;
@@ -809,6 +860,8 @@ template <typename A, typename D> struct sc_int_catref {
     { m_cdr=value; m_car=(value>>m_cdr.size()); return *this; }
   sc_inline const sc_int_catref& operator=(const sc_int_catref& rhs) const
     { return operator=(static_cast<unsigned long long>(rhs)); }
+  template <int W> sc_inline const sc_int_catref& operator=(const sc_biguint<W>& rhs) const;
+  template <int W> sc_inline const sc_int_catref& operator=(const sc_biguint_subref_r<W>& rhs) const;
   template <typename T> sc_inline const sc_int_catref& operator+=(T val) const  { return *this = *this + val; }
   template <typename T> sc_inline const sc_int_catref& operator-=(T val) const  { return *this = *this - val; }
   template <typename T> sc_inline const sc_int_catref& operator*=(T val) const  { return *this = *this * val; }
@@ -823,30 +876,38 @@ template <typename A, typename D> struct sc_int_catref {
   sc_inline const sc_int_catref& operator--() const { return *this -= 1; }
   sc_inline const sc_int_catref operator++(int) const { sc_int_catref ret = *this;  ++(*this);  return ret; }
   sc_inline const sc_int_catref operator--(int) const { sc_int_catref ret = *this;  --(*this);  return ret; }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_catref& lhs, bool rhs)
-    { return (lhs.to_subref_r(), sc_int_subref_r(rhs)); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_catref& lhs, const sc_int_bitref_r& rhs)
-    { return (lhs.to_subref_r(), sc_int_subref_r(rhs)); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_catref& lhs, const sc_int_subref_r& rhs)
-    { return (lhs.to_subref_r(), rhs); }
-  sc_inline friend const sc_int_subref_r operator,(bool lhs, const sc_int_catref& rhs)
-    { return (sc_int_subref_r(lhs), rhs.to_subref_r()); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_bitref_r& lhs, const sc_int_catref& rhs)
-    { return (sc_int_subref_r(lhs), rhs.to_subref_r()); }
-  sc_inline friend const sc_int_subref_r operator,(const sc_int_subref_r& lhs, const sc_int_catref& rhs)
-    { return (lhs, rhs.to_subref_r()); }
-  sc_inline operator unsigned long long() const { return to_subref_r(); }
+  typedef sc_int_catref_r<typename A::catref_r_type, typename D::catref_r_type> catref_r_type;
+  typedef sc_int_catref_r<catref_r_type,sc_int_subref_r> sc_int_csref_r;
+  typedef sc_int_catref_r<sc_int_subref_r,catref_r_type> sc_int_scref_r;
+  sc_inline friend const sc_int_csref_r operator,(const sc_int_catref& lhs, bool rhs)
+    { return (lhs.to_catref_r(), sc_int_subref_r(rhs)); }
+  sc_inline friend const sc_int_csref_r operator,(const sc_int_catref& lhs, const sc_int_bitref_r& rhs)
+    { return (lhs.to_catref_r(), sc_int_subref_r(rhs)); }
+  sc_inline friend const sc_int_csref_r operator,(const sc_int_catref& lhs, const sc_int_subref_r& rhs)
+    { return (lhs.to_catref_r(), rhs); }
+  sc_inline friend const sc_int_scref_r operator,(bool lhs, const sc_int_catref& rhs)
+    { return (sc_int_subref_r(lhs), rhs.to_catref_r()); }
+  sc_inline friend const sc_int_scref_r operator,(const sc_int_bitref_r& lhs, const sc_int_catref& rhs)
+    { return (sc_int_subref_r(lhs), rhs.to_catref_r()); }
+  sc_inline friend const sc_int_scref_r operator,(const sc_int_subref_r& lhs, const sc_int_catref& rhs)
+    { return (lhs, rhs.to_catref_r()); }
+  sc_inline operator unsigned long long() const { return to_catref_r(); }
   sc_inline int size() const { return m_car.size() + m_cdr.size(); }
-  sc_inline const sc_int_subref_r to_subref_r() const
-    { return (m_car.to_subref_r(), m_cdr.to_subref_r()); }
+  sc_inline const catref_r_type to_catref_r() const { return (m_car.to_catref_r(), m_cdr.to_catref_r()); }
 };
 
 template <typename A, typename D, typename S2, int W2>
-sc_inline const sc_int_subref_r operator,(const sc_int_catref<A,D>& lhs, const sc_int_common<S2,W2>& rhs)
-  { return (lhs.to_subref_r(), rhs.to_subref_r()); }
+sc_inline const sc_int_catref_r< typename sc_int_catref<A,D>::catref_r_type, sc_int_subref_r >
+operator,(const sc_int_catref<A,D>& lhs, const sc_int_common<S2,W2>& rhs) { return (lhs.to_catref_r(), rhs.to_subref_r()); }
 template <typename S1, int W1, typename A, typename D>
-sc_inline const sc_int_subref_r operator,(const sc_int_common<S1,W1>& lhs, const sc_int_catref<A,D>& rhs)
-  { return (lhs.to_subref_r(), rhs.to_subref_r()); }
+sc_inline const sc_int_catref_r< sc_int_subref_r, typename sc_int_catref<A,D>::catref_r_type >
+operator,(const sc_int_common<S1,W1>& lhs, const sc_int_catref<A,D>& rhs) { return (lhs.to_subref_r(), rhs.to_catref_r()); }
+template <typename A1, typename D1, typename A2, typename D2>
+sc_inline const sc_int_catref_r< typename sc_int_catref<A1,D1>::catref_r_type, sc_int_catref_r<A2,D2> >
+operator,(const sc_int_catref<A1,D1>& lhs, const sc_int_catref_r<A2,D2>& rhs) { return (lhs.to_catref_r(), rhs); }
+template <typename A1, typename D1, typename A2, typename D2>
+sc_inline const sc_int_catref_r< sc_int_catref_r<A1,D1>, typename sc_int_catref<A2,D2>::catref_r_type >
+operator,(const sc_int_catref_r<A1,D1>& lhs, const sc_int_catref<A2,D2>& rhs) { return (lhs, rhs.to_catref_r()); }
 
 template <typename S1, int W1, typename S2, int W2>
 sc_inline const sc_int_catref< const sc_int_bitref<S1,W1>, const sc_int_bitref<S2,W2> >
@@ -930,6 +991,91 @@ template <int W> struct sc_uint : sc_int_common<unsigned,W> {
   sc_inline sc_uint() : base_type() {}
   template <typename T> sc_inline sc_uint(T x) : base_type(x) {}
 };
+
+////////////////////////////////////////////////////////////////
+
+template <int W, bool WIDE> struct sc_biguint_base;
+
+template <int W> struct sc_biguint_base<W,false> : sc_uint<W> {
+  using sc_uint<W>::operator=;
+  template <typename T>
+  sc_inline void bigassign_recur(const T& rhs, unsigned long long rbits, int nr_rbits) {
+    if (nr_rbits == 0) {
+      *this = rhs;
+    } else {
+      *this = (rhs, sc_int_subref_r(rbits, nr_rbits));
+    }
+  }
+};
+
+template <int W> struct sc_biguint_base<W,true> {
+  sc_biguint_base<W-64,(W>128)>  m_high;
+  sc_uint<64>                    m_low;
+  sc_inline void bigassign_recur(unsigned long long rhs, unsigned long long rbits, int nr_rbits) {
+    m_low = (rhs << nr_rbits) | rbits;
+    m_high = rhs >> (64 - nr_rbits);
+  }
+  template <typename A, typename D>
+  sc_inline void bigassign_recur(const sc_int_catref_r<A,D>& rhs, unsigned long long rbits, int nr_rbits) {
+    int sz = rhs.m_cdr.size();
+    rbits |= (rhs.m_cdr << nr_rbits);
+    int nr_lbits = 64 - nr_rbits;
+    if (sz < nr_lbits) {
+      bigassign_recur(rhs.m_car, rbits, nr_rbits + sz);
+    } else {
+      m_low = rbits;
+      m_high.bigassign_recur(rhs.m_car, (sz==nr_lbits) ? 0 : (rhs.m_cdr>>nr_lbits), sz-nr_lbits);
+    }
+  }
+  template <typename A, typename D>
+  sc_inline sc_biguint_base& operator=(const sc_int_catref_r<A,D>& rhs) { bigassign_recur(rhs, 0ull, 0); return *this; }
+  template <typename A, typename D>
+  sc_inline sc_biguint_base& operator=(const sc_int_catref<A,D>& rhs) { return operator=(rhs.to_catref_r()); }
+};
+
+template <int W> struct sc_biguint : sc_biguint_base<W,(W>64)> { using sc_biguint_base<W,(W>64)>::operator=; };
+
+template <int W, bool WIDE> struct sc_biguint_subref_r_aux;
+template <int W> struct sc_biguint_subref_r_aux<W,false> {
+  sc_inline static unsigned long long to_ull(const sc_biguint<W>& obj, int msb, int lsb) { return obj(msb, lsb); }
+};
+template <int W> struct sc_biguint_subref_r_aux<W,true> {
+  sc_inline static unsigned long long to_ull(const sc_biguint<W>& obj, int msb, int lsb) {
+    if (lsb >= 64) {
+      return obj.m_high(msb-64, lsb-64);
+    } else if (msb < 64) {
+      return obj.m_low(msb, lsb);
+    } else {
+      return (obj.m_high(msb-64, 0), obj.m_low(63,lsb));
+    }
+  }
+};
+
+template <int W> struct sc_biguint_subref_r {
+  typedef sc_biguint<W> obj_type;
+  const obj_type& m_obj;
+  int             m_msb, m_lsb;
+  sc_inline sc_biguint_subref_r(const obj_type& obj, int msb, int lsb) : m_obj(obj), m_msb(msb), m_lsb(lsb) {}
+  sc_inline const sc_biguint_subref_r operator()(int msb, int lsb) const
+    { return sc_biguint_subref_r(m_obj, m_lsb+msb, m_lsb+lsb); }
+  sc_inline operator unsigned long long() const { return sc_biguint_subref_r_aux<W,(W>64)>::to_ull(m_obj, m_msb, m_lsb); }
+  template <typename S, int V>
+  sc_inline operator sc_int_common<S,V>() const { return static_cast<unsigned long long>(*this); }
+};
+
+template <typename A, typename D> template <int W>
+sc_inline const sc_int_catref<A,D>& sc_int_catref<A,D>::operator=(const sc_biguint_subref_r<W>& rhs) const {
+  int sz_cdr = m_cdr.size();
+  int sz_car = m_car.size();
+  m_cdr = rhs(sz_cdr-1, 0);
+  m_car = rhs(sz_cdr+sz_car-1, sz_cdr);
+  return *this;
+}
+
+template <typename A, typename D> template <int W>
+sc_inline const sc_int_catref<A,D>& sc_int_catref<A,D>::operator=(const sc_biguint<W>& rhs) const {
+  return operator=(sc_biguint_subref_r<W>(rhs, W-1, 0));
+}
 
 #undef sc_inline
 
