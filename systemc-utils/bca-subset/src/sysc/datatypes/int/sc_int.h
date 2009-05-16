@@ -1013,7 +1013,7 @@ template <int W> struct sc_biguint_base<W,true> {
   sc_uint<64>                    m_low;
   sc_inline void bigassign_recur(unsigned long long rhs, unsigned long long rbits, int nr_rbits) {
     m_low = (rhs << nr_rbits) | rbits;
-    m_high = rhs >> (64 - nr_rbits);
+    m_high.bigassign_recur(rhs >> (64 - nr_rbits), 0ull, 0);
   }
   template <typename A, typename D>
   sc_inline void bigassign_recur(const sc_int_catref_r<A,D>& rhs, unsigned long long rbits, int nr_rbits) {
@@ -1037,16 +1037,18 @@ template <int W> struct sc_biguint : sc_biguint_base<W,(W>64)> { using sc_biguin
 
 template <int W, bool WIDE> struct sc_biguint_subref_r_aux;
 template <int W> struct sc_biguint_subref_r_aux<W,false> {
-  sc_inline static unsigned long long to_ull(const sc_biguint<W>& obj, int msb, int lsb) { return obj(msb, lsb); }
+  sc_inline static unsigned long long to_ull(const sc_biguint_base<W,false>& obj, int msb, int lsb) { return obj(msb, lsb); }
 };
 template <int W> struct sc_biguint_subref_r_aux<W,true> {
-  sc_inline static unsigned long long to_ull(const sc_biguint<W>& obj, int msb, int lsb) {
+  sc_inline static unsigned long long to_ull(const sc_biguint_base<W,true>& obj, int msb, int lsb) {
     if (lsb >= 64) {
-      return obj.m_high(msb-64, lsb-64);
+      return sc_biguint_subref_r_aux<W-64,(W>128)>::to_ull(obj.m_high, msb-64, lsb-64);
     } else if (msb < 64) {
       return obj.m_low(msb, lsb);
     } else {
-      return (obj.m_high(msb-64, 0), obj.m_low(63,lsb));
+      unsigned long long high = sc_biguint_subref_r_aux<W-64,(W>128)>::to_ull(obj.m_high, msb-64, 0);
+      unsigned long long low = obj.m_low(63, lsb);
+      return (high << (64-lsb)) | low;
     }
   }
 };

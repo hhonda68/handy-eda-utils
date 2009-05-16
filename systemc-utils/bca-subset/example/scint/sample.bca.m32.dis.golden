@@ -10446,3 +10446,238 @@ c1 eb 1a             	shr    $0x1a,%ebx
 8b 6c 24 0c          	mov    0xc(%esp),%ebp
 83 c4 10             	add    $0x10,%esp
 c3                   	ret    
+90                   	nop    
+
+<bigmerge3(sc_dt::sc_biguint<150>&, sc_dt::sc_uint<50>*)>:
+83 ec 24             	sub    $0x24,%esp
+89 6c 24 20          	mov    %ebp,0x20(%esp)
+8b 6c 24 2c          	mov    0x2c(%esp),%ebp
+89 5c 24 14          	mov    %ebx,0x14(%esp)
+89 74 24 18          	mov    %esi,0x18(%esp)
+89 7c 24 1c          	mov    %edi,0x1c(%esp)
+8b 45 08             	mov    0x8(%ebp),%eax
+8b 55 0c             	mov    0xc(%ebp),%edx
+8b 75 00             	mov    0x0(%ebp),%esi
+8b 7d 04             	mov    0x4(%ebp),%edi
+89 04 24             	mov    %eax,(%esp)
+8b 0c 24             	mov    (%esp),%ecx
+81 e2 ff ff 03 00    	and    $0x3ffff,%edx
+8b 45 10             	mov    0x10(%ebp),%eax
+89 54 24 04          	mov    %edx,0x4(%esp)
+8b 5c 24 04          	mov    0x4(%esp),%ebx
+8b 55 14             	mov    0x14(%ebp),%edx
+81 e7 ff ff 03 00    	and    $0x3ffff,%edi
+89 cb                	mov    %ecx,%ebx
+b9 00 00 00 00       	mov    $0x0,%ecx
+8b 6c 24 28          	mov    0x28(%esp),%ebp
+c1 e3 12             	shl    $0x12,%ebx
+89 5c 24 0c          	mov    %ebx,0xc(%esp)
+8b 5c 24 28          	mov    0x28(%esp),%ebx
+81 e2 ff ff 03 00    	and    $0x3ffff,%edx
+89 4c 24 08          	mov    %ecx,0x8(%esp)
+8b 0c 24             	mov    (%esp),%ecx
+89 43 0c             	mov    %eax,0xc(%ebx)
+8b 44 24 0c          	mov    0xc(%esp),%eax
+09 d0                	or     %edx,%eax
+89 fa                	mov    %edi,%edx
+89 43 10             	mov    %eax,0x10(%ebx)
+8b 5c 24 04          	mov    0x4(%esp),%ebx
+89 f0                	mov    %esi,%eax
+89 c2                	mov    %eax,%edx
+b8 00 00 00 00       	mov    $0x0,%eax
+c1 e2 04             	shl    $0x4,%edx
+89 d0                	mov    %edx,%eax
+0f ac d9 0e          	shrd   $0xe,%ebx,%ecx
+c1 eb 0e             	shr    $0xe,%ebx
+09 d8                	or     %ebx,%eax
+0f ac fe 1c          	shrd   $0x1c,%edi,%esi
+89 45 08             	mov    %eax,0x8(%ebp)
+89 f0                	mov    %esi,%eax
+25 ff ff 3f 00       	and    $0x3fffff,%eax
+89 4d 04             	mov    %ecx,0x4(%ebp)
+c1 ef 1c             	shr    $0x1c,%edi
+89 45 00             	mov    %eax,0x0(%ebp)
+8b 5c 24 14          	mov    0x14(%esp),%ebx
+8b 74 24 18          	mov    0x18(%esp),%esi
+8b 7c 24 1c          	mov    0x1c(%esp),%edi
+8b 6c 24 20          	mov    0x20(%esp),%ebp
+83 c4 24             	add    $0x24,%esp
+c3                   	ret    
+
+<bigmerge3c(sc_dt::sc_biguint<150>&, sc_dt::sc_uint<50> const*)>:
+83 ec 24             	sub    $0x24,%esp
+89 6c 24 20          	mov    %ebp,0x20(%esp)
+8b 6c 24 2c          	mov    0x2c(%esp),%ebp
+89 5c 24 14          	mov    %ebx,0x14(%esp)
+89 74 24 18          	mov    %esi,0x18(%esp)
+89 7c 24 1c          	mov    %edi,0x1c(%esp)
+8b 45 08             	mov    0x8(%ebp),%eax
+8b 55 0c             	mov    0xc(%ebp),%edx
+8b 75 00             	mov    0x0(%ebp),%esi
+8b 7d 04             	mov    0x4(%ebp),%edi
+89 04 24             	mov    %eax,(%esp)
+8b 0c 24             	mov    (%esp),%ecx
+81 e2 ff ff 03 00    	and    $0x3ffff,%edx
+8b 45 10             	mov    0x10(%ebp),%eax
+89 54 24 04          	mov    %edx,0x4(%esp)
+8b 5c 24 04          	mov    0x4(%esp),%ebx
+8b 55 14             	mov    0x14(%ebp),%edx
+81 e7 ff ff 03 00    	and    $0x3ffff,%edi
+89 cb                	mov    %ecx,%ebx
+b9 00 00 00 00       	mov    $0x0,%ecx
+8b 6c 24 28          	mov    0x28(%esp),%ebp
+c1 e3 12             	shl    $0x12,%ebx
+89 5c 24 0c          	mov    %ebx,0xc(%esp)
+8b 5c 24 28          	mov    0x28(%esp),%ebx
+81 e2 ff ff 03 00    	and    $0x3ffff,%edx
+89 4c 24 08          	mov    %ecx,0x8(%esp)
+8b 0c 24             	mov    (%esp),%ecx
+89 43 0c             	mov    %eax,0xc(%ebx)
+8b 44 24 0c          	mov    0xc(%esp),%eax
+09 d0                	or     %edx,%eax
+89 fa                	mov    %edi,%edx
+89 43 10             	mov    %eax,0x10(%ebx)
+8b 5c 24 04          	mov    0x4(%esp),%ebx
+89 f0                	mov    %esi,%eax
+89 c2                	mov    %eax,%edx
+b8 00 00 00 00       	mov    $0x0,%eax
+c1 e2 04             	shl    $0x4,%edx
+89 d0                	mov    %edx,%eax
+0f ac d9 0e          	shrd   $0xe,%ebx,%ecx
+c1 eb 0e             	shr    $0xe,%ebx
+09 d8                	or     %ebx,%eax
+0f ac fe 1c          	shrd   $0x1c,%edi,%esi
+89 45 08             	mov    %eax,0x8(%ebp)
+89 f0                	mov    %esi,%eax
+25 ff ff 3f 00       	and    $0x3fffff,%eax
+89 4d 04             	mov    %ecx,0x4(%ebp)
+c1 ef 1c             	shr    $0x1c,%edi
+89 45 00             	mov    %eax,0x0(%ebp)
+8b 5c 24 14          	mov    0x14(%esp),%ebx
+8b 74 24 18          	mov    0x18(%esp),%esi
+8b 7c 24 1c          	mov    0x1c(%esp),%edi
+8b 6c 24 20          	mov    0x20(%esp),%ebp
+83 c4 24             	add    $0x24,%esp
+c3                   	ret    
+
+<bigsplit3(sc_dt::sc_biguint<150>&, sc_dt::sc_uint<50>*)>:
+83 ec 10             	sub    $0x10,%esp
+89 6c 24 0c          	mov    %ebp,0xc(%esp)
+8b 6c 24 14          	mov    0x14(%esp),%ebp
+89 1c 24             	mov    %ebx,(%esp)
+8b 4c 24 18          	mov    0x18(%esp),%ecx
+31 db                	xor    %ebx,%ebx
+89 74 24 04          	mov    %esi,0x4(%esp)
+89 7c 24 08          	mov    %edi,0x8(%esp)
+8b 55 10             	mov    0x10(%ebp),%edx
+8b 45 0c             	mov    0xc(%ebp),%eax
+81 e2 ff ff 03 00    	and    $0x3ffff,%edx
+89 41 10             	mov    %eax,0x10(%ecx)
+89 d0                	mov    %edx,%eax
+25 ff ff 03 00       	and    $0x3ffff,%eax
+89 41 14             	mov    %eax,0x14(%ecx)
+8b 7d 10             	mov    0x10(%ebp),%edi
+8b 55 08             	mov    0x8(%ebp),%edx
+8b 45 04             	mov    0x4(%ebp),%eax
+8b 75 0c             	mov    0xc(%ebp),%esi
+89 fe                	mov    %edi,%esi
+31 ff                	xor    %edi,%edi
+c1 ee 12             	shr    $0x12,%esi
+83 e2 0f             	and    $0xf,%edx
+89 f1                	mov    %esi,%ecx
+0f a4 c2 0e          	shld   $0xe,%eax,%edx
+81 e1 ff 3f 00 00    	and    $0x3fff,%ecx
+c1 e0 0e             	shl    $0xe,%eax
+09 da                	or     %ebx,%edx
+09 c8                	or     %ecx,%eax
+8b 4c 24 18          	mov    0x18(%esp),%ecx
+89 41 08             	mov    %eax,0x8(%ecx)
+89 d0                	mov    %edx,%eax
+31 d2                	xor    %edx,%edx
+25 ff ff 03 00       	and    $0x3ffff,%eax
+89 41 0c             	mov    %eax,0xc(%ecx)
+8b 7d 08             	mov    0x8(%ebp),%edi
+8b 45 00             	mov    0x0(%ebp),%eax
+8b 75 04             	mov    0x4(%ebp),%esi
+89 fe                	mov    %edi,%esi
+31 ff                	xor    %edi,%edi
+c1 ee 04             	shr    $0x4,%esi
+25 ff ff 3f 00       	and    $0x3fffff,%eax
+89 f1                	mov    %esi,%ecx
+0f a4 c2 1c          	shld   $0x1c,%eax,%edx
+81 e1 ff ff ff 0f    	and    $0xfffffff,%ecx
+c1 e0 1c             	shl    $0x1c,%eax
+09 da                	or     %ebx,%edx
+09 c8                	or     %ecx,%eax
+8b 4c 24 18          	mov    0x18(%esp),%ecx
+89 01                	mov    %eax,(%ecx)
+89 d0                	mov    %edx,%eax
+25 ff ff 03 00       	and    $0x3ffff,%eax
+89 41 04             	mov    %eax,0x4(%ecx)
+8b 1c 24             	mov    (%esp),%ebx
+8b 74 24 04          	mov    0x4(%esp),%esi
+8b 7c 24 08          	mov    0x8(%esp),%edi
+8b 6c 24 0c          	mov    0xc(%esp),%ebp
+83 c4 10             	add    $0x10,%esp
+c3                   	ret    
+
+<bigsplit3c(sc_dt::sc_biguint<150> const&, sc_dt::sc_uint<50>*)>:
+83 ec 10             	sub    $0x10,%esp
+89 6c 24 0c          	mov    %ebp,0xc(%esp)
+8b 6c 24 14          	mov    0x14(%esp),%ebp
+89 1c 24             	mov    %ebx,(%esp)
+8b 4c 24 18          	mov    0x18(%esp),%ecx
+31 db                	xor    %ebx,%ebx
+89 74 24 04          	mov    %esi,0x4(%esp)
+89 7c 24 08          	mov    %edi,0x8(%esp)
+8b 55 10             	mov    0x10(%ebp),%edx
+8b 45 0c             	mov    0xc(%ebp),%eax
+81 e2 ff ff 03 00    	and    $0x3ffff,%edx
+89 41 10             	mov    %eax,0x10(%ecx)
+89 d0                	mov    %edx,%eax
+25 ff ff 03 00       	and    $0x3ffff,%eax
+89 41 14             	mov    %eax,0x14(%ecx)
+8b 7d 10             	mov    0x10(%ebp),%edi
+8b 55 08             	mov    0x8(%ebp),%edx
+8b 45 04             	mov    0x4(%ebp),%eax
+8b 75 0c             	mov    0xc(%ebp),%esi
+89 fe                	mov    %edi,%esi
+31 ff                	xor    %edi,%edi
+c1 ee 12             	shr    $0x12,%esi
+83 e2 0f             	and    $0xf,%edx
+89 f1                	mov    %esi,%ecx
+0f a4 c2 0e          	shld   $0xe,%eax,%edx
+81 e1 ff 3f 00 00    	and    $0x3fff,%ecx
+c1 e0 0e             	shl    $0xe,%eax
+09 da                	or     %ebx,%edx
+09 c8                	or     %ecx,%eax
+8b 4c 24 18          	mov    0x18(%esp),%ecx
+89 41 08             	mov    %eax,0x8(%ecx)
+89 d0                	mov    %edx,%eax
+31 d2                	xor    %edx,%edx
+25 ff ff 03 00       	and    $0x3ffff,%eax
+89 41 0c             	mov    %eax,0xc(%ecx)
+8b 7d 08             	mov    0x8(%ebp),%edi
+8b 45 00             	mov    0x0(%ebp),%eax
+8b 75 04             	mov    0x4(%ebp),%esi
+89 fe                	mov    %edi,%esi
+31 ff                	xor    %edi,%edi
+c1 ee 04             	shr    $0x4,%esi
+25 ff ff 3f 00       	and    $0x3fffff,%eax
+89 f1                	mov    %esi,%ecx
+0f a4 c2 1c          	shld   $0x1c,%eax,%edx
+81 e1 ff ff ff 0f    	and    $0xfffffff,%ecx
+c1 e0 1c             	shl    $0x1c,%eax
+09 da                	or     %ebx,%edx
+09 c8                	or     %ecx,%eax
+8b 4c 24 18          	mov    0x18(%esp),%ecx
+89 01                	mov    %eax,(%ecx)
+89 d0                	mov    %edx,%eax
+25 ff ff 03 00       	and    $0x3ffff,%eax
+89 41 04             	mov    %eax,0x4(%ecx)
+8b 1c 24             	mov    (%esp),%ebx
+8b 74 24 04          	mov    0x4(%esp),%esi
+8b 7c 24 08          	mov    0x8(%esp),%edi
+8b 6c 24 0c          	mov    0xc(%esp),%ebp
+83 c4 10             	add    $0x10,%esp
+c3                   	ret    
