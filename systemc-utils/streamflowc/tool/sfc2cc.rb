@@ -364,11 +364,12 @@ begin
     ix = genlines_impl
     str = ""
     while (GenLines[ix] !~ /^\}/) do
-      str += GenLines[ix].chomp.sub(/\s*\/\/.*$/," ")
+      str += GenLines[ix].chomp.sub(/\s*\/\/.*$/," ")  unless GenLines[ix] =~ /^\#line/
       ix += 1
     end
     Instances = []
     str.split(";").each do |s|
+      next if s =~ /^\s*typedef\b/
       s =~ /([a-zA-Z_]\w*\s*,\s*)*[a-zA-Z_]\w*\s*$/  or fail "curious instance list in hierarchical module"
       s0 = $&
       Instances.concat(s0.gsub(/\s+/,"").split(","))
