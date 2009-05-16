@@ -51,6 +51,9 @@ typedef sc_int<43> s43_t;    typedef sc_uint<43> u43_t;
 typedef sc_int<44> s44_t;    typedef sc_uint<44> u44_t;
 typedef sc_int<45> s45_t;    typedef sc_uint<45> u45_t;
 
+typedef sc_int<50> s50_t;    typedef sc_uint<50> u50_t;
+
+typedef sc_int<60> s60_t;    typedef sc_uint<60> u60_t;
 typedef sc_int<61> s61_t;    typedef sc_uint<61> u61_t;
 typedef sc_int<62> s62_t;    typedef sc_uint<62> u62_t;
 typedef sc_int<63> s63_t;    typedef sc_uint<63> u63_t;
@@ -1054,3 +1057,9 @@ void bigsplit1(sc_biguint<100>& x, u40_t& a, u20_t& b, u30_t& c, u10_t& d) { (a,
 void bigsplit2(sc_biguint<100>& x, u40_t& a, u20_t& b, u30_t& c, u10_t& d) { (d,c,b,a) = x; }
 void bigsplit1c(const sc_biguint<100>& x, u40_t& a, u20_t& b, u30_t& c, u10_t& d) { (a,b,c,d) = x; }
 void bigsplit2c(const sc_biguint<100>& x, u40_t& a, u20_t& b, u30_t& c, u10_t& d) { (d,c,b,a) = x; }
+
+void bigmerge3(sc_biguint<150>& x, u50_t a[]) { x = (a[0], a[1], a[2]); }
+void bigmerge3c(sc_biguint<150>& x, const u50_t a[]) { x = (a[0], a[1], a[2]); }
+void bigsplit3(sc_biguint<150>& x, u50_t a[]) { (a[0], a[1], a[2]) = x; }
+void bigsplit3c(const sc_biguint<150>& x, u50_t a[]) { (a[0], a[1], a[2]) = x; }
+
