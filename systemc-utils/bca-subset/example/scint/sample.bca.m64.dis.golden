@@ -6009,17 +6009,16 @@ c3                   	retq
 
 <concat_bool_cat(bool, sc_dt::sc_int<10>&, sc_dt::sc_int<11>&)>:
 8b 06                	mov    (%rsi),%eax
+8b 12                	mov    (%rdx),%edx
 40 0f b6 ff          	movzbl %dil,%edi
 48 c1 e7 0b          	shl    $0xb,%rdi
 c1 f8 02             	sar    $0x2,%eax
+c1 fa 03             	sar    $0x3,%edx
 0f b6 c0             	movzbl %al,%eax
+83 e2 07             	and    $0x7,%edx
 48 c1 e0 03          	shl    $0x3,%rax
-48 09 c7             	or     %rax,%rdi
-8b 02                	mov    (%rdx),%eax
-c1 f8 03             	sar    $0x3,%eax
-83 e0 07             	and    $0x7,%eax
-48 09 c7             	or     %rax,%rdi
-89 f8                	mov    %edi,%eax
+48 09 f8             	or     %rdi,%rax
+48 09 d0             	or     %rdx,%rax
 c3                   	retq   
 90                   	nop    
 
@@ -6041,16 +6040,16 @@ c3                   	retq
 90                   	nop    
 
 <concat_subr_cat(sc_dt::sc_int<13> const&, sc_dt::sc_int<10>&, sc_dt::sc_int<11>&)>:
-8b 07                	mov    (%rdi),%eax
-8b 0e                	mov    (%rsi),%ecx
+8b 06                	mov    (%rsi),%eax
+8b 0f                	mov    (%rdi),%ecx
 8b 12                	mov    (%rdx),%edx
-c1 f8 03             	sar    $0x3,%eax
-c1 f9 02             	sar    $0x2,%ecx
-83 e0 1f             	and    $0x1f,%eax
-0f b6 c9             	movzbl %cl,%ecx
+c1 f8 02             	sar    $0x2,%eax
+c1 f9 03             	sar    $0x3,%ecx
+83 e1 1f             	and    $0x1f,%ecx
+0f b6 c0             	movzbl %al,%eax
 c1 fa 03             	sar    $0x3,%edx
-48 c1 e0 0b          	shl    $0xb,%rax
-48 c1 e1 03          	shl    $0x3,%rcx
+48 c1 e0 03          	shl    $0x3,%rax
+48 c1 e1 0b          	shl    $0xb,%rcx
 83 e2 07             	and    $0x7,%edx
 48 09 c8             	or     %rcx,%rax
 48 09 d0             	or     %rdx,%rax
@@ -6610,16 +6609,16 @@ c3                   	retq
 90                   	nop    
 
 <concat_sub_cat(sc_dt::sc_int<13>&, sc_dt::sc_int<10>&, sc_dt::sc_int<11>&)>:
-8b 07                	mov    (%rdi),%eax
-8b 0e                	mov    (%rsi),%ecx
+8b 06                	mov    (%rsi),%eax
+8b 0f                	mov    (%rdi),%ecx
 8b 12                	mov    (%rdx),%edx
-c1 f8 03             	sar    $0x3,%eax
-c1 f9 02             	sar    $0x2,%ecx
-83 e0 1f             	and    $0x1f,%eax
-0f b6 c9             	movzbl %cl,%ecx
+c1 f8 02             	sar    $0x2,%eax
+c1 f9 03             	sar    $0x3,%ecx
+83 e1 1f             	and    $0x1f,%ecx
+0f b6 c0             	movzbl %al,%eax
 c1 fa 03             	sar    $0x3,%edx
-48 c1 e0 0b          	shl    $0xb,%rax
-48 c1 e1 03          	shl    $0x3,%rcx
+48 c1 e0 03          	shl    $0x3,%rax
+48 c1 e1 0b          	shl    $0xb,%rcx
 83 e2 07             	and    $0x7,%edx
 48 09 c8             	or     %rcx,%rax
 48 09 d0             	or     %rdx,%rax
@@ -6714,200 +6713,153 @@ c1 fa 02             	sar    $0x2,%edx
 c3                   	retq   
 
 <bigmerge1(sc_dt::sc_biguint<100>&, sc_dt::sc_uint<40>&, sc_dt::sc_uint<20>&, sc_dt::sc_uint<30>&, sc_dt::sc_uint<10>&)>:
-8b 01                	mov    (%rcx),%eax
+48 8b 06             	mov    (%rsi),%rax
 45 8b 00             	mov    (%r8),%r8d
-48 b9 ff ff ff ff ff 	mov    $0xffffffffff,%rcx
-00 00 00 
-8b 12                	mov    (%rdx),%edx
-48 23 0e             	and    (%rsi),%rcx
-25 ff ff ff 3f       	and    $0x3fffffff,%eax
-41 81 e0 ff 03 00 00 	and    $0x3ff,%r8d
-89 c0                	mov    %eax,%eax
-45 89 c0             	mov    %r8d,%r8d
-81 e2 ff ff 0f 00    	and    $0xfffff,%edx
-48 c1 e0 0a          	shl    $0xa,%rax
-48 c1 e2 28          	shl    $0x28,%rdx
+8b 09                	mov    (%rcx),%ecx
+44 8b 0a             	mov    (%rdx),%r9d
+48 89 c2             	mov    %rax,%rdx
+48 c1 e0 3c          	shl    $0x3c,%rax
 4c 09 c0             	or     %r8,%rax
-48 09 d0             	or     %rdx,%rax
-48 89 ca             	mov    %rcx,%rdx
-48 c1 e9 04          	shr    $0x4,%rcx
-48 c1 e2 3c          	shl    $0x3c,%rdx
-48 89 0f             	mov    %rcx,(%rdi)
-48 09 d0             	or     %rdx,%rax
+49 c1 e1 28          	shl    $0x28,%r9
+48 c1 ea 04          	shr    $0x4,%rdx
+48 c1 e1 0a          	shl    $0xa,%rcx
+48 89 17             	mov    %rdx,(%rdi)
+48 09 c8             	or     %rcx,%rax
+4c 09 c8             	or     %r9,%rax
 48 89 47 08          	mov    %rax,0x8(%rdi)
 c3                   	retq   
 90                   	nop    
 
 <bigmerge2(sc_dt::sc_biguint<100>&, sc_dt::sc_uint<40>&, sc_dt::sc_uint<20>&, sc_dt::sc_uint<30>&, sc_dt::sc_uint<10>&)>:
-8b 02                	mov    (%rdx),%eax
-8b 11                	mov    (%rcx),%edx
-49 b9 ff ff ff ff ff 	mov    $0xffffffffff,%r9
-00 00 00 
-4c 23 0e             	and    (%rsi),%r9
-41 8b 30             	mov    (%r8),%esi
-81 e2 ff ff ff 3f    	and    $0x3fffffff,%edx
-25 ff ff 0f 00       	and    $0xfffff,%eax
-89 d2                	mov    %edx,%edx
-81 e6 ff 03 00 00    	and    $0x3ff,%esi
-48 c1 e0 28          	shl    $0x28,%rax
-48 89 d1             	mov    %rdx,%rcx
-89 f6                	mov    %esi,%esi
-4c 09 c8             	or     %r9,%rax
+8b 09                	mov    (%rcx),%ecx
+41 8b 00             	mov    (%r8),%eax
+4c 8b 0e             	mov    (%rsi),%r9
+8b 32                	mov    (%rdx),%esi
+89 ca                	mov    %ecx,%edx
 48 c1 e1 3c          	shl    $0x3c,%rcx
-48 c1 ea 04          	shr    $0x4,%rdx
-48 c1 e6 1a          	shl    $0x1a,%rsi
-48 09 c8             	or     %rcx,%rax
-48 09 f2             	or     %rsi,%rdx
-48 89 47 08          	mov    %rax,0x8(%rdi)
+c1 ea 04             	shr    $0x4,%edx
+48 c1 e0 1a          	shl    $0x1a,%rax
+48 c1 e6 28          	shl    $0x28,%rsi
+89 d2                	mov    %edx,%edx
+48 09 ce             	or     %rcx,%rsi
+48 09 c2             	or     %rax,%rdx
+48 b8 ff ff ff ff 0f 	mov    $0xfffffffff,%rax
+00 00 00 
+4c 09 ce             	or     %r9,%rsi
+48 21 c2             	and    %rax,%rdx
+48 89 77 08          	mov    %rsi,0x8(%rdi)
 48 89 17             	mov    %rdx,(%rdi)
 c3                   	retq   
 90                   	nop    
 
 <bigmerge1a(sc_dt::sc_biguint<100>&, sc_dt::sc_uint<40> const&, sc_dt::sc_uint<20>&, sc_dt::sc_uint<30>&, sc_dt::sc_uint<10>&)>:
-44 8b 12             	mov    (%rdx),%r10d
-8b 11                	mov    (%rcx),%edx
-49 b9 ff ff ff ff ff 	mov    $0xffffffffff,%r9
-00 00 00 
-41 8b 00             	mov    (%r8),%eax
-4c 23 0e             	and    (%rsi),%r9
-81 e2 ff ff ff 3f    	and    $0x3fffffff,%edx
-41 81 e2 ff ff 0f 00 	and    $0xfffff,%r10d
-89 d2                	mov    %edx,%edx
-25 ff 03 00 00       	and    $0x3ff,%eax
-49 c1 e2 28          	shl    $0x28,%r10
-89 c0                	mov    %eax,%eax
-48 c1 e2 0a          	shl    $0xa,%rdx
-48 09 c2             	or     %rax,%rdx
-4c 89 c8             	mov    %r9,%rax
-49 c1 e9 04          	shr    $0x4,%r9
-4c 09 d2             	or     %r10,%rdx
+48 8b 06             	mov    (%rsi),%rax
+45 8b 00             	mov    (%r8),%r8d
+8b 09                	mov    (%rcx),%ecx
+44 8b 0a             	mov    (%rdx),%r9d
+48 89 c2             	mov    %rax,%rdx
 48 c1 e0 3c          	shl    $0x3c,%rax
-4c 89 0f             	mov    %r9,(%rdi)
-48 09 c2             	or     %rax,%rdx
-48 89 57 08          	mov    %rdx,0x8(%rdi)
+4c 09 c0             	or     %r8,%rax
+49 c1 e1 28          	shl    $0x28,%r9
+48 c1 ea 04          	shr    $0x4,%rdx
+48 c1 e1 0a          	shl    $0xa,%rcx
+48 89 17             	mov    %rdx,(%rdi)
+48 09 c8             	or     %rcx,%rax
+4c 09 c8             	or     %r9,%rax
+48 89 47 08          	mov    %rax,0x8(%rdi)
 c3                   	retq   
 90                   	nop    
 
 <bigmerge1b(sc_dt::sc_biguint<100>&, sc_dt::sc_uint<40>&, sc_dt::sc_uint<20> const&, sc_dt::sc_uint<30>&, sc_dt::sc_uint<10>&)>:
-44 8b 12             	mov    (%rdx),%r10d
-8b 11                	mov    (%rcx),%edx
-49 b9 ff ff ff ff ff 	mov    $0xffffffffff,%r9
-00 00 00 
-41 8b 00             	mov    (%r8),%eax
-4c 23 0e             	and    (%rsi),%r9
-81 e2 ff ff ff 3f    	and    $0x3fffffff,%edx
-41 81 e2 ff ff 0f 00 	and    $0xfffff,%r10d
-89 d2                	mov    %edx,%edx
-25 ff 03 00 00       	and    $0x3ff,%eax
-49 c1 e2 28          	shl    $0x28,%r10
-89 c0                	mov    %eax,%eax
-48 c1 e2 0a          	shl    $0xa,%rdx
-48 09 c2             	or     %rax,%rdx
-4c 89 c8             	mov    %r9,%rax
-49 c1 e9 04          	shr    $0x4,%r9
-4c 09 d2             	or     %r10,%rdx
+48 8b 06             	mov    (%rsi),%rax
+45 8b 00             	mov    (%r8),%r8d
+8b 09                	mov    (%rcx),%ecx
+44 8b 0a             	mov    (%rdx),%r9d
+48 89 c2             	mov    %rax,%rdx
 48 c1 e0 3c          	shl    $0x3c,%rax
-4c 89 0f             	mov    %r9,(%rdi)
-48 09 c2             	or     %rax,%rdx
-48 89 57 08          	mov    %rdx,0x8(%rdi)
+4c 09 c0             	or     %r8,%rax
+49 c1 e1 28          	shl    $0x28,%r9
+48 c1 ea 04          	shr    $0x4,%rdx
+48 c1 e1 0a          	shl    $0xa,%rcx
+48 89 17             	mov    %rdx,(%rdi)
+48 09 c8             	or     %rcx,%rax
+4c 09 c8             	or     %r9,%rax
+48 89 47 08          	mov    %rax,0x8(%rdi)
 c3                   	retq   
 90                   	nop    
 
 <bigmerge1c(sc_dt::sc_biguint<100>&, sc_dt::sc_uint<40>&, sc_dt::sc_uint<20>&, sc_dt::sc_uint<30> const&, sc_dt::sc_uint<10>&)>:
+48 8b 06             	mov    (%rsi),%rax
+45 8b 00             	mov    (%r8),%r8d
 8b 09                	mov    (%rcx),%ecx
-41 8b 00             	mov    (%r8),%eax
 44 8b 0a             	mov    (%rdx),%r9d
-48 ba ff ff ff ff ff 	mov    $0xffffffffff,%rdx
-00 00 00 
-48 23 16             	and    (%rsi),%rdx
-81 e1 ff ff ff 3f    	and    $0x3fffffff,%ecx
-25 ff 03 00 00       	and    $0x3ff,%eax
-89 c9                	mov    %ecx,%ecx
-89 c0                	mov    %eax,%eax
-41 81 e1 ff ff 0f 00 	and    $0xfffff,%r9d
-48 c1 e1 0a          	shl    $0xa,%rcx
-49 c1 e1 28          	shl    $0x28,%r9
-48 09 c1             	or     %rax,%rcx
-48 89 d0             	mov    %rdx,%rax
-48 c1 ea 04          	shr    $0x4,%rdx
-4c 09 c9             	or     %r9,%rcx
+48 89 c2             	mov    %rax,%rdx
 48 c1 e0 3c          	shl    $0x3c,%rax
+4c 09 c0             	or     %r8,%rax
+49 c1 e1 28          	shl    $0x28,%r9
+48 c1 ea 04          	shr    $0x4,%rdx
+48 c1 e1 0a          	shl    $0xa,%rcx
 48 89 17             	mov    %rdx,(%rdi)
-48 09 c1             	or     %rax,%rcx
-48 89 4f 08          	mov    %rcx,0x8(%rdi)
+48 09 c8             	or     %rcx,%rax
+4c 09 c8             	or     %r9,%rax
+48 89 47 08          	mov    %rax,0x8(%rdi)
 c3                   	retq   
 90                   	nop    
 
 <bigmerge1d(sc_dt::sc_biguint<100>&, sc_dt::sc_uint<40>&, sc_dt::sc_uint<20>&, sc_dt::sc_uint<30>&, sc_dt::sc_uint<10> const&)>:
-8b 01                	mov    (%rcx),%eax
+48 8b 06             	mov    (%rsi),%rax
 45 8b 00             	mov    (%r8),%r8d
-48 b9 ff ff ff ff ff 	mov    $0xffffffffff,%rcx
-00 00 00 
-8b 12                	mov    (%rdx),%edx
-48 23 0e             	and    (%rsi),%rcx
-25 ff ff ff 3f       	and    $0x3fffffff,%eax
-41 81 e0 ff 03 00 00 	and    $0x3ff,%r8d
-89 c0                	mov    %eax,%eax
-45 89 c0             	mov    %r8d,%r8d
-81 e2 ff ff 0f 00    	and    $0xfffff,%edx
-48 c1 e0 0a          	shl    $0xa,%rax
-48 c1 e2 28          	shl    $0x28,%rdx
+8b 09                	mov    (%rcx),%ecx
+44 8b 0a             	mov    (%rdx),%r9d
+48 89 c2             	mov    %rax,%rdx
+48 c1 e0 3c          	shl    $0x3c,%rax
 4c 09 c0             	or     %r8,%rax
-48 09 d0             	or     %rdx,%rax
-48 89 ca             	mov    %rcx,%rdx
-48 c1 e9 04          	shr    $0x4,%rcx
-48 c1 e2 3c          	shl    $0x3c,%rdx
-48 89 0f             	mov    %rcx,(%rdi)
-48 09 d0             	or     %rdx,%rax
+49 c1 e1 28          	shl    $0x28,%r9
+48 c1 ea 04          	shr    $0x4,%rdx
+48 c1 e1 0a          	shl    $0xa,%rcx
+48 89 17             	mov    %rdx,(%rdi)
+48 09 c8             	or     %rcx,%rax
+4c 09 c8             	or     %r9,%rax
 48 89 47 08          	mov    %rax,0x8(%rdi)
 c3                   	retq   
 90                   	nop    
 
 <bigmerge1ab(sc_dt::sc_biguint<100>&, sc_dt::sc_uint<40> const&, sc_dt::sc_uint<20> const&, sc_dt::sc_uint<30>&, sc_dt::sc_uint<10>&)>:
-44 8b 12             	mov    (%rdx),%r10d
-8b 11                	mov    (%rcx),%edx
-49 b9 ff ff ff ff ff 	mov    $0xffffffffff,%r9
-00 00 00 
-41 8b 00             	mov    (%r8),%eax
-4c 23 0e             	and    (%rsi),%r9
-81 e2 ff ff ff 3f    	and    $0x3fffffff,%edx
-41 81 e2 ff ff 0f 00 	and    $0xfffff,%r10d
-89 d2                	mov    %edx,%edx
-25 ff 03 00 00       	and    $0x3ff,%eax
-49 c1 e2 28          	shl    $0x28,%r10
-89 c0                	mov    %eax,%eax
-48 c1 e2 0a          	shl    $0xa,%rdx
-48 09 c2             	or     %rax,%rdx
-4c 89 c8             	mov    %r9,%rax
-49 c1 e9 04          	shr    $0x4,%r9
-4c 09 d2             	or     %r10,%rdx
+48 8b 06             	mov    (%rsi),%rax
+45 8b 00             	mov    (%r8),%r8d
+8b 09                	mov    (%rcx),%ecx
+44 8b 0a             	mov    (%rdx),%r9d
+48 89 c2             	mov    %rax,%rdx
 48 c1 e0 3c          	shl    $0x3c,%rax
-4c 89 0f             	mov    %r9,(%rdi)
-48 09 c2             	or     %rax,%rdx
-48 89 57 08          	mov    %rdx,0x8(%rdi)
+4c 09 c0             	or     %r8,%rax
+49 c1 e1 28          	shl    $0x28,%r9
+48 c1 ea 04          	shr    $0x4,%rdx
+48 c1 e1 0a          	shl    $0xa,%rcx
+48 89 17             	mov    %rdx,(%rdi)
+48 09 c8             	or     %rcx,%rax
+4c 09 c8             	or     %r9,%rax
+48 89 47 08          	mov    %rax,0x8(%rdi)
 c3                   	retq   
 90                   	nop    
 
 <bigsplit1(sc_dt::sc_biguint<100>&, sc_dt::sc_uint<40>&, sc_dt::sc_uint<20>&, sc_dt::sc_uint<30>&, sc_dt::sc_uint<10>&)>:
-8b 47 08             	mov    0x8(%rdi),%eax
+4c 8b 4f 08          	mov    0x8(%rdi),%r9
+44 89 c8             	mov    %r9d,%eax
 25 ff 03 00 00       	and    $0x3ff,%eax
 41 89 00             	mov    %eax,(%r8)
-4c 8b 47 08          	mov    0x8(%rdi),%r8
-49 c1 e8 0a          	shr    $0xa,%r8
-44 89 c0             	mov    %r8d,%eax
-49 c1 e8 1e          	shr    $0x1e,%r8
+4c 89 c8             	mov    %r9,%rax
+48 c1 e8 0a          	shr    $0xa,%rax
 25 ff ff ff 3f       	and    $0x3fffffff,%eax
 89 01                	mov    %eax,(%rcx)
-44 89 c0             	mov    %r8d,%eax
-49 c1 e8 14          	shr    $0x14,%r8
+4c 89 c8             	mov    %r9,%rax
+49 c1 e9 3c          	shr    $0x3c,%r9
+48 c1 e8 28          	shr    $0x28,%rax
 25 ff ff 0f 00       	and    $0xfffff,%eax
 89 02                	mov    %eax,(%rdx)
-48 b8 ff ff ff ff 0f 	mov    $0xfffffffff,%rax
-00 00 00 
-48 23 07             	and    (%rdi),%rax
+48 8b 07             	mov    (%rdi),%rax
 48 c1 e0 04          	shl    $0x4,%rax
-4c 09 c0             	or     %r8,%rax
-48 89 06             	mov    %rax,(%rsi)
+49 09 c1             	or     %rax,%r9
+4c 89 0e             	mov    %r9,(%rsi)
 c3                   	retq   
 90                   	nop    
 
@@ -6917,42 +6869,39 @@ c3                   	retq
 48 23 47 08          	and    0x8(%rdi),%rax
 48 89 06             	mov    %rax,(%rsi)
 48 8b 77 08          	mov    0x8(%rdi),%rsi
-48 c1 ee 28          	shr    $0x28,%rsi
-89 f0                	mov    %esi,%eax
-48 c1 ee 14          	shr    $0x14,%rsi
+48 89 f0             	mov    %rsi,%rax
+48 c1 ee 3c          	shr    $0x3c,%rsi
+48 c1 e8 28          	shr    $0x28,%rax
 25 ff ff 0f 00       	and    $0xfffff,%eax
 89 02                	mov    %eax,(%rdx)
-48 8b 07             	mov    (%rdi),%rax
+48 8b 17             	mov    (%rdi),%rdx
+89 d0                	mov    %edx,%eax
+48 c1 ea 1a          	shr    $0x1a,%rdx
 25 ff ff ff 03       	and    $0x3ffffff,%eax
-48 c1 e0 04          	shl    $0x4,%rax
+c1 e0 04             	shl    $0x4,%eax
 09 f0                	or     %esi,%eax
 89 01                	mov    %eax,(%rcx)
-48 8b 07             	mov    (%rdi),%rax
-48 c1 e8 1a          	shr    $0x1a,%rax
-25 ff 03 00 00       	and    $0x3ff,%eax
-41 89 00             	mov    %eax,(%r8)
+41 89 10             	mov    %edx,(%r8)
 c3                   	retq   
 
 <bigsplit1c(sc_dt::sc_biguint<100> const&, sc_dt::sc_uint<40>&, sc_dt::sc_uint<20>&, sc_dt::sc_uint<30>&, sc_dt::sc_uint<10>&)>:
-8b 47 08             	mov    0x8(%rdi),%eax
+4c 8b 4f 08          	mov    0x8(%rdi),%r9
+44 89 c8             	mov    %r9d,%eax
 25 ff 03 00 00       	and    $0x3ff,%eax
 41 89 00             	mov    %eax,(%r8)
-4c 8b 47 08          	mov    0x8(%rdi),%r8
-49 c1 e8 0a          	shr    $0xa,%r8
-44 89 c0             	mov    %r8d,%eax
-49 c1 e8 1e          	shr    $0x1e,%r8
+4c 89 c8             	mov    %r9,%rax
+48 c1 e8 0a          	shr    $0xa,%rax
 25 ff ff ff 3f       	and    $0x3fffffff,%eax
 89 01                	mov    %eax,(%rcx)
-44 89 c0             	mov    %r8d,%eax
-49 c1 e8 14          	shr    $0x14,%r8
+4c 89 c8             	mov    %r9,%rax
+49 c1 e9 3c          	shr    $0x3c,%r9
+48 c1 e8 28          	shr    $0x28,%rax
 25 ff ff 0f 00       	and    $0xfffff,%eax
 89 02                	mov    %eax,(%rdx)
-48 b8 ff ff ff ff 0f 	mov    $0xfffffffff,%rax
-00 00 00 
-48 23 07             	and    (%rdi),%rax
+48 8b 07             	mov    (%rdi),%rax
 48 c1 e0 04          	shl    $0x4,%rax
-4c 09 c0             	or     %r8,%rax
-48 89 06             	mov    %rax,(%rsi)
+49 09 c1             	or     %rax,%r9
+4c 89 0e             	mov    %r9,(%rsi)
 c3                   	retq   
 90                   	nop    
 
@@ -6962,71 +6911,59 @@ c3                   	retq
 48 23 47 08          	and    0x8(%rdi),%rax
 48 89 06             	mov    %rax,(%rsi)
 48 8b 77 08          	mov    0x8(%rdi),%rsi
-48 c1 ee 28          	shr    $0x28,%rsi
-89 f0                	mov    %esi,%eax
-48 c1 ee 14          	shr    $0x14,%rsi
+48 89 f0             	mov    %rsi,%rax
+48 c1 ee 3c          	shr    $0x3c,%rsi
+48 c1 e8 28          	shr    $0x28,%rax
 25 ff ff 0f 00       	and    $0xfffff,%eax
 89 02                	mov    %eax,(%rdx)
-48 8b 07             	mov    (%rdi),%rax
+48 8b 17             	mov    (%rdi),%rdx
+89 d0                	mov    %edx,%eax
+48 c1 ea 1a          	shr    $0x1a,%rdx
 25 ff ff ff 03       	and    $0x3ffffff,%eax
-48 c1 e0 04          	shl    $0x4,%rax
+c1 e0 04             	shl    $0x4,%eax
 09 f0                	or     %esi,%eax
 89 01                	mov    %eax,(%rcx)
-48 8b 07             	mov    (%rdi),%rax
-48 c1 e8 1a          	shr    $0x1a,%rax
-25 ff 03 00 00       	and    $0x3ff,%eax
-41 89 00             	mov    %eax,(%r8)
+41 89 10             	mov    %edx,(%r8)
 c3                   	retq   
 
 <bigmerge3(sc_dt::sc_biguint<150>&, sc_dt::sc_uint<50>*)>:
+48 8b 06             	mov    (%rsi),%rax
 48 8b 4e 08          	mov    0x8(%rsi),%rcx
-4c 8b 06             	mov    (%rsi),%r8
-48 ba ff ff ff ff ff 	mov    $0x3ffffffffffff,%rdx
-ff 03 00 
-48 21 d1             	and    %rdx,%rcx
-49 21 d0             	and    %rdx,%r8
-48 23 56 10          	and    0x10(%rsi),%rdx
-48 89 c8             	mov    %rcx,%rax
-48 c1 e9 0e          	shr    $0xe,%rcx
-48 c1 e0 32          	shl    $0x32,%rax
-48 09 d0             	or     %rdx,%rax
-48 89 47 10          	mov    %rax,0x10(%rdi)
-4c 89 c0             	mov    %r8,%rax
-49 c1 e8 1c          	shr    $0x1c,%r8
+4c 8b 46 10          	mov    0x10(%rsi),%r8
+48 89 c2             	mov    %rax,%rdx
 48 c1 e0 24          	shl    $0x24,%rax
-44 89 07             	mov    %r8d,(%rdi)
-48 09 c8             	or     %rcx,%rax
+48 c1 ea 1c          	shr    $0x1c,%rdx
+89 17                	mov    %edx,(%rdi)
+48 89 ca             	mov    %rcx,%rdx
+48 c1 e1 32          	shl    $0x32,%rcx
+48 c1 ea 0e          	shr    $0xe,%rdx
+4c 09 c1             	or     %r8,%rcx
+48 09 d0             	or     %rdx,%rax
+48 89 4f 10          	mov    %rcx,0x10(%rdi)
 48 89 47 08          	mov    %rax,0x8(%rdi)
 c3                   	retq   
-90                   	nop    
 
 <bigmerge3c(sc_dt::sc_biguint<150>&, sc_dt::sc_uint<50> const*)>:
+48 8b 06             	mov    (%rsi),%rax
 48 8b 4e 08          	mov    0x8(%rsi),%rcx
-4c 8b 06             	mov    (%rsi),%r8
-48 ba ff ff ff ff ff 	mov    $0x3ffffffffffff,%rdx
-ff 03 00 
-48 21 d1             	and    %rdx,%rcx
-49 21 d0             	and    %rdx,%r8
-48 23 56 10          	and    0x10(%rsi),%rdx
-48 89 c8             	mov    %rcx,%rax
-48 c1 e9 0e          	shr    $0xe,%rcx
-48 c1 e0 32          	shl    $0x32,%rax
-48 09 d0             	or     %rdx,%rax
-48 89 47 10          	mov    %rax,0x10(%rdi)
-4c 89 c0             	mov    %r8,%rax
-49 c1 e8 1c          	shr    $0x1c,%r8
+4c 8b 46 10          	mov    0x10(%rsi),%r8
+48 89 c2             	mov    %rax,%rdx
 48 c1 e0 24          	shl    $0x24,%rax
-44 89 07             	mov    %r8d,(%rdi)
-48 09 c8             	or     %rcx,%rax
+48 c1 ea 1c          	shr    $0x1c,%rdx
+89 17                	mov    %edx,(%rdi)
+48 89 ca             	mov    %rcx,%rdx
+48 c1 e1 32          	shl    $0x32,%rcx
+48 c1 ea 0e          	shr    $0xe,%rdx
+4c 09 c1             	or     %r8,%rcx
+48 09 d0             	or     %rdx,%rax
+48 89 4f 10          	mov    %rcx,0x10(%rdi)
 48 89 47 08          	mov    %rax,0x8(%rdi)
 c3                   	retq   
-90                   	nop    
 
 <bigsplit3(sc_dt::sc_biguint<150>&, sc_dt::sc_uint<50>*)>:
-48 8b 47 10          	mov    0x10(%rdi),%rax
-48 b9 ff ff ff ff ff 	mov    $0x3ffffffffffff,%rcx
+48 b8 ff ff ff ff ff 	mov    $0x3ffffffffffff,%rax
 ff 03 00 
-48 21 c8             	and    %rcx,%rax
+48 23 47 10          	and    0x10(%rdi),%rax
 48 89 46 10          	mov    %rax,0x10(%rsi)
 48 b8 ff ff ff ff 0f 	mov    $0xfffffffff,%rax
 00 00 00 
@@ -7035,24 +6972,19 @@ ff 03 00
 48 c1 e0 0e          	shl    $0xe,%rax
 48 c1 ea 32          	shr    $0x32,%rdx
 48 09 d0             	or     %rdx,%rax
-48 21 c8             	and    %rcx,%rax
 48 89 46 08          	mov    %rax,0x8(%rsi)
 8b 07                	mov    (%rdi),%eax
 48 8b 57 08          	mov    0x8(%rdi),%rdx
-25 ff ff 3f 00       	and    $0x3fffff,%eax
-89 c0                	mov    %eax,%eax
-48 c1 ea 24          	shr    $0x24,%rdx
 48 c1 e0 1c          	shl    $0x1c,%rax
-48 09 d0             	or     %rdx,%rax
-48 21 c8             	and    %rcx,%rax
-48 89 06             	mov    %rax,(%rsi)
+48 c1 ea 24          	shr    $0x24,%rdx
+48 09 c2             	or     %rax,%rdx
+48 89 16             	mov    %rdx,(%rsi)
 c3                   	retq   
 
 <bigsplit3c(sc_dt::sc_biguint<150> const&, sc_dt::sc_uint<50>*)>:
-48 8b 47 10          	mov    0x10(%rdi),%rax
-48 b9 ff ff ff ff ff 	mov    $0x3ffffffffffff,%rcx
+48 b8 ff ff ff ff ff 	mov    $0x3ffffffffffff,%rax
 ff 03 00 
-48 21 c8             	and    %rcx,%rax
+48 23 47 10          	and    0x10(%rdi),%rax
 48 89 46 10          	mov    %rax,0x10(%rsi)
 48 b8 ff ff ff ff 0f 	mov    $0xfffffffff,%rax
 00 00 00 
@@ -7061,15 +6993,11 @@ ff 03 00
 48 c1 e0 0e          	shl    $0xe,%rax
 48 c1 ea 32          	shr    $0x32,%rdx
 48 09 d0             	or     %rdx,%rax
-48 21 c8             	and    %rcx,%rax
 48 89 46 08          	mov    %rax,0x8(%rsi)
 8b 07                	mov    (%rdi),%eax
 48 8b 57 08          	mov    0x8(%rdi),%rdx
-25 ff ff 3f 00       	and    $0x3fffff,%eax
-89 c0                	mov    %eax,%eax
-48 c1 ea 24          	shr    $0x24,%rdx
 48 c1 e0 1c          	shl    $0x1c,%rax
-48 09 d0             	or     %rdx,%rax
-48 21 c8             	and    %rcx,%rax
-48 89 06             	mov    %rax,(%rsi)
+48 c1 ea 24          	shr    $0x24,%rdx
+48 09 c2             	or     %rax,%rdx
+48 89 16             	mov    %rdx,(%rsi)
 c3                   	retq   
