@@ -51,7 +51,7 @@ sfcut.h: $(SFC_H) Makefile streamflowc.h
 	   echo '// StreamFlowC declarations:' && \
 	   for i in $(SFC) ; do sed '1,10d;s|^|// |;/^\/\/ };/q' $$i.sfc || exit 2 ; done && \
 	   echo '' && \
-	   for i in $(SFC_H) ; do sed '1,10d' $$i || exit 2 ; done && \
+	   for i in $(SFC) ; do echo '#line 11 "'$$i.sfc'"' && sed '1,11d' $$i.h || exit 2 ; done && \
 	   echo '} // namespace sfcut' && \
 	   echo '' && \
 	   echo '#endif' ; } > $@~ && chmod -w $@~ && rm -f $@ && mv $@~ $@
