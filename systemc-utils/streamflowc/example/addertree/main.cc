@@ -1,13 +1,10 @@
-#include "sum8.h"
-#include "tb.h"
+#include "system.h"
 #include <iostream>
 
-int main() {
+int main(int argc, char *argv[]) {
   try {
-    Sum8<8>  dut;
-    Tb       tb;
-    dut(tb.d0, tb.d1, tb.d2, tb.d3, tb.d4, tb.d5, tb.d6, tb.d7);
-    tb(dut);
+    System   sys;
+    sys(argc, argv);
     return 0;
   } catch (std::exception& e) {
     std::cerr << "Error: " << e.what() << ".\n";

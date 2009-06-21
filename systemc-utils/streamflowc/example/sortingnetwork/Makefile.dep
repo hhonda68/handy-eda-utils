@@ -1,4 +1,6 @@
 cmp.o: cmp.cc cmp.h common.h ../../include/streamflowc.h
 sort4.o: sort4.cc sort4.h common.h ../../include/streamflowc.h cmp.h
+system.o: system.cc system.h common.h ../../include/streamflowc.h sort4.h \
+  tb.h
 tb.o: tb.cc tb.h common.h ../../include/streamflowc.h
-main.o: main.cc sort4.h common.h ../../include/streamflowc.h tb.h
+main.o: main.cc system.h common.h ../../include/streamflowc.h

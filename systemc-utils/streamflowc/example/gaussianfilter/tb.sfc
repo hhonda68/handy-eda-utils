@@ -6,7 +6,7 @@
 
 module Tb {
  param:
-  int    width, height;
+  int    width, height, nr_frame;
  input:
   pel_t  y;
  output:
@@ -108,7 +108,7 @@ Tb() {
         uchar a = src[v][h];
         std::cout << "A[" << v << "][" << h << "] = " << static_cast<int>(a) << '\n';
         a_out(a);
-        if (m_dstframe >= 10)  return;
+        if (m_dstframe >= nr_frame)  return;
       }
     }
     srcbank ^= 1;

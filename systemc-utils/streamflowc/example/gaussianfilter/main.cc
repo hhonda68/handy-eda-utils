@@ -1,15 +1,10 @@
-#include "filt2d.h"
-#include "tb.h"
+#include "system.h"
 #include <iostream>
 
-int main() {
+int main(int argc, char *argv[]) {
   try {
-    Filt2D   dut;
-    Tb       tb;
-    const int WIDTH = 12;
-    const int HEIGHT = 8;
-    dut(WIDTH, HEIGHT, tb);
-    tb(WIDTH, HEIGHT, dut);
+    System   sys;
+    sys(argc, argv);
     return 0;
   } catch (std::exception& e) {
     std::cerr << "Error: " << e.what() << ".\n";
@@ -19,4 +14,3 @@ int main() {
     return 2;
   }
 }
-
