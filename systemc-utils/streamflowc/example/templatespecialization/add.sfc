@@ -1,0 +1,25 @@
+// -*- c++ -*-
+#ifndef ADD_H
+#define ADD_H
+
+#include "common.h"
+
+template <int W>
+module Add {
+  typedef sc_uint<W>    idata_t;
+  typedef sc_uint<W+1>  odata_t;
+ input:
+  idata_t  a, b;
+ output:
+  odata_t  y;
+};
+
+struct Add {
+  idata_t m_a;
+};
+
+Add(a) { m_a = a; }
+Add(b) { y_out(m_a + b); }
+
+#endif
+

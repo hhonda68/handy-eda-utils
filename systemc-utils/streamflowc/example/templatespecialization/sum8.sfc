@@ -1,0 +1,51 @@
+// -*- c++ -*-
+#ifndef SUM8_H
+#define SUM8_H
+
+#include "common.h"
+#include "add.h"
+
+template <int W>
+module Sum8 {
+ input:
+  sc_uint<W>    d0, d1, d2, d3, d4, d5, d6, d7;
+ output:
+  sc_uint<W+3>  sum;
+};
+
+//         .---.
+//  d0 --->| A |
+//         | D |---.    .---.
+//  d1 --->| D |   `--->| A |
+//         :---:        | D |---.
+//  d2 --->| A |   .--->| D |   |
+//         | D |---'    `---'   |    .---.
+//  d3 --->| D |                `--->| A |
+//         :---:                     | D |---> sum
+//  d4 --->| A |                .--->| D |
+//         | D |---.    .---.   |    `---'
+//  d5 --->| D |   `--->| A |   |
+//         :---:        | D |---'
+//  d6 --->| A |   .--->| D |
+//         | D |---'    `---'
+//  d7 --->| D |
+//         `---'
+
+struct Sum8 {
+  Add<W>    add01, add23, add45, add67;
+  Add<W+1>  add03, add47;
+  Add<W+2>  add07;
+};
+
+Sum8() {
+  add01(d0, d1);
+  add23(d2, d3);
+  add45(d4, d5);
+  add67(d6, d7);
+  add03(add01, add23);
+  add47(add45, add67);
+  add07(add03, add47);
+  sum = add07;
+}
+
+#endif
