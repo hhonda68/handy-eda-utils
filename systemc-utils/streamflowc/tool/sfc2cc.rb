@@ -15,8 +15,6 @@
 
 Delimiter = "////////////////////////////////////////////////////////////////\n"
 
-PRINT_INSTANCE_NAME_UPON_BINDING_ERROR = true
-
 def format_array(prefix, arr, sep, width, suffix)
   str_cont = sep.sub(/s+$/,"") + "\n" + (" " * prefix.length)
   width -= prefix.length
@@ -77,9 +75,8 @@ def line_control(lineno=nil, autogen_srcline = nil)
 end
 
 def check_member_usage(line)
-  UsedMember[:id]       = true  if (line =~ /\bstreamflowc_id\b/)
-  UsedMember[:basename] = true  if (line =~ /\bstreamflowc_basename\b/)
   UsedMember[:name]     = true  if (line =~ /\bstreamflowc_name\b/)
+  UsedMember[:id]       = true  if (line =~ /\bstreamflowc_id\b/)
 end
 
 begin
@@ -185,8 +182,9 @@ begin
     Output.each do |desc|
       print("  #{desc.atype} #{desc.name};\n")
     end
-    print("  explicit #{Modname}(const ::streamflowc::module_name& = 0);\n")
+    print("  #{Modname}();\n")
     print("  ~#{Modname}();\n")
+    print("  void streamflowc_set_basename(const char *);\n")
     print(bind_decl(2, ""), ";\n")
     if (! Output.empty?) then
       if (Output.size == 1) then
@@ -240,8 +238,7 @@ begin
   GenLines = []
   Inline_str = "__attribute__((always_inline)) inline\n"
   UsedParam = {}
-  UsedMember = { :id => false, :basename => false, :name => false }
-  UsedMember[:basename] = true   if (PRINT_INSTANCE_NAME_UPON_BINDING_ERROR)
+  UsedMember = { :id => false, :name => false }
   genlines_impl = nil
   genlines_bind = nil
   genlines_end = nil
@@ -386,33 +383,28 @@ begin
       print("  #{desc.type} m_#{desc.name};\n")
     end
   end
-  initlist = []
+  print("  const char *streamflowc_basename;\n")
+  initlist = " : streamflowc_basename(0)"
+  if (UsedMember[:name]) then
+    print("  const char *streamflowc_name;\n")      
+  end
   if (UsedMember[:id]) then
     print("  static int streamflowc_nr_instance;\n")
     print("  const int streamflowc_id;\n")
-    initlist.push("streamflowc_id(streamflowc_nr_instance++)")
+    initlist += ", streamflowc_id(streamflowc_nr_instance++)"
   end
-  if (UsedMember[:basename]) then
-    print("  const char * const streamflowc_basename;\n")
-    initlist.push("streamflowc_basename(::streamflowc::simcontext::get_current_basename())")
-  end
-  if (UsedMember[:name]) then
-    print("  const char * const streamflowc_name;\n")      
-    initlist.push("streamflowc_name(::streamflowc::simcontext::get_current_name())")
-  end
-  initlist.concat(Instances.map{|x| x+'("'+x+'")'})  if (Hierarchical)
-  if (initlist.empty?) then
-    # assert(! Hierarchical)
-    print("  impl_t() {\n")
+  print("  impl_t()#{initlist} {\n")
+  if (Hierarchical) then
+    Instances.each do |inst|
+      print("    #{inst}.streamflowc_set_basename(\"#{inst}\");\n")
+    end
   else
-    suffix = Hierarchical ? " {}\n" : " {\n"
-    print(format_array("  impl_t() : ", initlist, ",", 100, suffix))
-  end
-  unless Hierarchical then
     Input.each do |desc|
       print("    streamflowc_port_#{desc.name}.m_proc = streamflowc_proc_#{desc.name};\n")
     end
-    print("  }\n")
+  end
+  print("  }\n")
+  unless (Hierarchical) then
     Input.each do |desc|
       print("  static void streamflowc_proc_#{desc.name}(void *p, #{desc.atype} arg);\n")
     end
@@ -422,8 +414,9 @@ begin
   end
   print("  ", Inline_str, bind_decl(2, "", :impl), ";\n")
   print(GenLines[genlines_impl..genlines_bind-1])
-  if (PRINT_INSTANCE_NAME_UPON_BINDING_ERROR) then
-    print("  ::streamflowc::module_name streamflowc_module_name(streamflowc_basename);\n")
+  print("  ::streamflowc::module_name streamflowc_module_name(streamflowc_basename);\n")
+  if (UsedMember[:name]) then
+    print("  streamflowc_name = ::streamflowc::simcontext::get_current_name();\n")
   end
   if Hierarchical then
     Output.each do |desc|
@@ -442,7 +435,7 @@ begin
   print(genlines_end[1])
   print("\n")
   # Constructor
-  print(Template_desc, "#{Modname}#{Template_suffix}::#{Modname}(const ::streamflowc::module_name&) {\n")
+  print(Template_desc, "#{Modname}#{Template_suffix}::#{Modname}() {\n")
   print("  m_impl = new impl_t;\n")
   unless Hierarchical then
     Output.each do |desc|
@@ -455,6 +448,10 @@ begin
   end
   # Descructor
   print(Template_desc, "#{Modname}#{Template_suffix}::~#{Modname}() { delete m_impl; }\n\n")
+  # set_basename
+  print(Template_desc, "void #{Modname}#{Template_suffix}::streamflowc_set_basename(const char *name) {\n",
+        "  m_impl->streamflowc_basename = name;\n",
+        "}\n\n")
   # Binder
   print(Template_desc, bind_decl(0, "#{Modname}#{Template_suffix}::"), " {\n")
   prefix = "  (*m_impl)("
