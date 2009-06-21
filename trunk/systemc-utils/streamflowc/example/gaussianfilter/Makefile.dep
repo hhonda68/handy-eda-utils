@@ -8,7 +8,9 @@ linebuf.o: linebuf.cc linebuf.h common.h ../../include/streamflowc.h \
   ../../include/sfcut.h
 pelbuf.o: pelbuf.cc pelbuf.h common.h ../../include/streamflowc.h \
   ../../include/sfcut.h
+system.o: system.cc system.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h filt2d.h tb.h
 tb.o: tb.cc tb.h common.h ../../include/streamflowc.h \
   ../../include/sfcut.h
-main.o: main.cc filt2d.h common.h ../../include/streamflowc.h \
-  ../../include/sfcut.h tb.h
+main.o: main.cc system.h common.h ../../include/streamflowc.h \
+  ../../include/sfcut.h

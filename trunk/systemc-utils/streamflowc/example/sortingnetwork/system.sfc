@@ -1,0 +1,30 @@
+// -*- c++ -*-
+#ifndef SYSTEM_H
+#define SYSTEM_H
+
+#include "common.h"
+
+module System {
+ param:
+  int argc;
+  const char * const *argv;
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "system.h"
+#include "sort4.h"
+#include "tb.h"
+
+struct System {
+  Sort4    dut;
+  Tb       tb;
+};
+
+System() {
+  // argc,argv are unused
+  dut(tb.a, tb.b, tb.c, tb.d);
+  tb(dut.p, dut.q, dut.r, dut.s);
+}

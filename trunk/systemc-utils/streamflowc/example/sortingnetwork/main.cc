@@ -1,13 +1,10 @@
-#include "sort4.h"
-#include "tb.h"
+#include "system.h"
 #include <iostream>
 
-int main() {
+int main(int argc, char *argv[]) {
   try {
-    Sort4    dut;
-    Tb       tb;
-    dut(tb.a, tb.b, tb.c, tb.d);
-    tb(dut.p, dut.q, dut.r, dut.s);
+    System   sys;
+    sys(argc, argv);
     return 0;
   } catch (std::exception& e) {
     std::cerr << "Error: " << e.what() << ".\n";

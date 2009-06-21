@@ -1,0 +1,51 @@
+// -*- c++ -*-
+#ifndef SYSTEM_H
+#define SYSTEM_H
+
+#include "common.h"
+
+module System {
+ param:
+  int argc;
+  const char * const *argv;
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "system.h"
+#include "filt2d.h"
+#include "tb.h"
+#include <cstdlib>
+#include <stdexcept>
+
+struct System {
+  Filt2D   dut;
+  Tb       tb;
+};
+
+// usage:
+//   a.out [<WIDTH> <HEIGHT> <NR_FRAME>]
+//   (default 12,8,10)
+
+System() {
+  int width, height, nr_frame;
+  switch (argc) {
+  case 1:
+    width = 12;
+    height = 8;
+    nr_frame = 10;
+    break;
+  case 3:
+    width = atoi(argv[1]);
+    height = atoi(argv[2]);
+    nr_frame = atoi(argv[3]);
+    break;
+  default:
+    throw ::std::runtime_error("invalid command-line option");
+    break;
+  }
+  dut(width, height, tb);
+  tb(width, height, nr_frame, dut);
+}
