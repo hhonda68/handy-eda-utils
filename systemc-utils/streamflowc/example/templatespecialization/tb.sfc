@@ -6,9 +6,9 @@
 
 module Tb {
  input:
-  u11_t sum;
+  u34_t sum;
  output:
-  u8_t d0, d1, d2, d3, d4, d5, d6, d7;
+  u31_t d0, d1, d2, d3, d4, d5, d6, d7;
 };
 
 #endif
@@ -24,9 +24,14 @@ namespace {
 class Rng {
 public:
   Rng(unsigned int seed = 0x12345678) : m_seed(seed) {}
-  u8_t get() {
+  u16_t get16() {
     m_seed = m_seed * 1103515245u + 12345u;
-    return (m_seed >> 15) & 0xff;
+    return (m_seed >> 15) & 0xffff;
+  }
+  u31_t get31() {
+    u16_t lo = get16();
+    u16_t hi = get16();
+    return ((hi&0x7fff) << 16) | lo;
   }
 private:
   unsigned int m_seed;
@@ -35,24 +40,26 @@ private:
 } // anonymous namespace
 
 struct Tb {
-  u11_t m_expect;
+  typedef unsigned int uint;
+  typedef unsigned long long ullong;
+  u34_t m_expect;
   bool  m_verified;
 };
 
 Tb() {
   Rng      rng;
   for (int i=0; i<10; ++i) {
-    u8_t d0 = rng.get();
-    u8_t d1 = rng.get();
-    u8_t d2 = rng.get();
-    u8_t d3 = rng.get();
-    u8_t d4 = rng.get();
-    u8_t d5 = rng.get();
-    u8_t d6 = rng.get();
-    u8_t d7 = rng.get();
-    std::cout << "d0-d7 " << (int)d0 << ' ' << (int)d1 << ' ' << (int)d2 << ' ' << (int)d3
-              << ' ' << (int)d4 << ' ' << (int)d5 << ' ' << (int)d6 << ' ' << (int)d7 << '\n';
-    m_expect = d0 + d1 + d2 + d3 + d4 + d5 + d6 + d7;
+    u31_t d0 = rng.get31();
+    u31_t d1 = rng.get31();
+    u31_t d2 = rng.get31();
+    u31_t d3 = rng.get31();
+    u31_t d4 = rng.get31();
+    u31_t d5 = rng.get31();
+    u31_t d6 = rng.get31();
+    u31_t d7 = rng.get31();
+    std::cout << "d0-d7 " << (uint)d0 << ' ' << (uint)d1 << ' ' << (uint)d2 << ' ' << (uint)d3
+              << ' ' << (uint)d4 << ' ' << (uint)d5 << ' ' << (uint)d6 << ' ' << (uint)d7 << '\n';
+    m_expect = (ullong)d0 + d1 + d2 + d3 + d4 + d5 + d6 + d7;
     m_verified = false;
     d0_out(d0);
     d1_out(d1);
@@ -67,9 +74,9 @@ Tb() {
 }
 
 Tb(sum) {
-  std::cout << "sum " << (int)sum;
+  std::cout << "sum " << (ullong)sum;
   if (sum != m_expect) {
-    std::cout << " != " << (int)m_expect << '\n';
+    std::cout << " != " << (ullong)m_expect << '\n';
     throw std::runtime_error("curious DUT output");
   }
   std::cout << '\n';
