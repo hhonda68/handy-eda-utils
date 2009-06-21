@@ -1,0 +1,35 @@
+// -*- c++ -*-
+#ifndef ADD32_H
+#define ADD32_H
+
+#include "common.h"
+
+module Add32 {
+  typedef sc_uint<32>  idata_t;
+  typedef sc_uint<33>  odata_t;
+ input:
+  idata_t  a, b;
+ output:
+  odata_t  y;
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "add32.h"
+#include <iostream>
+
+struct Add32 {
+  idata_t m_a;
+};
+
+Add32(a) { m_a = a; }
+Add32(b) {
+  odata_t y = static_cast<unsigned long long>(m_a) + b;
+  ::std::cout << streamflowc_name
+              << ' ' << static_cast<unsigned int>(m_a)
+              << '+' << static_cast<unsigned int>(b)
+              << '=' << static_cast<unsigned long long>(y) << '\n';
+  y_out(y);
+}

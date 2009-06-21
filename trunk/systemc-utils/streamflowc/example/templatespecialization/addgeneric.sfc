@@ -1,0 +1,26 @@
+// -*- c++ -*-
+#ifndef ADDGENERIC_H
+#define ADDGENERIC_H
+
+#include "common.h"
+
+template <int W>
+module AddGeneric {
+  typedef sc_uint<W>    idata_t;
+  typedef sc_uint<W+1>  odata_t;
+ input:
+  idata_t  a, b;
+ output:
+  odata_t  y;
+};
+
+struct AddGeneric {
+  idata_t m_a;
+};
+
+AddGeneric(a) { m_a = a; }
+AddGeneric(b) { y_out(m_a + b); }
+
+// CAVEAT: if we are using BCASYSC, AddGeneric<32> does not work correctly.
+
+#endif

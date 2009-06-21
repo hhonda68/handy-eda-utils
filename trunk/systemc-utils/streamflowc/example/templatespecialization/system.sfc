@@ -19,8 +19,8 @@ module System {
 #include "tb.h"
 
 struct System {
-  Sum8<8>  dut;
-  Tb       tb;
+  Sum8<31>  dut;
+  Tb        tb;
 };
 
 System() {
