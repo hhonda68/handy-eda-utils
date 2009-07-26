@@ -51,7 +51,7 @@
 #   3. If the line matches /\s+#.*$/, delete $&.
 #   4. If the line matches /\s*\\$/,
 #        replace $& with " " and append the next line and goto step 3.
-#   5. Expand "ranged name field"s (matching /^\w+(\[(\d+([-,]\d+)+)\]\w*)+$/).
+#   5. Expand "ranged name field"s (matching /^\w+(\[(\d+([-,]\d+)+)\]\w*)+@?$/).
 #        foo[0-3]      --> foo0 foo1 foo2 foo3
 #        foo[3-0]bar   --> foo3bar foo2bar foo1bar foo0bar
 #        a[0-15]       --> a0 a1 a2 ... a13 a14 a15
@@ -59,7 +59,16 @@
 #        a[0,2,4-6]    --> a0 a2 a4 a5 a6
 #        a[0-2][5-7]   --> a05 a06 a07 a15 a16 a17 a25 a26 a27
 #        a[0-2]b[5-7]c --> a0b5c a0b6c a0b7c a1b5c a1b6c a1b7c a2b5c a2b6c a2b7c
-#
+#   6. Expand "handshake channel field"s (matching /^\w+@$/)
+#        i 8 foo@ --> i   foo_irdy
+#                     o   foo_trdy
+#                     i 8 foo
+#        o 8 foo@ --> o   foo_irdy
+#                     i   foo_trdy
+#                     o 8 foo
+#        w 8 foo@ --> w   foo_irdy foo_trdy
+#                     w 8 foo
+#        m submod foo@ --> m submod foo_irdy foo_trdy foo
 
 MaxLineLen = 70
 
@@ -166,7 +175,7 @@ def expand_ranges(line)
   i = 0
   while (i < arr.size) do
     str = arr[i]
-    if (str =~ /^\w+(\[(\d+([-,]\d+)+)\]\w*)+$/) then
+    if (str =~ /^\w+(\[(\d+([-,]\d+)+)\]\w*)+@?$/) then
       str =~ /^(\w+)\[(\d+([-,]\d+)+)\](.*)$/
       pre, body, post = $1, $2, $4
       nums = []
@@ -192,7 +201,12 @@ def expand_ranges(line)
   arr
 end
 
+def expand_handshake(name)
+  name.sub!(/^(\w+)@$/){$1} ? [name+"_irdy", name+"_trdy", name] : name
+end
+
 TypeStr = { "i" => "input", "o" => "output", "w" => "wire", "a" => "assign" }
+TypeStr_trdy = { "i" => "output", "o" => "input", "w" => "wire" }
 
 def convert(line)
   line.sub!(/\s+#.*$/,"")
@@ -221,46 +235,91 @@ def convert(line)
     if (arr.size >= 2 && arr[1] == "=") then
       (type != "i")  or fail "syntax error"
       sig = arr[0]
+      handshake = sig.sub!(/@$/, "")
       line = TypeStr[type] + width + sig
-      if (type == "o") then
-        ModInfo.args.push(sig)
-        ModInfo.arglines.push(line+";")
-        type = "a"
-        width = " "
-        line = TypeStr[type] + width + sig
-      end
-      if (arr.size >= 5 && arr[2] == "{" && arr[-1] == "}") then
-        ModInfo.bodylines.push(prettyprint(0, line+" = {", arr[3..-2].join(","), "};"))
-      elsif (arr.size >= 5 && arr[3] == "(" && arr[-1] == ")") then
-        args = arr[4..-2]
-        args.push(sig)
-        # o   foo = submod ( arg0 arg1 ... )
-        # o 8 foo = submod ( arg0 arg1 ... )
+      if (handshake) then
+        # handshake channel : must be
+        #   o   foo = submod ( arg0 arg1 ... )
+        #   o 8 foo = submod ( arg0 arg1 ... )
+        (arr.size >= 5 && arr[3] == "(" && arr[-1] == ")")   or fail "syntax error"
         submod = append_instance_name(arr[2])
-        if (type == "w") then
-          ModInfo.bodylines.push(line+";")
+        sig_irdy = sig + "_irdy"
+        sig_trdy = sig + "_trdy"
+        line_irdy = TypeStr[type] + " " + sig_irdy + ";"
+        line_trdy = TypeStr_trdy[type] + " " + sig_trdy + ";"
+        line += ";"
+        if (type == "o") then
+          ModInfo.args.push(sig_irdy, sig_trdy, sig)
+          ModInfo.arglines.push(line_irdy, line_trdy, line)
+        else
+          ModInfo.bodylines.push(line_irdy, line_trdy, line)
         end
+        args = arr[4..-2].map{|x| expand_handshake(x)}
+        args.push(sig_irdy, sig_trdy, sig)
         ModInfo.bodylines.push(prettyprint(0, "#{submod}(", args.join(","), ");"))
       else
-        # o   foo = EXPR
-        # o 8 foo = EXPR
-        ModInfo.bodylines.push(line + " " + arr[1..-1].join(" ") + ";")
+        if (type == "o") then
+          ModInfo.args.push(sig)
+          ModInfo.arglines.push(line+";")
+          type = "a"
+          width = " "
+          line = TypeStr[type] + width + sig
+        end
+        if (arr.size >= 5 && arr[2] == "{" && arr[-1] == "}") then
+          ModInfo.bodylines.push(prettyprint(0, line+" = {", arr[3..-2].map{|x| expand_handshake(x)}.join(","), "};"))
+        elsif (arr.size >= 5 && arr[3] == "(" && arr[-1] == ")") then
+          args = arr[4..-2].map{|x| expand_handshake(x)}
+          args.push(sig)
+          # o   foo = submod ( arg0 arg1 ... )
+          # o 8 foo = submod ( arg0 arg1 ... )
+          submod = append_instance_name(arr[2])
+          if (type == "w") then
+            ModInfo.bodylines.push(line+";")
+          end
+          ModInfo.bodylines.push(prettyprint(0, "#{submod}(", args.join(","), ");"))
+        else
+          # o   foo = EXPR
+          # o 8 foo = EXPR
+          ModInfo.bodylines.push(line + " " + arr[1..-1].join(" ") + ";")
+        end
       end
     else
       # o   foo bar ...
       # o 8 foo bar ...
       (type != "a")  or fail "syntax error"
-      line = TypeStr[type] + width + arr.join(",") + ";"
-      if (type == "i" || type == "o") then
-        ModInfo.args.push(arr)
-        ModInfo.arglines.push(wrap_line(line))
+      if (arr.any?{|name| name =~ /@$/}) then
+        # contains handshake channel
+        descs = []
+        arr.each do |name|
+          if (name.sub!(/@$/,"")) then
+            descs.push([TypeStr[type], " ", name+"_irdy"],
+                      [TypeStr_trdy[type], " ", name+"_trdy"])
+          end
+          descs.push([TypeStr[type], width, name])
+        end
+        descs.each do |desc|
+          typestr, widthstr, namestr = *desc
+          line = typestr + widthstr + namestr + ";"
+          if (type == "i" || type == "o") then
+            ModInfo.args.push(namestr)
+            ModInfo.arglines.push(line)
+          else
+            ModInfo.bodylines.push(line)
+          end
+        end
       else
-        ModInfo.bodylines.push(wrap_line(line))
+        line = TypeStr[type] + width + arr.join(",") + ";"
+        if (type == "i" || type == "o") then
+          ModInfo.args.push(arr)
+          ModInfo.arglines.push(wrap_line(line))
+        else
+          ModInfo.bodylines.push(wrap_line(line))
+        end
       end
     end
   when "m"
     submod = append_instance_name(arr[1])
-    args = arr[2..-1]
+    args = arr[2..-1].map{|x| expand_handshake(x)}
     ModInfo.bodylines.push(prettyprint(0, "#{submod}(", args.join(","), ");"))
   else
     fail "syntax error"
