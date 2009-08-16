@@ -1,0 +1,1281 @@
+
+StreamFlowC : A C++ coding style to describe hardware structure
+              for stream processing
+
+Copyright (c) 2009 the handy-eda-utils developer(s).
+Distributed under the MIT License.
+(See accompanying file COPYING or copy at
+ http://www.opensource.org/licenses/mit-license.php.)
+
+[1] Overview
+[2] Installation
+[3] Specification
+  [3.1] Basic Concepts
+    [3.1.1] Compilation Flow
+    [3.1.2] I/O signals
+    [3.1.3] Leaf and hierarchical modules
+    [3.1.4] Conceptual clock
+    [3.1.5] Predefined reset
+    [3.1.6] Sample code conventions
+  [3.2] Leaf Modules
+    [3.2.1] General description
+    [3.2.2] Input callback procedures
+    [3.2.3] Reference to constant parameter signals
+    [3.2.4] Internal state work
+    [3.2.5] Constant parameter signals in initialization procedure
+    [3.2.6] Multiple input channels
+    [3.2.7] Multiple output channels
+  [3.3] Hierarchical Modules
+  [3.4] Module Templates
+    [3.4.1] Basic templates
+    [3.4.2] Template specialization
+  [3.5] Helper Library
+    [3.5.1] ::sfcut::fork<T,N>
+    [3.5.2] ::sfcut::trig<T>
+    [3.5.3] ::sfcut::buf<T,N>
+    [3.5.4] ::sfcut::fbbuf<T,N>
+    [3.5.5] ::sfcut::headcut<T>
+  [3.6] Testbench and main() Procedure
+    [3.6.1] Testbench module
+    [3.6.2] System module
+    [3.6.3] main() procedure
+  [3.7] Debugging Support
+    [3.7.1] Instance name and instance ID
+    [3.7.2] Detection of erroneous bindings
+    [3.7.3] Compilation error of the generated C++ code
+[4] Implementation
+
+============
+[1] Overview
+============
+
+StreamFlowC is a DSL (domain specific language) to describe hardware
+structure for stream processing such as audio/video codecs.  A simple
+Ruby script converts StreamFlowC codes to C++ codes, which can be fed
+to the GNU C++ compiler to produce an executable.
+
+StreamFlowC resembles SystemC in two aspects.
+  (1) They can describe hardware structure.
+  (2) They are based on C++.
+
+The differences between StreamFlowC and SystemC are as follows.
+  (1) StreamFlowC focuses on hardware for stream processing,
+      while SystemC can describe all types of hardware.
+  (2) StreamFlowC can describe hardware for stream processing
+      in 30%-50% fewer lines than SystemC.
+  (3) StreamFlowC simulation is 100-1000 times faster than SystemC.
+
+StreamFlowC simulation is single-threaded and callback-based.  First,
+the main testbench procedure sends data to the DUT (device under test)
+by calling the callback procedure of the entrance module in the DUT.
+The callback procedure of the entrance module processes the input
+data, and sends the result to its succeeding module by calling the
+callback procedure of the succeeding module.  This chained callback is
+repeated until the callback procedure of the exit module in the DUT
+sends the final result to the testbench by calling the callback
+procedure of the testbench.  The callback procedure of the testbench
+displays or verifies the result, and returns to the exit module in the
+DUT.  Then the exit module returns to its preceding module, and this
+chained return is repeated until the entrance module returns to the
+main testbench procedure.  At this point the main testbench procedure
+can send the next data to the DUT by calling the callback procedure of
+the entrance module again.
+
+================
+[2] Installation
+================
+
+  (1) Run "make" in the "src" directory.
+      This will build the following files.
+         include/streamflowc.h    core header
+         include/sfcut.h          utility header
+         lib/libstreamflowc.a     library archive
+  (2) Copy the "include", "lib" and "tool" directories to anywhere you like.
+
+If you want to test StreamFlowC, play in the "example" directory.
+
+=================
+[3] Specification
+=================
+
+This section explains the specification of StreamFlowC using concrete examples.
+
+--------------------
+[3.1] Basic Concepts
+--------------------
+
+[3.1.1] Compilation flow
+^^^^^^^^^^^^^^^^^^^^^^^^
+In StreamFlowC, we define hardware modules in one-module-per-file
+style.  For example, if our hardware consists of three modules "foo",
+"bar" and "baz", we write three StreamFlowC files "foo.sfc", "bar.sfc"
+and "baz.sfc".  The converter script converts each StreamFlowC file to
+a C++ header file and a C++ implementation file, so we get "foo.h",
+"foo.cc", "bar.h", "bar.cc", "baz.h" and "baz.cc".  In addition, we
+write the main() routine manually in "main.cc".  We may write some
+auxiliary subroutines in, e.g., "util.h" and "util.cc" etc.  Then we
+compile all these C++ files and link them with libstreamflowc.a to get
+a simulation executable.
+
+Each StreamFlowC file must include the core header file
+"streamflowc.h" directly or indirectly.  If a module uses some of
+the utility modules, its StreamFlowC file must include the utility
+header file "sfcut.h".
+
+[3.1.2] I/O signals
+^^^^^^^^^^^^^^^^^^^
+A StreamFlowC module can have three types of I/O ports: constant
+parameter signals, input stream channels, and output stream channels.
+
+A constant parameter signal is an input signal which specifies some
+configuration setting.  StreamFlowC assumes that the value of a
+constant parameter signal is fixed upon power-on-reset and does not
+change during operation.
+
+An I/O stream channel is a data signal with a "valid" token.  A valid
+data transfer event sends a data item from the source module to the
+sink module.  However, StreamFlowC does not describe the "valid" token
+explicitly because StreamFlowC handles only valid data transfer events
+(and hence it need not distinguish whether the data on a I/O channel
+is valid or not).
+
+Note that StreamFlowC cannot describe simple I/O ports.  This is why
+we say that StreamFlowC focuses on hardware for stream processing.
+
+[3.1.3] Leaf and hierarchical modules
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+StreamFlowC categorizes hardware modules to two types: leaf modules
+and hierarchical modules.
+
+A leaf module receives data from its input stream channels, performs
+computation on it, and outputs the result(s) to its output stream
+channels (if necessary).  The StreamFlowC code of a leaf module
+describes this operation as a callback procedure for each input stream
+channel.
+
+A hierarchical module combines other modules (leaf or hierarchical) to
+build up a large module with complex functions.  StreamFlowC restricts
+that a hierarchical module merely connects its constituent submodules
+and the I/O channels of itself, without performing computational
+operations (except stateless conversion of constant parameter
+signals).
+
+[3.1.4] Conceptual clock
+^^^^^^^^^^^^^^^^^^^^^^^^
+StreamFlowC does not describe clock signals explicitly, but it can be
+said to have a conceptual clock.
+
+StreamFlowC represents a valid data transfer in a stream channel by
+calling the input callback procedure of the receiver module.  We can
+recognize this callback action as a "clock edge with the valid token
+asserted".  For example, when a StreamFlowC code performs 256
+callbacks on a stream channel, we can naturally know that it takes at
+least 256 clock cycles in real hardware.  In that sense, we can say
+that StreamFlowC has a conceptual clock.
+
+However, we cannot know the exact number of clock cycles from a
+StreamFlowC code.  One reason is that StreamFlowC does not describe
+idle cycles.  An auxiliary comment is necessary to describe the
+precise waveform of the valid token of a stream.  Another reason is
+that StreamFlowC cannot describe simultaneous transfers on multiple
+stream channels.  An auxiliary comment is necessary to distinguish
+whether a set of callbacks on multiple stream channels should be
+implemented simultaneously or successively in real hardware.
+
+[3.1.5] Predefined reset
+^^^^^^^^^^^^^^^^^^^^^^^^
+StreamFlowC does not describe reset signals explicitly, but it has
+an implicit global reset with predefined waveform.
+
+Each StreamFlowC module can have an initialization procedure which is
+called once when the simulation starts.  This means that StreamFlowC
+has an implicit global reset which is asserted upon power-up, becomes
+negated to start operation, and stays negated until the end of
+simulation.
+
+[3.1.6] Sample code conventions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Sample StreamFlowC codes in this document use the following data types
+without explanation.
+
+    u8_t u10_t etc. : N-bit unsigned integer (like sc_uint<N> in SystemC)
+
+Also, sample codes include the common header file "common.h", assuming
+that it declares the above common data types and includes the core
+header file "streamflowc.h".
+
+------------------
+[3.2] Leaf Modules
+------------------
+
+This section explains how to write leaf modules in StreamFlowC.
+
+[3.2.1] General description
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In general, the StreamFlowC code of a leaf module looks like as follows.
+
+  ============================ SomeMod.sfc ============================
+  #ifndef SOMEMOD_H
+  #define SOMEMOD_H
+  #include "common.h"
+  module SomeMod {
+  param:
+    u8_t pa;
+    u9_t pb;
+  input:
+    u10_t a, b;
+    u12_t c;
+    u16_t d, e, f;
+  output:
+    u12_t x;
+    u16_t y, z;
+  };
+  #endif // SOMEMOD_H
+
+  ////////////////////////////////////////////////////////////////
+
+  #include "SomeMod.h"
+  struct SomeMod { ... };   // internal state work (optional)
+  SomeMod() { ... }         // state initialization (optional)
+  SomeMod(a) { ... }        // response to the "a" input
+  SomeMod(b) { ... }        // response to the "b" input
+       :        :                           :
+  SomeMod(f) { ... }        // response to the "f" input
+  =====================================================================
+
+The code is divided to two parts by a comment line with 64 slash
+characters.  The former half is the declaration part, and the latter
+half is the implementation part.  The StreamFlowC converter generates
+a C++ header file from the declaration part, and a C++ implementation
+file from both parts.  The StreamFlowC converter specifically parses
+"a line with 64 slash characters" as the separator of the two parts,
+so you cannot use other styles to separate the two parts.
+
+The declaration part describes the I/O ports of the module, using four
+StreamFlowC-specific pseudo keywords: "module", "param", "input", and
+"output".  If you need module-scope typedefs and static procedures,
+you can declare them right after the "module" line.  The "param"
+section declares constant parameter signals.  The "input" and "output"
+sections declare input/output stream channels.  The three sections
+must be placed in the same order as the example code.
+
+The implementation part includes the header file of the module itself
+(which will be generated by the StreamFlowC converter), defines the
+internal state work and its initialization procedure (if necessary),
+and defines the input callback procedures for the input stream
+channels.  The internal state work and its initialization procedure
+are optional, but the input callback procedures are mandatory.
+
+We can use almost any names for the I/O signals.  The exceptions are
+"impl_t", "m_impl", and names starting from "streamflowc_".  These
+names are reserved by the StreamFlowC converter.
+
+StreamFlowC does now allow arrays in I/O signal declarations.  This is
+a limitation of the current StreamFlowC converter, which may be
+eliminated in a future release.
+
+[3.2.2] Input callback procedures
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This section explains how to write input callback procedures, using
+one of the simplest example: an 8-bit incrementer.
+
+The StreamFlowC code of an 8-bit incrementer is as follows.  We have
+omit the inclusion guard idiom ("#ifndef INCR8_H" etc.) for brevity.
+
+  ============================ Incr8.sfc ============================
+  #include "common.h"
+  module Incr8 {
+  input:
+    u8_t  a;
+  output:
+    u8_t  y;
+  };
+  ////////////////////////////////////////////////////////////////
+  #include "Incr8.h"
+  Incr8(a) { y_out(a+1); }
+  ===================================================================
+
+The input callback procedure naturally shows that for every received
+item "a", it outputs the incremented value a+1 to the "y" output
+channel.  We describe an output transfer action using a procedure-call
+syntax whose name is the output channel name suffixed with "_out".  At
+the simulation time, this procedure call becomes an indirect call to
+the input callback procedure of the sink module bound to the "y"
+channel.  The input callback procedure of the Incr8 module itself is
+called when the source module bound to the "a" channel outputs an item
+to the channel using similar syntax.
+
+[3.2.3] Reference to constant parameter signals
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This section explains how to refer to constant parameter signals in input
+callback procedures, using another simple example: an 8-bit constant adder.
+
+The StreamFlowC code of an 8-bit constant adder is as follows.
+
+  ========================== AddConst8.sfc ==========================
+  #include "common.h"
+  module AddConst8 {
+  param:
+    u8_t  c;
+  input:
+    u8_t  a;
+  output:
+    u8_t  y;
+  };
+  ////////////////////////////////////////////////////////////////
+  #include "AddConst8.h"
+  AddConst8(a) { y_out(a+m_c); }
+  ===================================================================
+
+We can use the value of a constant parameter signal using the constant
+parameter name prefixed with "m_".  As the prefix suggests, it is
+implemented as a member variable in the implementation class of the
+module (automatically generated and initialized by the StreamFlowC
+converter).
+
+[3.2.4] Internal state work
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This section explains how to write the internal state work, using yet
+another simple example: an 8-bit accumulator.
+
+The StreamFlowC code of an 8-bit accumulator is as follows.
+
+  ============================ Accum8.sfc ============================
+  #include "common.h"
+  module Accum8 {
+  input:
+    u8_t  a;
+  output:
+    u8_t  y;
+  };
+  ////////////////////////////////////////////////////////////////
+  #include "Accum8.h"
+  struct Accum8 { u8_t m_sum; };
+  Accum8() { m_sum = 0; }
+  Accum8(a) { m_sum += a;  y_out(m_sum); }
+  ====================================================================
+
+The Accum8 module has an internal state register "m_sum".  The
+initialization procedure clears "m_sum" upon power-on reset.  Every
+time the Accum8 module receives an item from the "a" channel, it adds
+the received item to "m_sum" and outputs the sum to the "y" channel.
+
+We can use almost any names for the internal states.  The exceptions
+are: (1) I/O signal names, (2) output channel names suffixed with
+"_out", (3) constant parameter names prefixed with "m_", (4) names
+starting from "streamflowc_".
+
+[3.2.5] Constant parameter signals in initialization procedure
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This section explains a minor tip to use constant parameter signals
+in an initialization procedure.
+
+An initialization procedure can use constant parameter signals in two
+ways: via the parameter names themselves and via the parameter names
+prefixed with "m_".  Names with the "m_" prefix refer to the member
+variables in the implementation class, as explained in [3.2.3].  On
+the other hand, names without the "m_" prefix refer to the arguments
+of the initialization procedure (automatically passed by the
+StreamFlowC converter).
+
+For consistency of the coding style, you may prefer names with the
+"m_" prefix.  On the other hand, names without the "m_" prefix may
+lead to better performance (mainly w.r.t. memory footprint), because
+the StreamFlowC converter omits the creation and initialization of the
+member variables if they are unused throughout the module.
+
+[3.2.6] Multiple input channels
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This section explains how to handle multiple input channels, using
+a simple example: a 2-input 8-bit adder.
+
+The StreamFlowC code of a 2-input 8-bit adder is as follows.
+
+  ============================ Add8.sfc ============================
+  #include "common.h"
+  module Add8 {
+  input:
+    u8_t  a, b;
+  output:
+    u8_t  y;
+  };
+  ////////////////////////////////////////////////////////////////
+  #include "Add8.h"
+  struct Add8 { u8_t m_a; };
+  Add8(a) { m_a = a; }
+  Add8(b) { y_out(m_a+b); }
+  ==================================================================
+
+The Add8 module has an internal state register "m_a".  The "m_a"
+register is undefined upon power-on reset.  When the Add8 module
+receives an item from the "a" channel, it stores the received item to
+"m_a".  When it receives an item from the "b" channel, it reads the
+"m_a" register, adds the received item to it, and outputs the result
+to the "y" channel.
+
+This coding style looks cumbersome.  It is asymmetric w.r.t. the two
+input channels.  It restricts that the two input channels must
+transfer data alternately.  However, by accepting these curiosities,
+StreamFlowC can perform simple and fast single-threaded simulation.
+
+[3.2.7] Multiple output channels
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This section explains how to handle multiple output channels, using
+another simple example: an 8-bit simultaneous adder and subtractor.
+
+The StreamFlowC code of an 8-bit simultaneous adder and subtractor is
+as follows.
+
+  ============================ AddSub8.sfc ============================
+  #include "common.h"
+  module AddSub8 {
+  input:
+    u8_t  a, b;
+  output:
+    u8_t  sum diff;
+  };
+  ////////////////////////////////////////////////////////////////
+  #include "AddSub8.h"
+  struct AddSub8 { u8_t m_a; };
+  AddSub8(a) { m_a = a; }
+  AddSub8(b) { sum_out(m_a+b);  diff_out(m_a-b); }
+  =====================================================================
+
+The AddSub8 module has an internal state register "m_a".  The "m_a"
+register is undefined upon power-on reset.  When the AddSub8 module
+receives an item from the "a" channel, it stores the received item to
+"m_a".  When it receives an item from the "b" channel, it reads the
+"m_a" register, outputs the sum of "m_a" and "b" to the "sum" channel,
+and outputs the difference between "m_a" and "b" to the "diff"
+channel.  Because StreamFlowC sticks to simple and fast
+single-threaded simulation, StreamFlowC cannot describe "simultaneous"
+output to the two output channels.
+
+Note that the "sum_out(m_a+b)" statement means an indirect call of the
+input callback procedure of the receiver module.  The callback
+procedure of the receiver module will perform some computation on the
+passed value, and may output the result to its output channel, calling
+the input callback procedure of another receiver module.  This chained
+callback continues until a callback procedure completes without
+performing output operations (e.g. the callback procedure for the "a"
+channel of Add8 and AddSub8), or until the exit module outputs the
+final result of the DUT and the callback procedure of the testbench
+module verifies it.  Then the chained callback is rewound and the
+"sum_out(m_a+b)" statement completes.  After that, the AddSub8 module
+outputs the difference to the "diff" channel.  In other words,
+StreamFlowC simulates hardware dataflow graphs in depth-first order.
+
+--------------------------
+[3.3] Hierarchical Modules
+--------------------------
+
+This section explains how to describe hierarchical modules using the
+following example.
+
+      HierMod
+      .---------------------------------------------------------.
+      | 14                    .--------. 10                     |
+  a ------------------------->|a      x|---------------------------> x
+      | 16   .--------. 16    |  SubB  | 12                     |
+  b -------->|a      x|------>|b      y|----.                   |
+      |      |  SubA  | 16    `--------'    |     .--------.    |
+      |  .-->|pa     y|---.                 `---->|a       | 16 |
+      |  |   `--------'   |   .--------.    .---->|b SubD x|-------> y
+      |  |                `-->|a       | 14 | .-->|pa      |    |
+      |  |                    |  SubC x|----' |   `--------'    |
+      |  |10              .-->|pa      |      |                 |
+  pa ----'                |   `--------'      |                 |
+      | 12                |   .--------. 12   |                 |
+  pb ---------------------+-->|calc_pb2|------'                 |
+      |                       `--------'                        |
+      `---------------------------------------------------------'
+
+The StreamFlowC code of the HierMod module is as follows.  We assume
+that the submodules "SubA" to "SubD" are already defined with natural
+I/O order (i.e., pa -> a -> b -> x -> y).
+
+  ============================ HierMod.sfc ============================
+  #include "common.h"
+  module HierMod {
+  param:
+    u10_t  pa;
+    u12_t  pb;
+  input:
+    u14_t  a;
+    u16_t  b;
+  output:
+    u10_t  x;
+    u16_t  y;
+  };
+
+  ////////////////////////////////////////////////////////////////
+
+  #include "HierMod.h"
+  #include "SubA.h"
+  #include "SubB.h"
+  #include "SubC.h"
+  #include "SubD.h"
+  namespace {
+  u12_t calc_pb2(u12_t pb) { return ...; }
+  }
+  struct HierMod {
+    SubA  u_suba;
+    SubB  u_subb;
+    SubC  u_subc;
+    SubD  u_subd;
+  };
+  HierMod() {
+    u_suba(pa, b);
+    u_subb(a, u_suba.x);
+    u_subc(pb, u_suba.y);
+    u_subd(calc_pb2(pb), u_subb.y, u_subc.x);
+    x = u_subb.x;
+    y = u_subd.x;
+  }
+  =====================================================================
+
+The declaration part is similar to that of leaf modules.  This means
+that users of a module (i.e., parent modules) cannot / need not /
+should not distinguish whether a module is a leaf module or a
+hierarchical module.
+
+The implementation part includes the header file of HierMod itself,
+includes the header files of constituent submodules, defines a
+file-scope function for constant parameter conversion, defines the
+internal state work which lists submodule instances, and defines the
+initialization procedure which describes inter-submodule bindings.  A
+hierarchical module need not / must not define input callback
+procedures.  The internal state work and the initialization procedure
+are mandatory.
+
+Constant parameter conversion need not necessarily be defined as a
+file-scope function.  It may be an external function or an inlined
+expression.  The StreamFlowC converter does not touch it.
+
+We can use almost any names for submodule instances.  The exceptions
+are: (1) I/O signal names, (2) output channel names suffixed with
+"_out", (3) constant parameter names prefixed with "m_", (4) names
+starting from "streamflowc_".  The HierMod example adopts the "u_"
+prefix convention, but names without prefixes are also reasonable for
+brevity.
+
+StreamFlowC does not allow arrays in the list of submodule instances.
+This is a limitation of the current StreamFlowC converter which may be
+eliminated in a future release.
+
+Inter-submodule bindings in the initialization procedure describe
+which signals each submodule instance receives and which signal each
+output channel forwards.  In the HierMod example, the "u_suba"
+instance receives the "pa" constant parameter of HierMod as its "pa"
+constant parameter, and the "b" input channel of HierMod as its "a"
+input channel.  The "u_subb" instance receives the "a" input channel
+of HierMod as its "a" input channel, and the "x" output of the
+"u_suba" instance as its "b" input channel.  The "x" output channel of
+HierMod forwards the "x" output of "u_subb", and the "y" output
+channel of HierMod forwards the "x" output of "u_subd".
+
+We describe a binding for a submodule instance using procedure call
+syntax.  The procedure name is the name of the instance.  The formal
+arguments are constant parameter signals and input stream channels, in
+the same order as the submodule declaration.  The actual value for a
+constant parameter argument must be some value of the same type as the
+constant parameter, typically a constant parameter of the hierarchical
+module itself (but sometimes a converted value such as calc_pb2(pb) in
+the HierMod example).  The actual value for an input channel argument
+must be either an input channel of the hierarchical module itself or
+an output channel of a sibling submodule instance.  We denote an
+output channel of a sibling submodule instance using member variable
+syntax such as "u_suba.x".
+
+We describe a binding for an output channel of the hierarchical module
+itself using assignment syntax.  The left hand operand is the name of
+the output channel.  The right hand operand is an output channel of a
+submodule instance, denoted using member variable syntax.
+
+Sometimes we can abbreviate the notation for an output channel of a
+submodule instance.  The abbreviated notation is merely the submodule
+instance name without the output channel name (e.g., "u_subb" rather
+than "u_subb.x"), which can be used only when the abbreviation does
+not introduce ambiguity.  In the HierMod example, we can abbreviate
+"u_subc.x" to "u_subc" because "u_subc" has only one output channel.
+Further, we can abbreviate both "u_subb.x" and "u_subb.y" to "u_subb"
+because the C++ compiler can know the appropriate output channel from
+context (through type matching).
+
+----------------------
+[3.4] Module Templates
+----------------------
+
+This section explains how to define module templates.
+
+[3.4.1] Basic templates
+^^^^^^^^^^^^^^^^^^^^^^^
+For example, the StreamFlowC code of a generic incrementer is as
+follows.  Users (parent modules) of this generic incrementer can
+instantiate concrete modules such as "Incr<u8_t>" and "Incr<u16_t>"
+etc.
+
+  ================ Incr.sfc ================
+  #include "common.h"
+  template <typename T>
+  module Incr {
+  input:
+    T  a;
+  output:
+    T  y;
+  };
+  Incr(a) { y_out(a+1); }
+  ==========================================
+
+We write all descriptions of a module template in the declaration
+part, omitting the separator line (64 slash characters).  The
+StreamFlowC converter puts all descriptions in the generated C++
+header file, and generates an empty C++ implementation file.
+
+We write the "template <typename ...>" prefix only at the "module"
+declaration.  We need not / must not write the "template <typename
+...>" prefix at the definitions of the internal state work, the
+initialization procedure, and the input callback procedures.  The
+StreamFlowC converter automatically adds the "template <typename ...>"
+prefix at the definitions of the generated C++ code.
+
+The following is another example, a generic adder whose inputs are N
+bits wide and whose output is N+1 bits wide.
+
+  ================ Add.sfc ================
+  #include "common.h"
+  template <int N>
+  module Add {
+    typedef sc_uint<N>   idata_t;
+    typedef sc_uint<N+1> odata_t;
+  input:
+    idata_t  a, b;
+  output:
+    odata_t  y;
+  };
+  struct Add { idata_t m_a; };
+  Add(a) { m_a = a; }
+  Add(b) { y_out(m_a+b); }
+  =========================================
+
+[3.4.2] Template specialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+StreamFlowC does not support template specialization directly, but we
+can get the same effect using the C++ inheritance feature.
+
+Suppose we want to write the following template specialization, which
+is not supported by StreamFlowC.
+
+  ================ Foo.sfc (UNSUPPORTED) ================
+  #include "common.h"
+  template <typename T>
+  module Foo { ... };
+  ...
+  template <>
+  module Foo<bool> { ... };
+  ...
+  =======================================================
+
+Instead of writing Foo.sfc (which is unsupported), we can get the same
+effect by writing two StreamFlowC files and one plain C++ file as
+follows.
+
+  ================ FooGeneric.sfc ================
+  #include "common.h"
+  template <typename T>
+  module FooGeneric { ... };
+  ...
+  ================================================
+
+  ============================ FooBool.sfc ============================
+  #include "common.h"
+  module FooBool { ... };
+  ////////////////////////////////////////////////////////////////
+  ...
+  =====================================================================
+
+  ============================ Foo.h ============================
+  #include "FooGeneric.h"
+  #include "FooBool.h"
+  template <typename T> struct Foo       : FooGeneric<T> {};
+  template <>           struct Foo<bool> : FooBool       {};
+  ===============================================================
+
+We can implement both complete specialization and partial
+specialization using this technique.
+
+--------------------
+[3.5] Helper Library
+--------------------
+
+The StreamFlowC helper library consists of the core library and the
+utility modules.  The core library header is "streamflowc.h" and the
+utility module header is "sfcut.h".
+
+The core library header "streamflowc.h" introduces a namespace
+"streamflowc" and defines miscellaneous helper classes in it.  We need
+not be aware of the internal details of the helper classes, except
+"outtypes".
+
+"outtypes" is a class to analyze apparently distinct types of output
+channels.  It is defined in "streamflowc.h" as follows.
+
+  template <typename T00=nil, typename T01=nil, ..., typename T29=nil>
+  struct outtypes {
+    template <typename T> struct dupcnt {
+      static const int val = (issame<T,T00>::val+issame<T,T01>::val
+                              + ... + issame<T,T29>::val);
+    };
+    ...
+  };
+
+The StreamFlowC converter generates C++ code which supplies a list of
+apparently distinct types of output channels as the template
+parameters of "outtypes".  However, because "outtypes" supports only
+up to 30 template parameters, the converted C++ code cannot be
+compiled when a module has more than 30 "apparently distinct" types in
+its output channels.  In that case, we must customize "streamflowc.h"
+so that "outtypes" supports enough number of template parameters.
+
+The utility module header "sfcut.h" introduces a namespace "sfcut" and
+defines the following utility module templates in it.  The utility
+modules have originally been written in StreamFlowC in
+one-module-per-file style, converted to C++ header files by the
+StreamFlowC converter, and then concatenated to a single header file
+"sfcut.h".
+
+  module                 function
+  ----------------------------------------------------------------
+  ::sfcut::fork<T,N>     fork a data stream to N ways
+  ::sfcut::trig<T>       peek a data stream and generate a trigger stream
+  ::sfcut::buf<T,N>      buffer data items for a feed-forward datapath
+  ::sfcut::fbbuf<T,N>    buffer data items for a feedback datapath
+  ::sfcut::headcut<T>    discard first items in a data stream
+
+We must of course be aware of the API (I/O ports) of the utility
+modules.  To recognize the API, read the comments in "sfcut.h" rather
+than the cryptic auto-generated C++ codes.  The comments in "sfcut.h"
+contains human-readable StreamFlowC declarations of the utility
+modules.
+
+[3.5.1] ::sfcut::fork<T,N>
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ::sfcut::fork<T,N> module is a 1-input N-output module which forks
+a data stream to N ways.  The StreamFlowC declaration is as follows.
+
+  template <typename T, int N>
+  module fork {
+  input:
+    T  a;
+  output:
+    T  y0,y1,y2,y3,y4,y5,y6,y7,y8,y9;	// max 10 outputs
+  };
+  
+Because StreamFlowC does not allow an array of output channels, the
+::sfcut::fork<T,N> module is declared as a 10-output module.  Every
+time it receives an item from the "a" channel, it forwards the
+received item to the first N output channels.  Other output channels
+are unused.  Consequently, N must be no greater than 10.
+
+[3.5.2] ::sfcut::trig<T>
+^^^^^^^^^^^^^^^^^^^^^^^^
+The ::sfcut::trig<T> module is a 1-input 2-output module which peeks a
+data stream to generate a trigger notification stream.  The StreamFlowC
+declaration is as follows.
+
+  struct trig_t {};
+  template <typename T>
+  module trig {
+  param:
+    int     period;  // -N/+N : trigger before/after every N inputs
+  input:
+    T       a;
+  output:
+    T       y;
+    trig_t  t;
+  };
+  
+Every time it receives an item from the "a" channel, it forwards the
+received item to the "y" output channel.  Further, it outputs an empty
+data to the "t" output channel, based on the "period" parameter.  If
+the "period" parameter is a positive value +N, the ::sfcut::trig<T>
+module outputs an empty data to the "t" output channel after every N
+forwarding operations from the "a" channel to the "y" channel.  If the
+"period" parameter is a negative value -N, the ::sfcut::trig<T> module
+outputs an empty data to the "t" output channel right after the first
+"a" input (before forwarding to the "y" channels) in every N
+forwarding operations.
+
+The following timetables show the I/O transfer sequences when the
+"period" parameter is +5 and -5.
+
+         When period = +5            When period = -5
+        ------------------          ------------------
+          a --> y                     a --> t --> y
+          a --> y                     a --------> y
+          a --> y                     a --------> y
+          a --> y                     a --------> y
+          a --> y --> t               a --------> y
+          a --> y                     a --> t --> y
+          a --> y                     a --------> y
+          a --> y                     a --------> y
+          a --> y                     a --------> y
+          a --> y --> t               a --------> y
+          a --> y                     a --> t --> y
+          a --> y                     a --------> y
+          a --> y                     a --------> y
+             :     :                     :     :
+
+[3.5.3] ::sfcut::buf<T,N>
+^^^^^^^^^^^^^^^^^^^^^^^^^
+The ::sfcut::buf<T,N> module is a 2-input 1-output module which buffers
+data items for a feed-forward datapath.  The StreamFlowC declaration is
+as follows.
+
+  template <typename T, int N>
+  module buf {
+   param:
+    int chunk;  // output "chunk" data upon trigger input
+   input:
+    T      a;
+    trig_t t;
+   output:
+    T      y;
+  };
+
+The ::sfcut::buf<T,N> module holds a internal buffer of type T, depth
+N.  The internal buffer is empty upon power-on reset.  Every time the
+::sfcut::buf<T,N> module receives an item from the "a" channel, it
+stores the received item to the internal buffer.  Every time it
+receives a trigger notification (an empty item) from the "t" channel,
+it reads "chunk" items from the internal buffer (in FIFO order) and
+outputs them to the "y" channel.
+
+The ::sfcut::buf<T,N> module does not check full/empty status upon
+writes and reads.  Users have to guarantee that they write to the
+buffer only when the buffer is not full, and read from the buffer only
+when the buffer contains at least "chunk" items.
+
+[3.5.4] ::sfcut::fbbuf<T,N>
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ::sfcut::fbbuf<T,N> module is a 2-input 1-output module which
+buffers data items for a feedback datapath.  The StreamFlowC
+declaration is as follows.
+
+  template <typename T, int N>
+  module fbbuf {
+   param:
+    int chunk;		// output "chunk" data upon trigger input
+    int initialstock;	// pretend that the buffer holds "initialstock"
+                        // garbage items upon reset
+   input:
+    trig_t t;
+    T      a;
+   output:
+    T      y;
+  };
+  
+The ::sfcut::fbbuf<T,N> module holds a internal buffer of type T,
+depth N.  The internal buffer holds "initialstock" garbage items upon
+power-on reset.  Every time it receives a trigger notification (an
+empty item) from the "t" channel, it reads "chunk" items from the
+internal buffer (in FIFO order) and outputs them to the "y" channel.
+Every time it receives an item from the "a" channel, it stores the
+received item to the internal buffer.
+
+Note that the order of the input channel declarations are different
+between ::sfcut::buf<T,N> and ::sfcut::fbbuf<T,N>.  The
+::sfcut::buf<T,N> module declares the "a" input channel first,
+indicating it assumes to be "written first, and then read".  On the
+other hand, the ::sfcut::fbbuf<T,N> module declares the "t" input
+channel first, indicating it assumes to be "read first, and then
+written".
+
+[3.5.5] ::sfcut::headcut<T>
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ::sfcut::headcut<T> module is a 1-input 1-output module which
+discards a specific number of the first items from a data stream.
+The StreamFlowC declaration is as follows.
+
+  template <typename T>
+  module headcut {
+   param:
+    int    n;  // discard the first "n" inputs
+   input:
+    T      a;
+   output:
+    T      y;
+  };
+
+The ::sfcut::headcut<T> module silently discards the first "n" items
+from the "a" channel.  After that, it forwards the items from the "a"
+channel to the "y" channel.
+
+------------------------------------
+[3.6] Testbench and main() Procedure
+------------------------------------
+
+This section explains how to write a testbench code for StreamFlowC
+simulation, assuming the following DUT module example.
+
+  module Dut {
+  param:
+    u10_t pa;
+    u11_t pb;
+  input:
+    u12_t a;
+    u13_t b;
+  output:
+    u14_t x;
+    u15_t y;
+  };
+
+After we write StreamFlowC code for a DUT, we write the testbench
+module and the system module in StreamFlowC.  The testbench module
+supplies data to the input channels of the DUT and verifies data from
+the output channels of the DUT.  The system module connects the
+testbench module and the DUT each other.  Then we write the main()
+procedure to instantiate the system module.
+
+[3.6.1] Testbench module
+^^^^^^^^^^^^^^^^^^^^^^^^
+The testbench module supplies data to the input channels of the DUT
+and verifies data from the output channels of the DUT.  The
+StreamFlowC declaration will be as follows.
+
+  module Tb {
+  param:
+    u10_t pa;
+    u11_t pb;
+    const char *indatafile;
+    const char *outdatafile;
+    u32_t rngseed;
+  input:
+    u14_t x;
+    u15_t y;
+  output:
+    u12_t a;
+    u13_t b;
+  };
+
+The input channels of the testbench module ("x" and "y") correspond to
+the output channels of the DUT.  The output channels of the testbench
+module ("a" and "b") correspond to the input channels of the DUT.
+
+The testbench module will likely require the same constant parameter
+signals as the DUT ("pa" and "pb"), to recognize the exact behavior of
+the DUT.  In addition, the testbench module will likely require
+filenames of input stimulus values and expected output values, and/or
+a seed value for a random number generator.
+
+You may be surprised to see that the testbench module receives
+filenames of type "const char *" as constant parameter signals,
+because they cannot be implemented in real hardware.  However, the
+testbench module (which we do not intend to implement in real
+hardware) can use such a type as I/O signals, as long as the type is
+assignable and copyable like the C++ built-in types.
+
+There are two caveats when you want to use complex types for I/O
+signals.  One caveat is that you must take care of the lifetime of the
+pointees if you use pointers as I/O signals.  Pointees used in
+initialization procedures must be valid until the initialization
+completes, and pointees used in input callback procedures must be
+valid until the end of simulation.  The other caveat is that the
+StreamFlowC converter may fail to parse too complex declarations such
+as "const char *file1, *file2" and "bool (*func)(int[])".  If the
+StreamFlowC converter fail to parse your declaration statement,
+simplify the declaration statement by using a typedef-name.
+
+The implementation part of the testbench module should look like as
+follows.
+
+  #include "Tb.h"
+  #include <fstream>
+  #include <stdexcept>
+  struct Tb { ... };
+  Tb() {
+    ...;  // Initialize the random number generator.
+    ...;  // Open indatafile and outdatafile.
+    while (...) {  // While indatafile has more data ...
+      ...;         //   Read indatafile and prepare "a" and "b" values.
+      a_out(a);    //   Supply a data to the "a" channel.
+      b_out(b);    //   Supply a data to the "b" channel.
+    }
+    ...;  // Close indatafile and outdatafile.
+  }
+  Tb(x) {
+    ...;  // Verify against outdatafile and throw an exception upon mismatch.
+  }
+  Tb(y) {
+    ...;  // Verify against outdatafile and throw an exception upon mismatch.
+  }
+
+The initialization procedure of the testbench module describes input
+stimulus for the DUT.  It is effectively the body of the testbench
+scenario, rather than an "initialization" procedure.
+
+The input callback procedures verify the received data (output of the
+DUT) against the expected data values, and throw exceptions upon
+mismatch.  The expected data values will likely be read from a
+::std::ifstream member of the internal state work, which is opened in
+the initialization procedure.
+
+[3.6.2] System module
+^^^^^^^^^^^^^^^^^^^^^
+The system module is a hierarchical module to combine a DUT instance
+and a testbench instance.  The StreamFlowC code will be as follows.
+
+  #include "common.h"
+  module System {
+  param:
+    int argc;
+    const char * const * argv;
+  };
+  ////////////////////////////////////////////////////////////////
+  #include "System.h"
+  #include "Dut.h"
+  #include "Tb.h"
+  namespace {
+  struct args_t {
+    u10_t pa;
+    u11_t pb;
+    const char *indatafile;
+    const char *outdatafile;
+    u32_t rngseed;
+  };
+  const args_t parse_args(int argc, const char *const *argv) { ... }
+  } // anonymous namespace
+  struct System {
+    Dut  dut;
+    Tb   tb;
+  };
+  System() {
+    args_t args = parse_args(argc, argv);
+    dut(args.pa, args.pb, tb.a, tb.b);
+    tb(args.pa, args.pb, args.indatafile, args.outdatafile,
+       args.rngseed, dut.x, dut.y);
+  }
+
+The system module receives "argc" and "argv" as constant parameter
+signals.  It has neither input stream channels nor output stream
+channels.  The internal state work lists the DUT instance and the
+testbench instance.  The initialization procedure parses "argc" and
+"argv" to get the constant parameter signals for the DUT and the
+testbench, distributes the constant parameter signals to the DUT and
+testbench instances, and connects the I/O channels of the two
+instances together.
+
+The order of the binding statements is important.  The binding
+statement for the testbench module must be the last statement in the
+initialization procedure, because it is actually a call of the
+initialization procedure of the testbench module (which starts the
+testbench scenario).  We must complete binding of other modules before
+we start the testbench scenario.
+
+[3.6.3] main() procedure
+^^^^^^^^^^^^^^^^^^^^^^^^
+The main() procedure instantiates the system module and calls its
+initialization procedure.  We write it in a plain C++ file as follows.
+
+  #include "System.h"
+  #include <iostream>
+  int main(int argc, char *argv[]) {
+    try {
+      System sys;
+      sys(argc, argv);
+      return 0;
+    } catch (::std::exception& e) {
+      ::std::cerr << "Error: " << e.what() << ".\n";
+      return 2;
+    } catch (...) {
+      ::std::cerr << "Error: unexpected exception.\n";
+      return 2;
+    }
+  }
+
+The try block creates an instance of the system module and binds
+"argc" and "argv" to it.  The binding statement calls the
+initialization procedure of the system module, which parses "argc" and
+"argv" and binds the DUT and the testbench modules.  The binding
+statement of the testbench module calls the initialization procedure
+of the testbench module, which starts the testbench scenario.
+
+As the testbench scenario proceeds, the initialization procedure of
+the testbench module outputs data to the "a" and "b" channels, i.e.,
+calls the input callback procedures of the DUT.  The callback
+procedures of the DUT performs computation on the received data, and
+outputs the result (if any) to the "x" and "y" channels, i.e., calls
+the input callback procedures of the testbench module.
+
+The callback procedures of the testbench module verifies the received
+data against the expected values.  If the verifications succeed, the
+callback chain is rewound and the initialization procedure of the
+testbench module continues to supply next data to the DUT.  If the
+verifications of all data succeed, the initialization procedure of the
+testbench module returns to the initialization procedure of the system
+module, which returns to the try block of the main() procedure, which
+completes the main() procedure with exit status 0.
+
+If any verification fails, the input callback procedure of the
+testbench module throws an exception, which causes an abnormal rewind
+of the input callback procedure of the testbench module, the input
+callback procedure of the DUT, the initialization procedure of the
+testbench module, the initialization procedure of the system module,
+and finally the try block of the main() procedure.  The catch block of
+the main() procedure catches the exception, prints an error message,
+and completes the main() procedure with exit status 2.
+
+-----------------------
+[3.7] Debugging Support
+-----------------------
+
+This section explains features to debug StreamFlowC codes.
+
+[3.7.1] Instance name and instance ID
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+A StreamFlowC module can refer to its instance name and instance ID
+through the following pre-defined identifiers.
+
+  identifier             type            description
+  -------------------------------------------------------------------------
+  streamflowc_basename   const char *    instance name (non-hierarchical)
+  streamflowc_name       const char *    instance name (fully hierarchical)
+  streamflowc_id         int             instance ID
+
+"streamflowc_basename" is a non-hierarchical instance name.  It is a
+C-style string, holding the member name in the internal state work of
+the parent module.  The StreamFlowC converter automatically creates it
+even if it is unused in a StreamFlowC code, because the StreamFlowC
+core library uses it when it detects a binding error.
+
+"streamflowc_name" is a fully hierarchical instance name.  The
+basenames in the hierarchical chain are separated by periods.  The
+StreamFlowC converter creates it only when a StreamFlowC code of a
+module actually uses it.
+
+"streamflowc_id" is an instance ID, which is a unique integer within
+a module.  Each StreamFlowC module has a static member variable to
+count the number of instances, and each instance of a module sets its
+value to the "streamflowc_id" instance variable in the initialization
+procedure.  The StreamFlowC converter creates it only when a
+StreamFlowC code of a module actually uses it.  The instance ID of a
+module template is counted separately for each template instantiation.
+
+[3.7.2] Detection of erroneous bindings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+A common mistake in writing StreamFlowC codes is an erroneous binding
+in the initialization procedure of a hierarchical module.  StreamFlowC
+helps to detect five scenarios of erroneous bindings.
+
+(1) Type mismatch in binding statements.
+
+If you pass inappropriate operands to a binding statement, the
+converted C++ code will cause a compilation error.  This can detect
+fairly simple (careless) mistakes.
+
+The arguments for a binding statement of a submodule instance
+(procedure-call syntax) must be for the constant parameter signals and
+the input stream channels of the module, in the order of the module
+declaration.  A constant parameter signal argument must be the same
+type of (or implicitly convertible to the type of) the signal.  An
+input stream channel argument must be a channel of the same type
+(input of the hierarchical module itself or an output of a submodule
+instance).
+
+The operand for a binding statement of an output channel of the
+hierarchical module itself (assignment syntax) must be a channel of the
+same type (output of a submodule instance).
+
+(2) Multiple input instances for an output channel.
+
+StreamFlowC does not support one-to-many bindings for data streams.
+If you mistakenly write a one-to-many binding, the StreamFlowC
+converter and the C++ compiler accept it without errors, but the
+StreamFlowC core library will detect it (at simulation runtime) and
+throws an exception in the initialization procedure of the module.
+
+The what() message of the thrown exception contains the fully
+hierarchical instance name which detected the one-to-many binding.
+Note that the instance name may not necessarily be the instance with a
+wrong binding.  For example, suppose you intend to connect "u_suba.x"
+to an input of instance "u_subc", but you wrongly connect "u_suba.x"
+to "u_subb" first and then connect it to "u_subc".  In such a case,
+the core library will detect the one-to-many binding in the
+initialization procedure of "u_subc" and throws an exception.  The
+what() message of the thrown exception will contain the fully
+hierarchical instance name of "u_subc" rather than "u_subb".
+
+(3) Multiple output instances for an input channel.
+
+StreamFlowC does not support many-to-one bindings for data streams, as
+in real 2-state hardware.  The StreamFlowC core library will detect
+many-to-one bindings just like one-to-many bindings.
+
+Practically, many-to-one bindings are rare mistakes compared to
+one-to-many bindings because of the StreamFlowC syntax.  Many-to-one
+bindings occur only when you write multiple binding statements for a
+submodule instance (or an output channel of the hierarchical module
+itself), which will likely be noticed and corrected before
+compilation.
+
+(4) No input instances for an output channel.
+
+If you bind nothing to an output channel of a submodule instance, the
+StreamFlowC converter and the C++ compiler accept it without errors,
+but it causes a segmentation fault in the simulation time (when the
+submodule instance actually tries to output to the channel).  You need
+help of a debugger to identify the erroneous code, which is more
+time-consuming than other cases.
+
+However, you do not need a debugger in a typical scenario, because
+this bug is likely a consequence of a one-to-many binding bug.  For
+example, suppose you intend to connect "u_suba.x" to "u_subb" and
+"u_subc.x" to "u_subd", but you wrongly connect "u_suba.x" to both
+"u_subb" and "u_subd", floating "u_subc.x" unconnected.  In such a
+case, the initialization procedure of "u_subd" will detect the
+erroneous one-to-many binding and throws an exception (before the body
+of the testbench scenario starts and results in a segmentation fault).
+
+Note that a segmentation fault occurs only when a submodule instance
+actually tries to output to an unbound channel.  If a submodule
+instance never tries to output to an unbound channel, simulation will
+succeed to the end.  The ::sfcut::fork<T,N> utility module relies on
+this nature, leaving some output channels deliberately unbound.
+
+(5) No output instances for an input channel.
+
+If you bind nothing to an input channel of a submodule instance, it
+simply means that the input callback procedure of the channel will
+never be called.  The StreamFlowC converter, the C++ compiler, and the
+core library do not detect such a bug.
+
+However, the simulation will cause a segmentation fault in a typical
+scenario, because this bug likely results in a missing binding of an
+output channel of another submodule instance.  Also note that this bug
+is practically rare because this bug occurs only when you forget to
+write a binding statement of a submodule instance (or an output
+channel of the hierarchical module itself).
+
+[3.7.3] Compilation error of the generated C++ code
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The StreamFlowC converter sometimes generates erroneous C++ codes when
+it processes an erroneous StreamFlowC code.  Such erroneous C++ codes
+result in C++ compilation errors.
+
+The StreamFlowC converter inserts "#line" directives so that a
+diagnostic message of the C++ compiler contains a precise line number
+in the StreamFlowC code.  For example, a diagnostic message of the C++
+compiler may report "error in file foo.sfc line 25" or "error in file
+foo.sfc.line30 line 3".  The former represents an error in line 25 of
+the original StreamFlowC code, and the latter represents an error in
+the third line of a generated C++ code related to line 30 of the
+original StreamFlowC code.  You can identify most errors by examining
+around the reported line in the original StreamFlowC code, without
+examining the cryptic converted C++ code.
+
+==================
+[4] Implementation
+==================
+
+****UNDER CONSTRUCTION****
+
