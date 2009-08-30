@@ -77,7 +77,7 @@ struct sc_simcontext::impl_t {
   ::std::vector<sc_method_desc>            methods, cmethods;
   ::std::vector<sc_signal_access_manager*> signals;
   ::std::vector<sc_sensitive_methods*>     smeths;
-  ::std::vector<int>                       methodsigs;
+  ::std::vector<sc_signal_access_manager*> nonblksigs;
   sc_time                                  current_time;
   static void cthread_wrapper(void *arg);
   int search_signal_id(const sc_signal_access_manager& sig);
@@ -87,7 +87,6 @@ struct sc_simcontext::impl_t {
   void update_nonblocking_assignments();
   void sort_methods();
   void eval_methods();
-  void update_blocking_assignments();
   int  check_reset_state();  // ret = cthread_start_index for next cycle
   void cleanup_simulation();
 };
@@ -226,19 +225,15 @@ void sc_simcontext::impl_t::setup_simulation()
     for (int i=0; i<n; ++i) {
       sc_signal_access_manager *sig = signals[i];
       sig->m_rix = 0;
-      sig->m_wix = 1;
+      sig->m_wix = 0;
       sig->m_written = false;
     }
   }
   // force current value of the reset signal to be "active(false)"
   if (reset_port != 0) {
-    reset_port->m_sig->m_wix = 0;
     reset_port->m_sig->write(false);
-    reset_port->m_sig->m_wix = 1;
     reset_port->m_sig->m_written = false;
   }
-  // temporarily set methodsigs as empty
-  methodsigs.push_back(signals.size());  // sentinel
 }
 
 void sc_simcontext::impl_t::tick_cthreads(int start_index)
@@ -287,25 +282,12 @@ void sc_simcontext::impl_t::tick_cmethods()
 
 void sc_simcontext::impl_t::update_nonblocking_assignments()
 {
-  int n = signals.size();
-  int msix = 0;
+  int n = nonblksigs.size();
   for (int i=0; i<n; ++i) {
-    sc_signal_access_manager *sig = signals[i];
+    sc_signal_access_manager *sig = nonblksigs[i];
     bool written = sig->m_written;
-    int msid = methodsigs[msix];
-    {
-      // Straightforward code:
-      //   if (i == msid) {
-      //     if (written)  rix = wix;  else  wix = rix;
-      //     ++msix;
-      //   } else {
-      //     if (written)  swap(rix,wix);
-      //   }
-      bool hit = (i == msid);
-      sig->m_rix ^= written;
-      sig->m_wix ^= (written^hit);
-      msix += hit;
-    }
+    sig->m_rix ^= written;
+    sig->m_wix ^= written;
     sig->m_written = false;
   }
 }
@@ -356,6 +338,10 @@ void sc_simcontext::impl_t::sort_methods()
 {
   int nr_meth = methods.size();
   int nr_sig = signals.size();
+  // clear "written" flag of each signal
+  for (int s=0; s<nr_sig; ++s) {
+    signals[s]->m_written = false;
+  }
   PartiallyOrderedSet pos(nr_meth);
   ::std::set<int> msig;
   for (int m=0; m<nr_meth; ++m) {
@@ -389,18 +375,14 @@ void sc_simcontext::impl_t::sort_methods()
   for (int i=0; i<nr_meth; ++i)  sorted_methods[i] = methods[order[i]];
   using ::std::swap;
   swap(methods, sorted_methods);
-  // set "methodsigs"
-  int nr_msig = msig.size();
-  methodsigs.reserve(1+nr_msig);  // extra 1 entry for sentinel (already registered)
-  for (::std::set<int>::const_iterator iter=msig.begin(); iter!=msig.end(); ++iter) {
-    methodsigs.push_back(*iter);
-  }
-  using ::std::sort;
-  sort(methodsigs.begin(), methodsigs.end());
-  // prepare for normal "eval_methods()"
-  for (int i=0; i<nr_msig; ++i) {
-    sc_signal_access_manager *sig = signals[methodsigs[i]];
-    sig->m_wix = sig->m_rix;
+  // set "nonblksigs"
+  nonblksigs.reserve(nr_sig - msig.size());
+  for (int s=0; s<nr_sig; ++s) {
+    if (msig.find(s) == msig.end()) {
+      sc_signal_access_manager *sig = signals[s];
+      nonblksigs.push_back(sig);
+      sig->m_wix = 1;
+    }
   }
 }
 
@@ -412,17 +394,6 @@ void sc_simcontext::impl_t::eval_methods()
     sc_module *mod = meth.mod;
     sc_entry_func func = meth.func;
     (mod->*func)();
-  }
-}
-
-void sc_simcontext::impl_t::update_blocking_assignments()
-{
-  int n = methodsigs.size() - 1;  // -1 to exclude sentinel
-  for (int i=0; i<n; ++i) {
-    int id = methodsigs[i];
-    sc_signal_access_manager *sig = signals[id];
-    sig->m_wix ^= 1;
-    sig->m_written = false;
   }
 }
 
@@ -452,10 +423,8 @@ void sc_simcontext::scstart()
   // the first cycle
   m.tick_cthreads(cthread_start_index);
   m.tick_cmethods();
-  m.update_nonblocking_assignments();
   m.sort_methods();
   m.eval_methods();
-  m.update_blocking_assignments();
   cthread_start_index = m.check_reset_state();
   m.current_time.m_val += 10;
   // subsequent cycles
@@ -464,7 +433,6 @@ void sc_simcontext::scstart()
     m.tick_cmethods();
     m.update_nonblocking_assignments();
     m.eval_methods();
-    m.update_blocking_assignments();
     cthread_start_index = m.check_reset_state();
     m.current_time.m_val += 10;
   }

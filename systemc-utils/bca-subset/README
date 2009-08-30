@@ -426,6 +426,13 @@ When a combinational SC_METHOD calls write() of an sc_signal, it sets
 value to the "current" entry.  This is so-called a blocking
 assignment.
 
+BCASYSC assumes that each sc_signal has only one driver, i.e., only
+one SC_CTHREAD or SC_METHOD writes to each sc_signal.  Consequently,
+each sc_signal is either "always assigned in non-blocking style" or
+"always assigned in blocking style".  If the driver of an sc_signal is
+a combinational SC_METHOD, the sc_signal is always assigned in
+blocking style, and hence its "next" entry is totally unused.
+
 ---------------------
 [4.3] Simulation Flow
 ---------------------
@@ -440,17 +447,16 @@ steps (after the elaboration phase).
 (2) Perform simulation of the first cycle.
   (2-1) Evaluate all SC_CTHREADs.
   (2-2) Evaluate all clocked SC_METHODs.
-  (2-3) Update non-blocking assignment effects made in (2-1) and (2-2).
-  (2-4) Sort combinational SC_METHODs from source to sink.
-    (2-4-1) Evaluate each combinational SC_METHOD and recognize its
+  (2-3) Sort combinational SC_METHODs from source to sink.
+    (2-3-1) Evaluate each combinational SC_METHOD and recognize its
             output signals.  Note that input signals are recognized at
             the elaboration phase as the sensitivity information.
-    (2-4-2) Construct a DAG (directed acyclic graph) representing
+    (2-3-2) Construct a DAG (directed acyclic graph) representing
             dependencies of combinational SC_METHODs.
-    (2-4-3) Topologically sort the DAG and re-order the combinational
+    (2-3-3) Topologically sort the DAG and re-order the combinational
             SC_METHODs from source to sink.
-  (2-5) Re-evaluate all combinational SC_METHODs from source to sink.
-  (2-6) Increment "current simulation time" by 10ns.
+  (2-4) Re-evaluate all combinational SC_METHODs from source to sink.
+  (2-5) Increment "current simulation time" by 10ns.
 
 (3) Perform simulation of resetting cycles.
   (3-1) If sc_stop() has been called, exit.
@@ -542,38 +548,24 @@ int cthread_tick_index;
   returns "m_val[m_rix]".  The write() procedure of an sc_signal<T> writes
   value to "m_val[m_wix]" and sets "m_written".
 
-  Before steps (3-2) and (4-2) of section [4.3], "m_wix" is the
-  opposite of "m_rix", and "m_written" is unset.
-
-  At steps (3-4) and (4-4) of section [4.3], the scheduler scans all
-  entries in "signals" and modifies the control information as follows.
-     1. Swaps "m_rix" and "m_wix" if "m_written" is set.
-     2. Clears "m_written".
-     3. Flips "m_wix" (i.e. makes "m_wix" the same as "m_rix") if the
-        signal is one of the outputs of combinational SC_METHODs.
-
-  After steps (3-5) and (4-5) of section [4.3], the scheduler scans
-  "signals" (only for outputs of combinational SC_METHODs) and
-  modifies the control information as follows.
-     1. Flips "m_wix" (i.e. makes "m_wix" the opposite of "m_rix").
-     2. Clears "m_written".
-
   The "m_id" member of the control information is used only at the
   elaboration phase, specifically upon sensitivity registration, to
   quickly identify the signal ID of a given sc_signal instance.
 
-::std::vector<int> methodsigs;
+::std::vector<sc_signal_access_manager*> nonblksigs;
 
-  Holds the IDs (indices in "signals") of output signals of
-  combinational SC_METHODs.  The entries are numerically sorted.
-  Additionally, "methodsigs" has one sentinel entry containing
-  "signals.size()".
+  Holds pointers to control information of non-blocking sc_signal instances.
 
-  The scheduler builds up this data at step (2-4) in section [4.3].
+  The scheduler builds up this data at the end of step (2-3) in section [4.3].
 
-  This data helps the scheduler to judge whether or not an sc_signal
-  is one of the outputs of combinational SC_METHODs, when the
-  scheduler scans "signals".
+  Before steps (3-2) and (4-2) of section [4.3], "m_wix" of each entry
+  in "nonblksigs" is the opposite of "m_rix", and "m_written" is
+  unset.
+
+  At steps (3-4) and (4-4) of section [4.3], the scheduler scans all
+  entries in "nonkblksigs" and modifies the control information as follows.
+     1. Swaps "m_rix" and "m_wix" if "m_written" is set.
+     2. Clears "m_written".
 
 ::std::vector<sc_sensitive_methods*> smeths;
 
@@ -584,11 +576,11 @@ int cthread_tick_index;
 
   The scheduler builds up this data at the elaboration phase, upon
   sensitivity registration and signal/port binding.  The scheduler
-  uses this data at step (2-4-2) in section [4.3].
+  uses this data at step (2-3-2) in section [4.3].
 
   Note that the method IDs in "smeths" become no longer valid after
-  step (2-4-3) in section [4.3].  However, this is not a problem
-  because the scheduler does not use "smeths" after step (2-4-3).
+  step (2-3-3) in section [4.3].  However, this is not a problem
+  because the scheduler does not use "smeths" after step (2-3-3).
 
 const sc_in<bool> *reset_port;
 
