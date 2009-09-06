@@ -500,25 +500,30 @@ int nr_cthreads_with_reset;
   The last entry of "cthreads_ctx" is the coroutine context for the
   main thread.
 
-int cthread_tick_index;
+int curr_cthread;
 
-  Holds the entry index (in "cthreads_ctx") of the running SC_CTHREAD.
+  Holds the entry index (in "cthreads") of the current SC_CTHREAD
+  during the elaboration phase.  Its value is either
+  "cthreads.size()-1" or "nr_cthread_with_reset-1".
+
+::std::vector<sc_cor_ctx>::iterator curr_ctx;
+
+  Holds the pointer (in "cthread_ctx") to the running SC_CTHREAD.
 
   At step (3-2) in section [4.3], the scheduler saves the coroutine
   context of the main thread to the last entry of "cthreads_ctx",
-  assign the "nr_cthreads_with_reset" value to "cthread_tick_index",
-  and loads an SC_CTHREAD context from "cthreads_ctx[cthread_tick_index]".
+  assign "cthread_ctx.begin() + nr_cthreads_with_reset" to "curr_ctx",
+  and loads an SC_CTHREAD context from "*curr_ctx".
 
   At step (4-2) in section [4.3], the scheduler saves the coroutine
   context of the main thread to the last entry of "cthreads_ctx",
-  assign 0 to "cthread_tick_index", and loads an SC_CTHREAD context
-  from "cthreads_ctx[0]".
+  assign "cthread_ctx.begin()" to "curr_ctx", and loads an SC_CTHREAD
+  context from "*curr_ctx".
 
   When a running SC_CTHREAD calls wait(), it simply saves its
-  coroutine context to "cthreads_ctx[cthread_tick_index]" and loads a
-  new coroutine context from "cthreads_ctx[++cthread_tick_index]".
-  This means that control gets back to the scheduler when the last
-  SC_CTHREAD calls wait().
+  coroutine context to "*curr_ctx" and loads a new coroutine context
+  from "*(++curr_ctx)".  This means that control gets back to the
+  scheduler when the last SC_CTHREAD calls wait().
 
 ::std::vector<sc_method_desc> methods;
 

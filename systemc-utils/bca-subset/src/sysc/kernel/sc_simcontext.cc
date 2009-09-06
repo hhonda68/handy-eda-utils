@@ -69,9 +69,10 @@ struct sc_simcontext::impl_t {
   ::std::stack<const sc_module*>           module_hierarchy;
   ::std::vector<sc_cthread_desc>           cthreads;
   ::std::vector<sc_cor_ctx>                cthreads_ctx;
+  ::std::vector<sc_cor_ctx>::iterator      curr_ctx;
   const sc_in<bool>                        *reset_port;
+  int                                      curr_cthread;
   int                                      nr_cthreads_with_reset;
-  int                                      cthread_tick_index;
   bool                                     cthread_aborted;
   bool                                     stopping;
   ::std::vector<sc_method_desc>            methods, cmethods;
@@ -112,7 +113,7 @@ void sc_simcontext::register_cthread(sc_module *mod, sc_entry_func func)
   desc.mod = mod;
   desc.func = func;
   desc.sz_stack = 16*1024;
-  m.cthread_tick_index = m.cthreads.size();  // used as "the most-recently-registered cthread" in elaboration phase
+  m.curr_cthread = m.cthreads.size();
   m.cthreads.push_back(desc);
 }
 
@@ -123,19 +124,19 @@ void sc_simcontext::register_reset_port(const sc_in<bool>& port)
 
 void sc_simcontext::mark_cthread_as_resettable()
 {
-  int nc = m.cthread_tick_index;  // most-recently-registered cthread
+  int nc = m.curr_cthread;
   int nr = m.nr_cthreads_with_reset;
   m.nr_cthreads_with_reset = nr + 1;
   if (nr == nc)  return;
   sc_cthread_desc &cdesc = m.cthreads[nc];
   sc_cthread_desc &rdesc = m.cthreads[nr];
   sc_cthread_desc tmp = rdesc;  rdesc = cdesc;  cdesc = tmp;
-  m.cthread_tick_index = nr;
+  m.curr_cthread = nr;
 }
 
 void sc_simcontext::set_cthread_stack_size(int size)
 {
-  m.cthreads[m.cthread_tick_index].sz_stack = size;  // most-recently-registered cthread
+  m.cthreads[m.curr_cthread].sz_stack = size;
 }
 
 void sc_simcontext::register_method(sc_module *mod, sc_entry_func func)
@@ -201,10 +202,11 @@ void sc_simcontext::impl_t::cthread_wrapper(void *arg)
   }
   {
     // cthead_ix may have been changed during execution
-    int cthread_ix = the_simcontext->m.cthread_tick_index;
+    int cthread_ix = &(*the_simcontext->m.curr_ctx) - &(*the_simcontext->m.cthreads_ctx.begin());	// (**1)
     the_simcontext->m.cthreads[cthread_ix].mod = 0;
     the_simcontext->m.cthread_aborted = true;
     the_simcontext->wait();
+    // (**1) assumes that ::std::vector<T> is implemented straightforwardly as a contiguous array of T.
   }
 }
 
@@ -239,8 +241,8 @@ void sc_simcontext::impl_t::setup_simulation()
 void sc_simcontext::impl_t::tick_cthreads(int start_index)
 {
   cthread_aborted = false;
-  cthread_tick_index = start_index;
-  sc_cor_ut::yield(&cthreads_ctx.back(), &cthreads_ctx[start_index]);
+  curr_ctx = cthreads_ctx.begin() + start_index;
+  sc_cor_ut::yield(&cthreads_ctx.back(), &(*curr_ctx));
   if (cthread_aborted) {
     int n = cthreads.size();
     int oldix = 0;
@@ -264,9 +266,9 @@ void sc_simcontext::impl_t::tick_cthreads(int start_index)
 
 void sc_simcontext::wait()
 {
-  sc_cor_ctx& curr_ctx = m.cthreads_ctx[m.cthread_tick_index];
-  sc_cor_ctx& next_ctx = m.cthreads_ctx[++m.cthread_tick_index];
-  sc_cor_ut::yield(&curr_ctx, &next_ctx);
+  sc_cor_ctx& curr = *m.curr_ctx;
+  sc_cor_ctx& next = *(++m.curr_ctx);
+  sc_cor_ut::yield(&curr, &next);
 }
 
 void sc_simcontext::impl_t::tick_cmethods()
