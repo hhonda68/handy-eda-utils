@@ -90,34 +90,34 @@ public:
   sc_inline operator const T&() const { return read(); }
 };
 
-class sc_clock_edge {
-public:
-  void sensitive_add(int method_id) const { the_simcontext->mark_method_as_clocked(method_id); }
-};
-
-template <typename T> class sc_in_pos {};
-template <> class sc_in_pos<bool> {
-public:
-  const sc_clock_edge pos() const { return sc_clock_edge(); }
-};
-
-template <typename T> class sc_in : public sc_in_reader<T>, public sc_in_pos<T> {
+template <typename T> class sc_in_body : public sc_in_reader<T> {
 public:
   using sc_in_reader<T>::m_info;
   using sc_in_reader<T>::m_sig;
-  void bind(sc_in& src)     { src.m_info->ports.push_back(this); }
+  void bind(sc_in<T>& src)  { src.m_info->ports.push_back(this); }
   void bind(sc_out<T>& src) { src.m_info->dstports.push_back(this); }
   void bind(sc_signal<T>& src);
   template <typename S> void operator()(S& src) { bind(src); }
 };
 
-template <typename T> void sc_in<T>::bind(sc_signal<T>& src) {
+template <typename T> void sc_in_body<T>::bind(sc_signal<T>& src) {
   int n = m_info->ports.size();
   for (int i=0; i<n; ++i)  m_info->ports[i]->bind(src);
   src.sensitive_merge(m_info->smeths);
   delete m_info;
   m_sig = &src;
 }
+
+class sc_clock_edge {
+public:
+  void sensitive_add(int method_id) const { the_simcontext->mark_method_as_clocked(method_id); }
+};
+
+template <typename T> class sc_in : public sc_in_body<T> {};
+template <> class sc_in<bool> : public sc_in_body<bool> {
+public:
+  const sc_clock_edge pos() const { return sc_clock_edge(); }
+};
 
 ////////////////////////////////////////////////////////////////
 
