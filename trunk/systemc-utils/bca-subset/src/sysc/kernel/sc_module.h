@@ -65,8 +65,14 @@ private:
 #define SC_HAS_PROCESS(name)  typedef name SC_CURRENT_USER_MODULE
 #define SC_CTOR(name)         SC_HAS_PROCESS(name);  name(::sc_core::sc_module_name)
 
+#ifdef BCASYSC_MULTICLOCK
+#define SC_CTHREAD(funcname, edge) \
+  ::sc_core::the_simcontext->register_cthread \
+    (this, static_cast< ::sc_core::sc_entry_func >(&SC_CURRENT_USER_MODULE::funcname), (edge).clock_port())
+#else
 #define SC_CTHREAD(funcname, edge) \
   ::sc_core::the_simcontext->register_cthread(this, static_cast< ::sc_core::sc_entry_func >(&SC_CURRENT_USER_MODULE::funcname))
+#endif
 #define SC_METHOD(funcname) \
   ::sc_core::the_simcontext->register_method(this, static_cast< ::sc_core::sc_entry_func >(&SC_CURRENT_USER_MODULE::funcname))
 

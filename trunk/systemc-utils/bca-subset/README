@@ -52,9 +52,17 @@ BCASYSC supports the following components of SystemC.
     preprocessor macros:
       SC_MODULE SC_CTOR SC_HAS_PROCESS SC_CTHREAD SC_METHOD
 
-A BCASYSC application must be single clocked and completely
-synchronous.  Negative clock edges are not supported.  An application
-can use at most one reset signal, which must be low-active.
+The BCASYSC library can be configured as either "a fast library
+supporting only single-clock applications" or "a slightly slower
+library supporting multi-clock applications".  This document denotes
+these two configurations as "BCASYSC-SCLK" and "BCASYSC-MCLK"
+respectively.
+
+A BCASYSC-SCLK application must be single clocked and completely
+synchronous.  A BCASYSC-MCLK application may have up to 10 clocks
+(including one).  In any case, negative clock edges are not supported.
+An application can use at most one reset signal, which must be
+low-active.
 
 ================
 [2] Installation
@@ -65,17 +73,22 @@ Assuming you use bourne-shell, type the following commands.
 [linux]$ WORKDIR=... # the directory containing this README file
 [linux]$ INSTDIR=... # the directory for installation (e.g. $HOME/local/bcasysc)
 [linux]$ cd $WORKDIR
-[linux]$ mkdir objdir
+[linux]$ mkdir objdir objdir-multiclock
 [linux]$ cd objdir
 [linux]$ ../src/configure --prefix=$INSTDIR
 [linux]$ make
 [linux]$ make install
+[linux]$ cd ../objdir-multiclock
+[linux]$ ../src/configure --prefix=${INSTDIR}-multiclock --enable-multiclock
+[linux]$ make
+[linux]$ make install
 [linux]$ cd ..
-[linux]$ rm -r objdir
+[linux]$ rm -r objdir objdir-multiclock
 
 If you want to test the library, play in the "example" directory
-before deleting "objdir".  Note that you need to adjust the
-definitions of ORG_SYSTEMC and ORG_LIBSYSTEMC in example/*/Makefile.
+before deleting "objdir" and "objdir-multiclock".  Note that you need
+to adjust the definitions of ORG_SYSTEMC and ORG_LIBSYSTEMC in
+example/*/Makefile.
 
 =================
 [3] Specification
@@ -249,21 +262,32 @@ input port.
 [3.4] sc_clock
 --------------
 
-BCASYSC assumes that an application uses one global 100MHz clock.
+BCASYSC supports only the simplest form of clock signals with 50% duty
+cycle and no phase-shift.
 
   class sc_clock : public sc_signal<bool> {
   public:
     sc_clock(const char* name, double period, sc_time_unit unit);
   };
 
+BCASYSC-SCLK assumes that an application uses one global 100MHz clock.
+
 The "name" parameter may be arbitrary.
 The "period" parameter must be 10.0.
 The "unit" parameter must be SC_NS.
-BCASYSC silently ignores all these parameters unchecked.
+BCASYSC-SCLK silently ignores all these parameters unchecked.
 
 The fixed (100MHz) clock frequency is not a severe restriction,
 because clock period is not important for zero-delay functional
 simulation of a single-clocked circuit.
+
+BCASYSC-MCLK assumes that an application uses clocks whose periods are
+integer-multiple of nanoseconds.
+
+The "name" parameter may be arbitrary.
+The "period" parameter must contain no fractional parts.
+The "unit" parameter must be SC_NS.
+BCASYSC-MCLK silently ignores "name" and "unit" parameters unchecked.
 
 ---------------------------
 [3.5] sc_start sc_stop wait
@@ -374,13 +398,13 @@ A user can use these SystemC preprocessor macros.
   #define SC_CTHREAD(func, edge)            ...
   #define SC_METHOD(func)                   ...
 
-BCASYSC silently ignores the "edge" parameter of SC_CTHREAD, assuming
-that an application is properly coded as a single-clocked circuit
-ticking at positive edges.
+BCASYSC-SCLK silently ignores the "edge" parameter of SC_CTHREAD,
+assuming that an application is properly coded as a single-clocked
+circuit ticking at positive edges.
 
 An SC_METHOD can describe either D-type flip flops (sensitive to the
-positive edge of the global clock), or combinational logic (sensitive
-to one or more I/O ports and/or signals).
+positive edge of a clock), or combinational logic (sensitive to one or
+more I/O ports and/or signals).
 
 The "func" procedure of a combinational SC_METHOD must write values to
 all of its output signals even in cases that some of them are
@@ -456,25 +480,39 @@ steps (after the elaboration phase).
     (2-3-3) Topologically sort the DAG and re-order the combinational
             SC_METHODs from source to sink.
   (2-4) Re-evaluate all combinational SC_METHODs from source to sink.
-  (2-5) Increment "current simulation time" by 10ns.
+  (2-5) Increment "current simulation time" to the next clock edge.
 
 (3) Perform simulation of resetting cycles.
   (3-1) If sc_stop() has been called, exit.
         If the reset signal has been negated, goto (4).
-  (3-2) Evaluate all SC_CTHREADs without reset.
-  (3-3) Evaluate all clocked SC_METHODs.
+  (3-2) Evaluate all SC_CTHREADs without reset associated to
+        the rising clock(s).
+  (3-3) Evaluate all clocked SC_METHODs associated to
+        the rising clock(s).
   (3-4) Update non-blocking assignment effects made in (3-2) and (3-3).
-  (3-5) Evaluate all combinational SC_METHODs from source to sink.
-  (3-6) Increment "current simulation time" by 10ns and goto (3-1).
+  (3-5) Evaluate all combinational SC_METHODs depending on
+        the rising clock(s) from source to sink.
+  (3-6) Increment "current simulation time" to the next clock edge
+        and goto (3-1).
 
 (4) Perform simulation of operating cycles.
   (4-1) If sc_stop() has been called, exit.
-  (4-2) Evaluate all SC_CTHREADs.
-  (4-3) Evaluate all clocked SC_METHODs.
+  (4-2) Evaluate all SC_CTHREADs associated to the rising clock(s).
+  (4-3) Evaluate all clocked SC_METHODs associated to the rising clock(s).
   (4-4) Update non-blocking assignment effects made in (4-2) and (4-3).
-  (4-5) Evaluate all combinational SC_METHODs from source to sink.
-  (4-6) Increment "current simulation time" by 10ns and goto (4-1).
+  (4-5) Evaluate all combinational SC_METHODs depending on
+        the rising clock(s) from source to sink.
+  (4-6) Increment "current simulation time" to the next clock edge
+        and goto (4-1).
   
+In BCASYSC-SCLK, the "SC_METHODs depending on the rising clock(s)" are
+simply the all (combinational) SC_METHODs.  In BCASYSC-MCLK, the
+library recognizes the "SC_METHODs depending on each clock" by
+collecting the driver of each signal in steps (2-1) to (2-3-1).  If a
+signal is not written (not initialized) in those steps, BCASYSC-MCLK
+conservatively recognizes that the SC_METHODs sensitive to that signal
+depend on all clocks.
+
 -------------------------------------------------
 [4.4] Data Structure inside the Simulation Kernel
 -------------------------------------------------
@@ -483,9 +521,24 @@ The simulation kernel of BCASYSC is the "sc_simcontext" class in
 src/sysc/kernel/sc_simcontext.h.  Its implementation class is
 "sc_simcontext::impl_t" in src/sysc/kernel/sc_simcontext.cc.
 
+::std::vector<sc_clock_desc> clocks;  // BCASYSC-MCLK
+
+  Holds clocks.  This section denotes its size (i.e., the number
+  of clocks) as "NR_CLK".
+
+unsigned int active_clock_map;  // BCASYSC-MCLK
+
+  Holds a bitmap representing the set of rising clocks.
+  If (active_clock_map & (1u<<clk)) is nonzero, the clock "clk" is rising.
+
 int nr_cthreads_with_reset;
 
   Holds the number of SC_CTHREADs with reset.
+
+::std::vector<int> nr_cthreads_with_reset_tab;  // BCASYSC-MCLK
+
+  Holds NR_CLK entries each of which represents the number of
+  SC_CTHREADs with reset associated to each clock.
 
 ::std::vector<sc_cthread_desc> cthreads;
 
@@ -493,12 +546,29 @@ int nr_cthreads_with_reset;
   The first "nr_cthread_with_reset" entries are SC_CTHREADs with reset.
   The remaining entries are SC_CTHREADs without reset.
 
-::std::vector<sc_cor_ctx> cthreads_ctx;
+::std::vector<sc_cor_ctx> cthreads_ctx;  // BCASYSC-SCLK
 
   Holds the coroutine contexts for SC_CTHREADs and the main thread.
   When "cthreads" holds N entries, "cthreads_ctx" holds N+1 entries.
   The last entry of "cthreads_ctx" is the coroutine context for the
   main thread.
+
+::std::vector< ::std::vector<sc_cor_ctx> >  cthreads_ctx_tab;  // BCASYSC-MCLK
+
+  Holds NR_CLK entries each of which holds the coroutine contexts
+  for SC_CTHREADs and the main thread associated to each clock.
+
+  Note that each entry contains "the coroutine context for the main thread"
+  individually.
+
+::std::vector< ::std::vector<int> >  cthreads_id_tab;  // BCASYSC-MCLK
+
+  Holds NR_CLK entries each of which holds the indices (in "cthreads")
+  of the SC_CTHREADs associated to each clock.
+
+  Consequently, "chtreads_id_tab[clk].size()" reperesents the number of
+  SC_CTHREADs associated to the clock "clk".  Note that
+  "cthreads_ctx_tab[clk].size()" equals to "chtreads_id_tab[clk].size()+1".
 
 int curr_cthread;
 
@@ -508,33 +578,99 @@ int curr_cthread;
 
 ::std::vector<sc_cor_ctx>::iterator curr_ctx;
 
-  Holds the pointer (in "cthread_ctx") to the running SC_CTHREAD.
+  Holds the pointer (in "cthreads_ctx" or "cthreads_ctx_tab[clk]")
+  to the running SC_CTHREAD.
 
-  At step (3-2) in section [4.3], the scheduler saves the coroutine
-  context of the main thread to the last entry of "cthreads_ctx",
-  assign "cthread_ctx.begin() + nr_cthreads_with_reset" to "curr_ctx",
-  and loads an SC_CTHREAD context from "*curr_ctx".
+  At step (3-2) in section [4.3], the BCASYSC-SCLK scheduler
+  runs the following pseudo-code.
 
-  At step (4-2) in section [4.3], the scheduler saves the coroutine
-  context of the main thread to the last entry of "cthreads_ctx",
-  assign "cthread_ctx.begin()" to "curr_ctx", and loads an SC_CTHREAD
-  context from "*curr_ctx".
+      curr_ctx = cthreads_ctx.begin() + nr_cthreads_with_reset;
+      switch_coroutine_context(cthreads_ctx.back(), *curr_ctx);
+
+  At step (3-2) in section [4.3], the BCASYSC-MCLK scheduler
+  runs the following pseudo-code.
+
+      foreach clk in the_rising_clocks {
+        curr_ctx = cthreads_ctx[clk].begin() + nr_cthreads_with_reset[clk];
+        switch_coroutine_context(cthreads_ctx[clk].back(), *curr_ctx);
+      }
+
+  At step (4-2) in section [4.3], the BCASYSC-SCLK scheduler
+  runs the following pseudo-code.
+
+      curr_ctx = cthreads_ctx.begin();
+      switch_coroutine_context(cthreads_ctx.back(), *curr_ctx);
+
+  At step (4-2) in section [4.3], the BCASYSC-MCLK scheduler
+  runs the following pseudo-code.
+
+      foreach clk in the_rising_clocks {
+        curr_ctx = cthreads_ctx[clk].begin();
+        switch_coroutine_context(cthreads_ctx[clk].back(), *curr_ctx);
+      }
+
+  The "switch_coroutine_context()" procedure saves the scheduler's
+  coroutine context to the space specified by the first argument, and
+  loads a coroutine context from (i.e., switches to the coroutine
+  context in) the space specified by the second argument.  In other
+  words, control temporarily switches to some SC_CTHREAD.
 
   When a running SC_CTHREAD calls wait(), it simply saves its
   coroutine context to "*curr_ctx" and loads a new coroutine context
   from "*(++curr_ctx)".  This means that control gets back to the
   scheduler when the last SC_CTHREAD calls wait().
 
-::std::vector<sc_method_desc> methods;
+::std::vector<sc_lmethod_desc> methods;
 
   Holds combinational SC_METHODs.
   The order of entries is unspecified at the elaboration phase.
   After step (2) in section [4.3], the entries are sorted from
   source to sink.
 
-::std::vector<sc_method_desc> cmethods;
+  In BCASYSC-MCLK, each sorted entry contains a bitmap ("clkmap")
+  representing the set of clocks the method depends on.
+
+::std::vector< ::std::vector<sc_method_desc>* > methods_tab;  // BCASYSC-MCLK
+
+  Holds (1<<NR_CLK) entries each of which holds a pointer to the
+  ordered list of SC_METHODs depending on each "active_clock_map" value.
+
+  This is effectively a cache of "methods".  Without this cache, the
+  scheduler would run the following pseudo-code at steps (3-5) and
+  (4-5).
+
+    foreach m in "methods" {
+      if ((m.clkmap & active_clock_map) != 0)  call_method(m);
+    }
+
+  With this cache, the scheduler runs the following pseudo-code.
+
+    ::std::vector<sc_method_desc> *ptr = methods_tab[active_clock_map];
+    if (ptr == 0) {
+      ptr = new ::std::vector<sc_method_desc>;
+      foreach m in "methods" {
+        if ((m.clkmap & active_clock_map) != 0)  ptr->push_back(m);
+      }
+      methods_tab[active_clock_map] = ptr;
+    }
+    foreach m in "*ptr" {
+      call_method(m);
+    }
+
+  Note that this cache is the cause of the upper limit of the number
+  of clocks.  BCASYSC_MCLK currently limits the number of clocks to be
+  no more than 10, to limit the size of this cache to be no more than
+  1024 entries.  You may customize the limit if you can afford the
+  increasing memory footprint.
+
+::std::vector<sc_cmethod_desc> cmethods;
 
   Holds clocked SC_METHODs.
+
+::std::vector<sc_method_desc> cmethods_tab;  // BCASYSC-MCLK
+
+  Holds NR_CLK entries each of which holds the clocked SC_METHODs
+  associated to each clock.
 
 ::std::vector<sc_signal_access_manager*> signals;
 
@@ -557,7 +693,7 @@ int curr_cthread;
   elaboration phase, specifically upon sensitivity registration, to
   quickly identify the signal ID of a given sc_signal instance.
 
-::std::vector<sc_signal_access_manager*> nonblksigs;
+::std::vector<sc_signal_access_manager*> nonblksigs;  // BCASYSC-SCLK
 
   Holds pointers to control information of non-blocking sc_signal instances.
 
@@ -571,6 +707,17 @@ int curr_cthread;
   entries in "nonkblksigs" and modifies the control information as follows.
      1. Swaps "m_rix" and "m_wix" if "m_written" is set.
      2. Clears "m_written".
+
+::std::vector< ::std::vector<sc_signal_access_manager*> > nonblksigs_tab;
+// BCASYSC-MCLK
+
+  Holds NR_CLK+1 entries.
+
+  Each of the first NR_CLK entries holds pointers to control information
+  of non-blocking signal instances associated to each clock.
+
+  The last entry holds a pointer to control information of
+  non-blocking signal instances which are uninitialized upon reset.
 
 ::std::vector<sc_sensitive_methods*> smeths;
 
@@ -606,7 +753,8 @@ bool cthread_aborted;
   this flag and transfers control to the next thread.  When the control
   gets back to the scheduler, the scheduler checks this flag, and if this
   flag is set, the scheduler performs garbage collection on "cthreads"
-  and "cthreads_ctx".
+  and "cthreads_ctx" (BCASYSC-SCLK) or on "cthreads_ctx_tab" and
+  "cthreads_id_tab" (BCASYSC-MCLK).
 
 bool stopping;
 

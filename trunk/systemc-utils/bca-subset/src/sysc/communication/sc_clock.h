@@ -22,7 +22,11 @@ enum sc_time_unit;
 
 class sc_clock : public sc_signal<bool> {
 public:
-  sc_clock(const char* name, double period, sc_time_unit unit) {}
+  sc_clock(const char* name, double period, sc_time_unit unit) {
+#ifdef BCASYSC_MULTICLOCK
+    the_simcontext->register_clock(*this, period);
+#endif
+  }
 };
 
 } // namespace sc_core

@@ -8,15 +8,22 @@
 #  http://www.opensource.org/licenses/mit-license.php.)
 #
 # cd objdir
-# $(SRCDIR)/configure --prefix=/your/installation/directory
+# $(SRCDIR)/configure --prefix=/your/installation/directory [--enable-multiclock]
 #
 
 srcdir=${0%/*}
 prefix=${1#*=}
+multiclock=$2
 
-test "$srcdir" != "$0" -a "$prefix" != "$1" || {
-  echo "usage: \$(SRCDIR)/configure --prefix=PREFIX"
+test "$srcdir" != "$0" -a "$prefix" != "$1" -a '(' "$multiclock" == "--enable-multiclock" -o "$multiclock" == "" ')' || {
+  echo "usage: \$(SRCDIR)/configure --prefix=PREFIX [--enable-multiclock]"
   exit 2
 }
 
-sed 's|@SRCDIR@|'$srcdir'|;s|@PREFIX@|'$prefix'|' $srcdir/Makefile.in > Makefile
+if [ "$multiclock" == "--enable-multiclock" ] ; then
+  multiclock=yes
+else
+  multiclock=no
+fi
+
+sed 's|@SRCDIR@|'$srcdir'|;s|@PREFIX@|'$prefix'|;s|@MULTICLOCK@|'$multiclock'|' $srcdir/Makefile.in > Makefile

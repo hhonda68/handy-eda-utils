@@ -12,6 +12,7 @@
 
 SRCDIR := @SRCDIR@
 PREFIX := @PREFIX@
+MULTICLOCK := @MULTICLOCK@
 
 SRC_CC := $(shell find $(SRCDIR) -name '*.cc' -print)
 SRC_C  := $(shell find $(SRCDIR) -name '*.c' -print)
@@ -25,6 +26,9 @@ OBJ_S  := $(patsubst $(SRCDIR)/%.S,%.o,$(SRC_S))
 CXX := g++
 AR  := ar cru
 CXXFLAGS := -O2 -Wall -fomit-frame-pointer
+ifeq ($(MULTICLOCK),yes)
+CXXFLAGS += -DBCASYSC_MULTICLOCK
+endif
 
 INSTALL_HEADERS := \
   systemc \
@@ -45,6 +49,11 @@ install: libsystemc.a
 	@mkdir -p $(PREFIX)
 	@mkdir -p $(PREFIX)/include $(PREFIX)/lib-linux
 	@( cd $(SRCDIR) && tar cf - $(INSTALL_HEADERS) ) | ( cd $(PREFIX)/include && tar xf - )
+ifeq ($(MULTICLOCK),yes)
+	@f=$(PREFIX)/include/systemc && \
+	 { sed '/^#/d' $$f && echo '#define BCASYSC_MULTICLOCK' && sed '/^#/!d' $$f ; } > $${f}~ && \
+	 mv $${f}~ $$f
+endif
 	@for f in $(INSTALL_HEADERS) ; do chmod -w $(PREFIX)/include/$$f ; done
 	@cp -p libsystemc.a $(PREFIX)/lib-linux && chmod -w $(PREFIX)/lib-linux/libsystemc.a
 
