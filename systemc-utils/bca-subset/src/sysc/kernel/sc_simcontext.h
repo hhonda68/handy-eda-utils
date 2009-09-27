@@ -51,13 +51,19 @@ public:
   const char *scmodule_basename();
   const sc_module *scmodule_parent();
   void construct_scmodule(const sc_module *);
+#ifdef BCASYSC_MULTICLOCK
+  void register_clock(sc_signal<bool>&, double);
+  void register_cthread(sc_module *, sc_entry_func, const sc_in<bool>&);
+  void mark_method_as_clocked(int, const sc_in<bool>&);
+#else
   void register_cthread(sc_module *, sc_entry_func);
+  void mark_method_as_clocked(int);
+#endif
   void register_reset_port(const sc_in<bool>&);
   void mark_cthread_as_resettable();
   void set_cthread_stack_size(int);
   void register_method(sc_module *, sc_entry_func);
   int  current_method_id() const;
-  void mark_method_as_clocked(int);
   void register_signal(sc_signal_access_manager&);
   void sensitive_add(sc_signal_access_manager&, int);
   void sensitive_merge(sc_signal_access_manager&, sc_sensitive_methods&);

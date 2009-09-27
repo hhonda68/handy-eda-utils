@@ -109,14 +109,27 @@ template <typename T> void sc_in_body<T>::bind(sc_signal<T>& src) {
 }
 
 class sc_clock_edge {
+#ifdef BCASYSC_MULTICLOCK
+public:
+  explicit sc_clock_edge(const sc_in<bool>& port) : m_port(port) {}
+  void sensitive_add(int method_id) const { the_simcontext->mark_method_as_clocked(method_id, m_port); }
+  const sc_in<bool>& clock_port() const { return m_port; }
+private:
+  const sc_in<bool>& m_port;
+#else
 public:
   void sensitive_add(int method_id) const { the_simcontext->mark_method_as_clocked(method_id); }
+#endif
 };
 
 template <typename T> class sc_in : public sc_in_body<T> {};
 template <> class sc_in<bool> : public sc_in_body<bool> {
 public:
+#ifdef BCASYSC_MULTICLOCK
+  const sc_clock_edge pos() const { return sc_clock_edge(*this); }
+#else
   const sc_clock_edge pos() const { return sc_clock_edge(); }
+#endif
 };
 
 ////////////////////////////////////////////////////////////////
