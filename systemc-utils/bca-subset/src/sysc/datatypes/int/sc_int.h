@@ -29,6 +29,15 @@
 //     sc_uint<32> b = 0xffffffff;
 //     sc_uint<32> c = (a+b)>>1;   <-- "0xffffffff" in SystemC, "0x7fffffff" in BCA-subset
 //
+// Incompalitibilities from the standard SystemC
+// which may be detected on compilation (by "g++ -O -Wall"):
+//   * sc_int<16> a;
+//     int b = a;                  <-- "0" in SystemC, undefined in BCA-subset
+//   * sc_uint<2> a;
+//     a[0] = true;
+//     a[1] = true;
+//     int b = a;                  <-- "3" in SystemC, undefined in BCA-subset
+//
 // sc_biguint<W>
 //   * supports only "merge" and "split" operations, such as
 //       dst = (src0,src1,...);
