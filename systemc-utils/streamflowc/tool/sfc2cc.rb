@@ -339,10 +339,8 @@ begin
     end
   end
 
-  Hierarchical = Def.empty?
-  if Hierarchical then
-    explicit_impl_bind == 2  or fail "empty implementation for hierarchical module"
-  else
+  Hierarchical = Def.empty? && (explicit_impl_bind == 2)
+  unless Hierarchical then
     Input.each do |desc|
       Def.include?(desc.name)  or fail "no definition for input signal #{desc.name}"
     end
