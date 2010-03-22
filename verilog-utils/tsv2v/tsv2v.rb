@@ -12,17 +12,19 @@
 # TSV code example:
 #   module add8
 #   i  8 a b
-#   o 16 y = a + b
+#   o  9 y = a + b
 #   endmodule
 #
 # Generated Verilog code:
 #   module add8(a,b,y);
 #   input [7:0] a, b;
-#   output [15:0] y;
+#   output [8:0] y;
 #   assign y = a + b;
 #   endmodule
 #
 # Lines to be converted
+#   p [WIDTH] NAME0 DEFAULT0 NAME1 DEFAULT1 ...
+#   l [WIDTH] NAME0 VALUE0 NAME1 VALUE1 ...
 #   i [WIDTH] NAME0 NAME1 ...
 #   o [WIDTH] NAME0 NAME1 ...
 #   w [WIDTH] NAME0 NAME1 ...
@@ -128,10 +130,11 @@ def println(*args)
   end
 end
 
-ModuleInfo = Struct.new(:name, :args, :arglines, :bodylines, :instseq)
+ModuleInfo = Struct.new(:name, :params, :args, :arglines, :bodylines, :instseq)
 ModInfo = ModuleInfo.new
 
 ModInfo.name = nil
+ModInfo.params = []
 ModInfo.args = []
 ModInfo.arglines = []
 ModInfo.bodylines = []
@@ -141,6 +144,7 @@ def print_module
   println(prettyprint(0, "module #{ModInfo.name}(", ModInfo.args.join(","), ");"))
   println(ModInfo.arglines, ModInfo.bodylines, "endmodule")
   ModInfo.name = nil
+  ModInfo.params.clear
   ModInfo.args.clear
   ModInfo.arglines.clear
   ModInfo.bodylines.clear
@@ -205,7 +209,7 @@ def expand_handshake(name)
   name.sub!(/^(\w+)@$/){$1} ? [name+"_irdy", name+"_trdy", name] : name
 end
 
-TypeStr = { "i" => "input", "o" => "output", "w" => "wire", "a" => "assign" }
+TypeStr = { "i" => "input", "o" => "output", "w" => "wire", "a" => "assign", "p" => "parameter", "l" => "localparam" }
 TypeStr_trdy = { "i" => "output", "o" => "input", "w" => "wire" }
 
 def convert(line)
@@ -218,11 +222,44 @@ def convert(line)
   end
   arr = expand_ranges(line)
   case arr[0]
+  when "p","l"
+    type = arr.shift
+    if (arr[0] =~ /^\d+$/) then
+      (type != "a")  or fail "syntax error"
+      width = " [#{arr[0].to_i-1}:0] "
+      arr.shift
+    elsif (ModInfo.params.include?(arr[0])) then
+      (type != "a")  or fail "syntax error"
+      width = " [#{arr[0]}-1:0] "
+      arr.shift
+    elsif (arr[0] !~ /^\w+$/) then
+      (type != "a")  or fail "syntax error"
+      width = " [(#{arr[0]})-1:0] "
+      arr.shift
+    else
+      width = " "
+    end
+    (! arr.empty?) && (arr.size % 2) == 0  or fail "syntax error"
+    paramdecl = (0...(arr.size/2)).map{ |i|
+      name, value = arr[i*2,2]
+      (name =~ /^\w+$/) && (!ModInfo.params.include?(name))  or fail "syntax error"
+      ModInfo.params.push(name)
+      name + "=" + value
+    }
+    line = TypeStr[type] + width + paramdecl.join(",") + ";"
+    ModInfo.arglines.push(wrap_line(line))
   when "i","o","w","a"
     type = arr.shift
     if (arr[0] =~ /^\d+$/) then
       (type != "a")  or fail "syntax error"
       width = " [#{arr[0].to_i-1}:0] "
+      arr.shift
+    elsif (ModInfo.params.include?(arr[0])) then
+      (type != "a")  or fail "syntax error"
+      width = " [#{arr[0]}-1:0] "
+      arr.shift
+    elsif ((type != "a") && (arr[0] !~ /^\w+$/)) then
+      width = " [(#{arr[0]})-1:0] "
       arr.shift
     else
       width = " "
