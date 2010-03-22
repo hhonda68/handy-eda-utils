@@ -826,6 +826,10 @@ The following timetables show the I/O transfer sequences when the
           a --> y                     a --------> y
              :     :                     :     :
 
+The receiver of the "t" channel is typically the ::sfcut::buf<T,N> or
+::sfcut::fbbuf<T,N> module, but nothing prevents you to write your own
+module with a "trig_t" input port.
+
 [3.5.3] ::sfcut::buf<T,N>
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 The ::sfcut::buf<T,N> module is a 2-input 1-output module which buffers
@@ -855,6 +859,22 @@ The ::sfcut::buf<T,N> module does not check full/empty status upon
 writes and reads.  Users have to guarantee that they write to the
 buffer only when the buffer is not full, and read from the buffer only
 when the buffer contains at least "chunk" items.
+
+The sender of the "t" channel is typically the ::sfcut::trig<T,N>
+module, but nothing prevents you to write your own module with a
+"trig_t" output port.  When a module wants to output a trigger
+notification, it can use an abbreviated notation as follows.
+
+  module foo {
+  ...;
+  output:
+    ::sfcut::trig_t  bar;
+    ...;
+  };
+  foo(...) {
+    ...;
+    bar_out();   // abbreviation of "bar_out(::sfcut::trig_t());"
+  }
 
 [3.5.4] ::sfcut::fbbuf<T,N>
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

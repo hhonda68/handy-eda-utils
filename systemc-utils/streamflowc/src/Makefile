@@ -49,7 +49,7 @@ sfcut.h: $(SFC_H) Makefile streamflowc.h
 	   echo 'namespace sfcut {' && \
 	   echo '' && \
 	   echo '// StreamFlowC declarations:' && \
-	   for i in $(SFC) ; do sed '1,10d;s|^|// |;/^\/\/ };/q' $$i.sfc || exit 2 ; done && \
+	   for i in $(SFC) ; do sed '1,10d;/^} \/\/ namespace/,/^$$/d;s|^|// |;/^\/\/ };/q' $$i.sfc || exit 2 ; done && \
 	   echo '' && \
 	   for i in $(SFC) ; do echo '#line 11 "'$$i.sfc'"' && sed '1,11d' $$i.h || exit 2 ; done && \
 	   echo '} // namespace sfcut' && \

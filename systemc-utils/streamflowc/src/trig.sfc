@@ -11,6 +11,17 @@
 
 struct trig_t {};
 
+} // namespace sfcut
+namespace streamflowc {
+template <> struct portref< ::sfcut::trig_t > : private portref_base {
+  typedef ::sfcut::trig_t T;
+  void operator=(port<T>& dst) { assign(&dst); }
+  void operator=(portref<T>& src) { chain(&src); }
+  void operator()(port<T>::arg_type x = T()) { (*static_cast<port<T>*>(get()))(x); }
+};
+} // namespace streamflowc
+namespace sfcut {
+
 template <typename T>
 module trig {
  param:
@@ -34,11 +45,11 @@ trig() {
 }
 
 trig(a) {
-  if (m_preceed && m_count == 0)  t_out(trig_t());
+  if (m_preceed && m_count == 0)  t_out();
   y_out(a);
   ++ m_count;
   if (m_count == m_period) {
-    if (! m_preceed)  t_out(trig_t());
+    if (! m_preceed)  t_out();
     m_count = 0;
   }
 }
