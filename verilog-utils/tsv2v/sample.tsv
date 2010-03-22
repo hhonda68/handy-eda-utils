@@ -1,0 +1,133 @@
+module DFFRE
+p   W 1
+p W INIT {W{1'b0}}
+i   clk rst cke
+i W d
+o W q
+reg [W-1:0] q;
+always @(posedge clk or posedge rst) begin
+  if (rst)  q <= INIT;
+  else      q <= cke ? q : d;
+end
+endmodule
+
+module SEL
+p    SW 1 OW 1
+l N  1<<SW
+l IW N*OW
+i SW sel
+i IW idata
+o OW odata = idata[OW*sel +: OW]
+endmodule
+
+module add2
+p W   8
+i W   a b
+o W+1 y = a + b
+endmodule
+
+module add8
+p W   8
+i W   a[0-7]
+w W+1 b[0-3]
+a     b0 = a0 + a1
+a     b1 = a2 + a3
+a     b2 = a4 + a5
+a     b3 = a6 + a7
+w W+2 c0 = b0 + b1
+w W+2 c1 = b2 + b3
+o W+3 y = c0 + c1
+endmodule
+
+module counter
+p   W 8
+i   clk rst cke
+o W cnt
+w W cnt_inc = cnt + {{(W-1){1'b0}},1'b1}
+m DFFRE#(W) clk rst cke cnt_inc cnt
+endmodule
+
+module fsm
+i   clk rst
+i 2 ctrl
+i 8 a b
+o 8 y
+# state 0 (initial):
+#   y = a + b
+#   next_state = ctrl[0] ? 1 : 0
+# state 1:
+#   y = a - b
+#   next_state = ctrl[1] ? 2 : 1
+# state 2:
+#   y = a & b
+#   next_state = ctrl[0] ? 3 : 2
+# state 3:
+#   y = a | b
+#   next_state = ctrl[1] ? 0 : 3
+w  2 state
+w  2 state_next0 = ctrl[0] ? 2'h1 : 2'h0
+w  2 state_next1 = ctrl[1] ? 2'h2 : 2'h1
+w  2 state_next2 = ctrl[0] ? 2'h3 : 2'h2
+w  2 state_next3 = ctrl[1] ? 2'h0 : 2'h3
+w  8 state_next_cand = { state_next[3-0] }
+w  2 state_next = SEL#(2,2) ( state state_next_cand )
+m DFFRE#(2) clk rst 1'b1 state_next state
+w  8 y[0-3]
+a    y0 = a + b
+a    y1 = a - b
+a    y2 = a & b
+a    y3 = a | b
+w 32 y_cand = { y[3-0] }
+a    y = SEL#(2,8) ( state y_cand )
+endmodule
+
+module instance_name_test
+i  a
+o  b
+m foo_bar_baz a b
+m FooBarBaz a b
+m foo_bar_baz_0 a b
+m FooBar0Baz a b
+m _0 a b
+m foo__bar__baz a b
+m foo__bar__baz__ a b
+endmodule
+
+module handshake_add
+i 8 a@ b@
+o 8 y@
+a   y_vld = a_vld & b_vld
+a   a_rdy = b_vld & y_rdy
+a   b_rdy = a_vld & y_rdy
+a   y = a + b
+endmodule
+
+module handshake_add8
+i 8 a[0-7]@
+w 8 b[0-3]@
+a   b0@ = handshake_add ( a[0-1]@ )
+a   b1@ = handshake_add ( a[2-3]@ )
+a   b2@ = handshake_add ( a[4-5]@ )
+a   b3@ = handshake_add ( a[6-7]@ )
+w 8 c0@ = handshake_add ( b0@ b1@ )
+w 8 c1@ = handshake_add ( b2@ b3@ )
+o 8 y@ = handshake_add ( c0@ c1@ )
+endmodule
+
+module pack_unpack_test
+i    clk rst
+i 21 param
+i  8 a@ b@
+o  8 x@ y@
+w  7 width height depth
+a    { width height depth } = param
+w 14 area
+w 21 volume
+a    { area volume } = calc_area_volume ( width height depth )
+w 21 submod1_param = { area depth }
+w 25 submod2_param_high
+w 32 submod2_param_low
+a    { submod2_param_high submod2_param_low } = { param area volume }
+w  8 mid@ = submod1 ( clk rst submod1_param a@ )
+m submod2 clk rst submod2_param_high submod2_param_low mid@ b@ x@ y@
+endmodule
