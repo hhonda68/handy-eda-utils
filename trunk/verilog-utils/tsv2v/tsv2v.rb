@@ -273,7 +273,6 @@ def convert(line)
       (type != "i")  or fail "syntax error"
       sig = arr[0]
       handshake = sig.sub!(/@$/, "")
-      line = TypeStr[type] + width + sig
       if (handshake) then
         # handshake channel : must be
         #   o   foo = submod ( arg0 arg1 ... )
@@ -282,19 +281,22 @@ def convert(line)
         submod = append_instance_name(arr[2])
         sig_vld = sig + "_vld"
         sig_rdy = sig + "_rdy"
-        line_vld = TypeStr[type] + " " + sig_vld + ";"
-        line_rdy = TypeStr_rdy[type] + " " + sig_rdy + ";"
-        line += ";"
-        if (type == "o") then
-          ModInfo.args.push(sig_vld, sig_rdy, sig)
-          ModInfo.arglines.push(line_vld, line_rdy, line)
-        else
-          ModInfo.bodylines.push(line_vld, line_rdy, line)
+        unless (type == "a") then
+          line = TypeStr[type] + width + sig + ";"
+          line_vld = TypeStr[type] + " " + sig_vld + ";"
+          line_rdy = TypeStr_rdy[type] + " " + sig_rdy + ";"
+          if (type == "o") then
+            ModInfo.args.push(sig_vld, sig_rdy, sig)
+            ModInfo.arglines.push(line_vld, line_rdy, line)
+          else
+            ModInfo.bodylines.push(line_vld, line_rdy, line)
+          end
         end
         args = arr[4..-2].map{|x| expand_handshake(x)}
         args.push(sig_vld, sig_rdy, sig)
         ModInfo.bodylines.push(prettyprint(0, "#{submod}(", args.join(","), ");"))
       else
+        line = TypeStr[type] + width + sig
         if (type == "o") then
           ModInfo.args.push(sig)
           ModInfo.arglines.push(line+";")
