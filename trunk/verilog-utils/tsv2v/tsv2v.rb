@@ -62,15 +62,15 @@
 #        a[0-2][5-7]   --> a05 a06 a07 a15 a16 a17 a25 a26 a27
 #        a[0-2]b[5-7]c --> a0b5c a0b6c a0b7c a1b5c a1b6c a1b7c a2b5c a2b6c a2b7c
 #   6. Expand "handshake channel field"s (matching /^\w+@$/)
-#        i 8 foo@ --> i   foo_irdy
-#                     o   foo_trdy
+#        i 8 foo@ --> i   foo_vld
+#                     o   foo_rdy
 #                     i 8 foo
-#        o 8 foo@ --> o   foo_irdy
-#                     i   foo_trdy
+#        o 8 foo@ --> o   foo_vld
+#                     i   foo_rdy
 #                     o 8 foo
-#        w 8 foo@ --> w   foo_irdy foo_trdy
+#        w 8 foo@ --> w   foo_vld foo_rdy
 #                     w 8 foo
-#        m submod foo@ --> m submod foo_irdy foo_trdy foo
+#        m submod foo@ --> m submod foo_vld foo_rdy foo
 
 MaxLineLen = 70
 
@@ -206,11 +206,11 @@ def expand_ranges(line)
 end
 
 def expand_handshake(name)
-  name.sub!(/^(\w+)@$/){$1} ? [name+"_irdy", name+"_trdy", name] : name
+  name.sub!(/^(\w+)@$/){$1} ? [name+"_vld", name+"_rdy", name] : name
 end
 
 TypeStr = { "i" => "input", "o" => "output", "w" => "wire", "a" => "assign", "p" => "parameter", "l" => "localparam" }
-TypeStr_trdy = { "i" => "output", "o" => "input", "w" => "wire" }
+TypeStr_rdy = { "i" => "output", "o" => "input", "w" => "wire" }
 
 def convert(line)
   line.sub!(/\s+#.*$/,"")
@@ -280,19 +280,19 @@ def convert(line)
         #   o 8 foo = submod ( arg0 arg1 ... )
         (arr.size >= 5 && arr[3] == "(" && arr[-1] == ")")   or fail "syntax error"
         submod = append_instance_name(arr[2])
-        sig_irdy = sig + "_irdy"
-        sig_trdy = sig + "_trdy"
-        line_irdy = TypeStr[type] + " " + sig_irdy + ";"
-        line_trdy = TypeStr_trdy[type] + " " + sig_trdy + ";"
+        sig_vld = sig + "_vld"
+        sig_rdy = sig + "_rdy"
+        line_vld = TypeStr[type] + " " + sig_vld + ";"
+        line_rdy = TypeStr_rdy[type] + " " + sig_rdy + ";"
         line += ";"
         if (type == "o") then
-          ModInfo.args.push(sig_irdy, sig_trdy, sig)
-          ModInfo.arglines.push(line_irdy, line_trdy, line)
+          ModInfo.args.push(sig_vld, sig_rdy, sig)
+          ModInfo.arglines.push(line_vld, line_rdy, line)
         else
-          ModInfo.bodylines.push(line_irdy, line_trdy, line)
+          ModInfo.bodylines.push(line_vld, line_rdy, line)
         end
         args = arr[4..-2].map{|x| expand_handshake(x)}
-        args.push(sig_irdy, sig_trdy, sig)
+        args.push(sig_vld, sig_rdy, sig)
         ModInfo.bodylines.push(prettyprint(0, "#{submod}(", args.join(","), ");"))
       else
         if (type == "o") then
@@ -329,8 +329,8 @@ def convert(line)
         descs = []
         arr.each do |name|
           if (name.sub!(/@$/,"")) then
-            descs.push([TypeStr[type], " ", name+"_irdy"],
-                      [TypeStr_trdy[type], " ", name+"_trdy"])
+            descs.push([TypeStr[type], " ", name+"_vld"],
+                       [TypeStr_rdy[type], " ", name+"_rdy"])
           end
           descs.push([TypeStr[type], width, name])
         end
