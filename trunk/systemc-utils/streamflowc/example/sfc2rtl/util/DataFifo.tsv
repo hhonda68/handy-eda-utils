@@ -1,0 +1,50 @@
+#
+# Utility modules for StreamFlowC-to-RTL conversion
+#
+# Copyright (c) 2010 the handy-eda-utils developer(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+#
+################################################################
+#
+# Memory-based FIFO with two-cycle latency
+#
+module DataFifo
+p   W 1 AW 10
+i   clk rst
+i W idata@
+o W odata@
+
+w AW wrptr rdptr
+w    full
+
+w    mem_we mem_re
+w AW mem_wa mem_ra
+w  W mem_wd mem_rd
+
+a    idata_rdy = (~full)
+w    idata_go = idata_vld & idata_rdy
+
+a    mem_we = idata_go
+a    mem_wa = wrptr
+a    mem_wd = idata
+
+w    empty = (~full) & (rdptr == wrptr)
+w    rdreq_vld = (~empty)
+w    rdreq_rdy rdreq_cke
+m DataPipeHandshake#(W) clk rst rdreq_vld rdreq_rdy odata_vld odata_rdy rdreq_cke
+a    mem_re = rdreq_cke
+a    mem_ra = rdptr
+
+w AW wrptr_inc rdptr_inc_unused
+m DataFifoRwptr#(AW) clk rst mem_we wrptr wrptr_inc
+m DataFifoRwptr#(AW) clk rst mem_re rdptr rdptr_inc_unused
+m RAM1W1R#(W,AW):mem clk mem_we mem_wa mem_wd mem_re mem_ra mem_rd
+a    odata = mem_rd
+
+w    near_full = (wrptr_inc == rdptr)
+w    full_nxt = (~mem_re) & (full | (near_full & mem_we))
+m DFFR clk rst full_nxt full
+
+endmodule

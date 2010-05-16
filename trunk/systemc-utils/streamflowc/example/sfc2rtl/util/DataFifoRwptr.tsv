@@ -1,0 +1,20 @@
+#
+# Utility modules for StreamFlowC-to-RTL conversion
+#
+# Copyright (c) 2010 the handy-eda-utils developer(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+#
+################################################################
+#
+# Read/Write Pointer for DataFifo
+#
+module DataFifoRwptr
+p    AW 10
+i    clk rst cke
+o AW ptr ptr_inc
+l AW ONE {{(AW-1){1'b0}},1'b1}
+a ptr_inc = ptr+ONE
+m DFFRE#(AW) clk rst cke ptr_inc ptr
+endmodule

@@ -1,0 +1,19 @@
+// -*- c++ -*-
+#ifndef SQU_H
+#define SQU_H
+
+#include "common.h"
+
+template <int W>
+module Squ {
+  typedef sc_uint<W>   idata_t;
+  typedef sc_uint<W*2> odata_t;
+ input:
+  idata_t idata;
+ output:
+  odata_t odata;
+};
+
+Squ(idata) { odata_out(idata*idata); }
+
+#endif

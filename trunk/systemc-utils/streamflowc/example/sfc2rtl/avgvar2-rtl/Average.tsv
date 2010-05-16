@@ -1,0 +1,47 @@
+module Average
+p    W 8
+l    OW W+3
+i    clk rst
+i W  idata@
+o OW odata@
+
+w    cnt_cke
+w  3 cnt = Counter3 ( clk rst cnt_cke )
+w    last_in_block = (cnt == 3'h7)
+a    idata_rdy = last_in_block ? odata_rdy               : 1'b1
+a    odata_vld = last_in_block ? idata_vld               : 1'b0
+a    cnt_cke   = last_in_block ? (idata_vld & odata_rdy) : idata_vld
+
+w    first_in_block = (cnt == 3'h0)
+w OW sumreg
+w    sumreg_cke = last_in_block ? 1'b0 : idata_vld
+w OW sum = (first_in_block ? {OW{1'b0}} : sumreg) + {3'h0,idata}
+m DFFE#(OW) clk sumreg_cke sum sumreg
+
+a odata = sum
+endmodule
+
+# Timechart (w/o idle cycles)
+#  clk        _--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__-
+#  idata_vld  _____.------------------------------------------------------------
+#  odata_rdy  _____.------------------------------------------------------------
+#  cnt        =0=======X=1=X=2=X=3=X=4=X=5=X=6=X=7=X=0=X=1=X=2=X=3=X=4=X=5=X=6=X
+#  idata_rdy  ------------------------------------------------------------------
+#  odata_vld  _________________________________.---.____________________________
+#  sum        XXXXXX=0=X=1=X=2=X=3=X=4=X=5=X=6=X=7=X=0=X=1=X=2=X=3=X=4=X=5=X=6=X
+#  sumreg     XXXXXXXXXX=0=X=1=X=2=X=3=X=4=X=5=X=6=====X=0=X=1=X=2=X=3=X=4=X=5=X
+#  idata transfer     *   *   *   *   *   *   *   *   *   *   *   *   *   *   *
+#  odata transfer                                 *
+
+# Timechart (w/ idle cycles)
+#  clk        _--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__-
+#  idata_vld  _____.-------.___.------------------------------------------------
+#  odata_rdy  _____________________________________________.---.________________
+#  cnt        =0=======X=1=X=2=====X=3=X=4=X=5=X=6=X=7=========X=0=X=1=X=2=X=3=X
+#  idata_rdy  -------------------------------------._______.--------------------
+#  odata_vld  _____________________________________.-----------.________________
+#  sum        XXXXXX=0=X=1=XXXXX=2=X=3=X=4=X=5=X=6=X=7=========X=0=X=1=X=2=X=3=X
+#  sumreg     XXXXXXXXXX=0=X=1=====X=2=X=3=X=4=X=5=X=6=============X=0=X=1=X=2=X
+#  idata transfer     *   *       *   *   *   *   *           *   *   *   *   *
+#  odata transfer                                             *
+

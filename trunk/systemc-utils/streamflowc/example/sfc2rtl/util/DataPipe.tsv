@@ -1,0 +1,21 @@
+#
+# Utility modules for StreamFlowC-to-RTL conversion
+#
+# Copyright (c) 2010 the handy-eda-utils developer(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+#
+################################################################
+#
+# Pipeline Register with Valid-Ready Handshake
+#
+module DataPipe
+p   W 1
+i   clk rst
+i W idata@
+o W odata@
+w   odata_cke
+m DataPipeHandshake clk rst idata_vld idata_rdy odata_vld odata_rdy odata_cke
+m DFFE#(W) clk odata_cke idata odata
+endmodule

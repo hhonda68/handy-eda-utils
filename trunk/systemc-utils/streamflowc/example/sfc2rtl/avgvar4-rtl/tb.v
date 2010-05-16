@@ -1,0 +1,1 @@
+../avgvar2-rtl/tb.v

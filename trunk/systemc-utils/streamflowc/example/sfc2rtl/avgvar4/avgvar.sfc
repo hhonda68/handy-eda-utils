@@ -1,0 +1,57 @@
+// -*- c++ -*-
+#ifndef AVGVAR_H
+#define AVGVAR_H
+
+#include "common.h"
+
+module AvgVar {
+ input:
+  u8_t  idata;
+ output:
+  u24_t avg_var;	// {average(8bits),variance(16bits)}
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "avgvar.h"
+#include "../../../include/sfcut.h"
+#include "average.h"
+#include "squ.h"
+#include "diff.h"
+#include "concat.h"
+
+using ::sfcut::trig_t;
+
+struct AvgVar {
+  ::sfcut::fork<u8_t,2>  ifork;
+  Average<8>             avg;
+  ::sfcut::fork<u11_t,2> afork;
+  Squ<11>                asqu;
+  Squ<8>                 isqu;
+  Average<16>            savg;
+  Diff                   var;
+  Concat                 cat;
+};
+
+AvgVar() {
+  ifork(idata);
+  isqu(ifork.y0);
+  savg(isqu);
+  avg(ifork.y1);
+  afork(avg);
+  asqu(afork.y1);
+  var(savg, asqu);
+  cat(afork.y0, var);
+  avg_var = cat;
+}
+
+//            .----------.                       .------.
+// idata--+-->|Average<8>|--+------------------->|      |
+//        |   `----------'  |   .---.   .----.   |Concat|-->avg_var
+//        |                 `-->|Squ|-->|    |   |      |
+//        |                     `---'   |Diff|-->|      |
+//        |   .---.   .-----------.     |    |   `------'
+//        `-->|Squ|-->|Average<16>|---->|    |
+//            `---'   `-----------'     `----'

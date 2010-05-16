@@ -1,0 +1,5 @@
+avgvar.o: avgvar.cc avgvar.h common.h ../../../include/streamflowc.h
+system.o: system.cc system.h common.h ../../../include/streamflowc.h \
+  avgvar.h tb.h
+tb.o: tb.cc tb.h common.h ../../../include/streamflowc.h
+main.o: main.cc system.h common.h ../../../include/streamflowc.h

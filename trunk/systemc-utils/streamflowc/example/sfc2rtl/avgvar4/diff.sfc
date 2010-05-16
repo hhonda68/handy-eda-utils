@@ -1,0 +1,27 @@
+// -*- c++ -*-
+#ifndef DIFF_H
+#define DIFF_H
+
+#include "common.h"
+
+module Diff {
+ input:
+  u19_t  a;	// U<16,3>
+  u22_t  b;	// U<16,6>
+ output:
+  u25_t  y;	// U<16,9>
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "diff.h"
+
+struct Diff {
+  u19_t m_a;
+};
+
+Diff(a) { m_a = a; }
+
+Diff(b) { y_out((m_a<<6) - (b<<3)); }
