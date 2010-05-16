@@ -1,0 +1,20 @@
+#
+# Utility modules for StreamFlowC-to-RTL conversion
+#
+# Copyright (c) 2010 the handy-eda-utils developer(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+#
+################################################################
+#
+# D-type Flip-Flop(s) with Clock Enable
+#
+module DFFE
+p   W 1
+i   clk cke
+i W d
+o W q
+w   dummy_rst = 1'b0
+m DFFRE#(W):u clk dummy_rst cke d q
+endmodule

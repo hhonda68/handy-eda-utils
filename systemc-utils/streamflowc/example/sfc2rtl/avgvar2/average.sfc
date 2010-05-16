@@ -1,0 +1,35 @@
+// -*- c++ -*-
+#ifndef AVARAGE_H
+#define AVARAGE_H
+
+#include "common.h"
+
+template <int W>
+module Average {
+  typedef sc_uint<W>   idata_t;
+  typedef sc_uint<W+3> odata_t;
+ input:
+  idata_t idata;	// U<W,0>
+ output:
+  odata_t average;	// U<W,3>
+};
+
+struct Average {
+  odata_t m_sum;
+  int     m_ix;
+};
+
+Average() { m_sum = 0; m_ix = 0; }
+
+Average(idata)
+{
+  m_sum += idata;
+  ++ m_ix;
+  if (m_ix == 8) {
+    average_out(m_sum);
+    m_ix = 0;
+    m_sum = 0;
+  }
+}
+
+#endif

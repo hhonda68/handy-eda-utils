@@ -1,0 +1,15 @@
+module DiffSqu
+i  8 a@
+i 11 b@
+o 22 y@
+
+a    a_rdy = b_vld & y_rdy
+a    b_rdy = a_vld & y_rdy
+a    y_vld = a_vld & b_vld
+
+w 12 diff = {a,3'h0} - b
+w 22 squared_diff = $signed(diff) * $signed(diff)
+a    y = squared_diff
+
+endmodule
+

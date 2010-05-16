@@ -1,0 +1,51 @@
+#
+# Utility modules for StreamFlowC-to-RTL conversion
+#
+# Copyright (c) 2010 the handy-eda-utils developer(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+#
+################################################################
+#
+# Memory-based FIFO with zero-cycle latency
+#
+module DataFifoBypass
+parameter W 1 AW 10
+i   clk rst
+i W idata@
+o W odata@
+
+w AW wrptr rdptr
+w    full mem_odata_vld
+
+w    mem_we, mem_re;
+w AW mem_wa, mem_ra;
+w W  mem_wd, mem_rd;
+
+w empty = (~full) & (rdptr == wrptr)
+w bypassing = empty & (~mem_odata_vld)
+w mem_can_wr = (~full)   # cannot write when "full & mem_re"
+w mem_req_wr = idata_vld & (~(bypassing & odata_rdy))
+a idata_rdy = mem_can_wr
+a mem_we = mem_can_wr & mem_req_wr
+a mem_wa = wrptr
+a mem_wd = idata
+w mem_req_rd = (~mem_odata_vld) | odata_rdy
+w mem_can_rd = (~empty) | mem_we
+a mem_re = mem_can_rd & mem_req_rd
+a mem_ra = rdptr
+w AW wrptr_inc, rdptr_inc
+m DataFifoRwptr#(AW) clk rst mem_we wrptr wrptr_inc
+m DataFifoRwptr#(AW) clk rst mem_re rdptr rdptr_inc
+m RAM1W1RBypass#(W,AW):mem clk mem_we mem_wa mem_wd mem_re mem_ra mem_rd
+a odata = bypassing ? idata : mem_rd
+a odata_vld = bypassing ? idata_vld : mem_odata_vld
+w mem_odata_stall = (~mem_req_rd)
+w mem_odata_vld_nxt = mem_re | mem_odata_stall
+w near_full = (wrptr_inc == rdptr)
+w full_nxt = (~mem_re) & (full | (near_full & mem_we))
+m DFFR clk rst mem_odata_vld_nxt mem_odata_vld
+m DFFR clk rst full_nxt full
+
+endmodule

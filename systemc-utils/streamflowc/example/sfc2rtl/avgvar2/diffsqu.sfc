@@ -1,0 +1,31 @@
+// -*- c++ -*-
+#ifndef DIFFSQU_H
+#define DIFFSQU_H
+
+#include "common.h"
+
+module DiffSqu {
+ input:
+  u8_t  a;	// U<8,0>
+  u11_t b;	// U<8,3>
+ output:
+  u22_t y;	// U<16,6>
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "diffsqu.h"
+
+struct DiffSqu {
+  u8_t m_a;	// U<8,0>
+};
+
+DiffSqu(a) { m_a = a; }
+
+DiffSqu(b) {
+  s12_t diff = (m_a<<3) - b;		// S<9,3>
+  u22_t squared_diff = diff * diff;	// U<16,6>
+  y_out(squared_diff);
+}

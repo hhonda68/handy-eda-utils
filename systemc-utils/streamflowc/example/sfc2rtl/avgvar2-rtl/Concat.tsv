@@ -1,0 +1,12 @@
+module Concat
+i 11 average@
+i 25 variance@
+o 24 var_avg@
+
+a    average_rdy  = variance_vld & var_avg_rdy
+a    variance_rdy = average_vld & var_avg_rdy
+a    var_avg_vld  = average_vld & variance_vld
+
+a    var_avg = { average[10:3] variance[24:9] }
+
+endmodule

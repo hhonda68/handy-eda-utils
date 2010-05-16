@@ -1,0 +1,31 @@
+// -*- c++ -*-
+#ifndef CONCAT_H
+#define CONCAT_H
+
+#include "common.h"
+
+module Concat {
+ input:
+  u11_t average;	// U<8,3>
+  u25_t variance;	// U<16,9>
+ output:
+  u24_t var_avg;	// {avg(U<8,0>),var(U<16,0>)}
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "concat.h"
+
+struct Concat {
+  u8_t m_avg;		// U<8,0>
+};
+
+Concat(average) { m_avg = average >> 3; }
+
+Concat(variance) {
+  u16_t var = variance >> 9;	// U<16,0>
+  u24_t ans = (m_avg, var);
+  var_avg_out(ans);
+}

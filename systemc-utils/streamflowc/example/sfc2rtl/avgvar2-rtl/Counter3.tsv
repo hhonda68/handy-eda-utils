@@ -1,0 +1,11 @@
+module Counter3
+i   clk rst cke
+o 3 count
+
+w 3 cntreg
+w 3 cnt_inc = cntreg + 3'h1
+m DFFRE#(3) clk rst cke cnt_inc cntreg
+
+a   count = cntreg
+
+endmodule

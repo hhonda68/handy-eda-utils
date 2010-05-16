@@ -1,0 +1,30 @@
+// -*- c++ -*-
+#ifndef SYSTEM_H
+#define SYSTEM_H
+
+#include "common.h"
+
+module System {
+ param:
+  int argc;
+  const char * const *argv;
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "system.h"
+#include "avgvar.h"
+#include "tb.h"
+
+struct System {
+  AvgVar  dut;
+  Tb      tb;
+};
+
+System() {
+  // argc,argv are unused
+  dut(tb);
+  tb(dut);
+}

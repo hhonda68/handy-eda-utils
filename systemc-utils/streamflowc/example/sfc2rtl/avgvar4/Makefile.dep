@@ -1,0 +1,10 @@
+average.o: average.cc
+avgvar.o: avgvar.cc avgvar.h common.h ../../../include/streamflowc.h \
+  ../../../include/sfcut.h average.h squ.h diff.h concat.h
+concat.o: concat.cc concat.h common.h ../../../include/streamflowc.h
+diff.o: diff.cc diff.h common.h ../../../include/streamflowc.h
+squ.o: squ.cc
+system.o: system.cc system.h common.h ../../../include/streamflowc.h \
+  avgvar.h tb.h
+tb.o: tb.cc tb.h common.h ../../../include/streamflowc.h
+main.o: main.cc system.h common.h ../../../include/streamflowc.h

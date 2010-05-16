@@ -1,0 +1,25 @@
+#
+# Utility modules for StreamFlowC-to-RTL conversion
+#
+# Copyright (c) 2010 the handy-eda-utils developer(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+#
+################################################################
+#
+# Handshake Control Signals for ::sfcut::fork<T,N>
+#
+module ForkHandshake
+p   N 2
+i   clk rst
+i   a_vld
+o   a_rdy
+o N y_vldmap
+i N y_rdymap
+w N y_donemap
+a   y_vldmap = {N{a_vld}}&(~y_donemap)
+a   a_rdy = &(y_donemap|y_rdymap)
+w N y_donemap_nxt = (a_vld&a_rdy) ? {N{1'b0}} : (y_donemap|(y_vldmap&y_rdymap))
+m DFFR#(N) clk rst y_donemap_nxt y_donemap
+endmodule

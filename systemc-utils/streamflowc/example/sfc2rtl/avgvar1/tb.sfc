@@ -1,0 +1,51 @@
+// -*- c++ -*-
+#ifndef TB_H
+#define TB_H
+
+#include "common.h"
+
+module Tb {
+ input:
+  u24_t avg_var;
+ output:
+  u8_t  data;
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "tb.h"
+#include <iostream>
+#include <stdexcept>
+
+namespace {
+
+class Rng {
+public:
+  Rng(unsigned int seed = 0x12345678) : m_seed(seed) {}
+  u8_t get() {
+    m_seed = m_seed * 1103515245u + 12345u;
+    return (m_seed >> 15) & 0xff;
+  }
+private:
+  unsigned int m_seed;
+};
+
+} // anonymous namespace
+
+Tb() {
+  Rng      rng;
+  for (int i=0; i<800; ++i) {
+    u8_t data = rng.get();
+    std::cout << 'd' << i << ' ' << (int)data << '\n';
+    data_out(data);
+  }
+}
+
+Tb(avg_var) {
+  u8_t  avg = avg_var(23,16);
+  u16_t var = avg_var(15,0);
+  std::cout << "avg " << (int)avg << " var " << (int)var << '\n';
+}
+

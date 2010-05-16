@@ -1,0 +1,72 @@
+// -*- c++ -*-
+#ifndef AVGVAR_H
+#define AVGVAR_H
+
+#include "common.h"
+
+module AvgVar {
+ input:
+  u8_t  idata;
+ output:
+  u24_t avg_var;	// {average(8bits),variance(16bits)}
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "avgvar.h"
+
+namespace {
+
+// data formats
+//   S<m,n> : signed value with "m" integral bits (including sign bit) and "n" fractional bits
+//   U<m,n> : unsigned value with "m" integral bits and "n" fractional bits
+
+u11_t calc_average(const u8_t arr[8])	// arr: U<8,0>, ret: U<8,3>
+{
+  u11_t sum = 0;
+  for (int i=0; i<8; ++i)  sum += arr[i];
+  return sum;
+}
+
+u16_t calc_variance(const u8_t arr[8], u11_t avg)	// arr: U<8,0>, avg: U<8,3>, ret: U<16,0>
+{
+  // V(X) := E(squ(X-E(X))) = E(squ(X)) - squ(E(X))
+  //   Variance equals to the difference between "the average of squared input data"
+  //   and "the squared average of input data".
+  u22_t savg = avg * avg;	// U<16,6>
+  u19_t sum = 0;		// U<19,0>
+  for (int i=0; i<8; ++i) {
+    u8_t val = arr[i];
+    u16_t squ = val * val;
+    sum += squ;
+  }
+  // reinterpret the sum in U<19,0> format as the average in U<16,3> format
+  u19_t asqu = sum;
+  u22_t var = (asqu<<3) - savg;	// U<16,6>
+  u16_t ivar = var >> 6;	// U<16,0>
+  return ivar;
+}
+
+} // anonymous namespace
+
+struct AvgVar {
+  u8_t m_buf[8];
+  int  m_ix;
+};
+
+AvgVar() { m_ix = 0; }
+
+AvgVar(idata)
+{
+  m_buf[m_ix++] = idata;
+  if (m_ix == 8) {
+    u11_t avg = calc_average(m_buf);
+    u16_t var = calc_variance(m_buf, avg);
+    u8_t  iavg = avg >> 3;
+    u24_t ans = (iavg,var);
+    avg_var_out(ans);	// one output for every 8 inputs
+    m_ix = 0;
+  }
+}

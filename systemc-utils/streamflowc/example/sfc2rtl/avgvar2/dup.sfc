@@ -1,0 +1,23 @@
+// -*- c++ -*-
+#ifndef DUP_H
+#define DUP_H
+
+#include "common.h"
+
+module Dup {
+ input:
+  u11_t idata;
+ output:
+  u11_t odata;
+};
+
+#endif
+
+////////////////////////////////////////////////////////////////
+
+#include "dup.h"
+
+Dup(idata)
+{
+  for (int i=0; i<8; ++i)  odata_out(idata);
+}

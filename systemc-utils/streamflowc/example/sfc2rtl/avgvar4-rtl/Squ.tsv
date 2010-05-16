@@ -1,0 +1,9 @@
+module Squ
+p     W 8
+i W   a@
+o W*2 y@
+
+a a_rdy = y_rdy
+a y_vld = a_vld
+a y = a * a
+endmodule

@@ -1,0 +1,26 @@
+#
+# Utility modules for StreamFlowC-to-RTL conversion
+#
+# Copyright (c) 2010 the handy-eda-utils developer(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+#
+################################################################
+#
+# Handshake Control Signals for DataPipe
+#
+module DataPipeHandshake
+i clk rst
+i idata_vld
+o idata_rdy
+o odata_vld
+i odata_rdy
+o odata_cke
+w odata_acp = (~odata_vld) | odata_rdy	# acceptable
+a idata_rdy = odata_acp
+w idata_go = idata_vld & idata_rdy
+a odata_cke = idata_go
+w odata_vld_nxt = (~odata_acp) | idata_vld
+m DFFR clk rst odata_vld_nxt odata_vld
+endmodule

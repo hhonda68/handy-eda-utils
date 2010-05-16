@@ -1,0 +1,57 @@
+#
+# Utility modules for StreamFlowC-to-RTL conversion
+#
+# Copyright (c) 2010 the handy-eda-utils developer(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+#
+################################################################
+#
+# 1-entry FIFO with zero-cycle latency
+#
+module DataBuffer
+p   W 1
+i   clk rst
+i W idata@
+o W odata@
+
+w W idata_buf
+w   state
+
+# state0 : idata_buf is empty
+#   assert idata_rdy
+#   forward idata_vld to odata_vld
+#   forward idata to odata
+#   if ((idata_vld & (~odata_rdy)) [at the end of the clock cycle]) {
+#     // idata transfer proceeds while odata transfer does not
+#     capture idata to idata_buf
+#     goto state1
+#   } else {
+#     // no anomaly between idata and odata channels
+#     stay in state0
+#   }
+# state1 : idata_buf holds a data
+#   forward odata_rdy to idata_rdy
+#   assert odata_vld
+#   forward idata_buf to odata
+#   if (odata_rdy [at the end of the clock cycle]) {
+#     if (idata_vld) {
+#       capture idata to idata_buf
+#       stay in state1
+#     } else {
+#       goto state0
+#     }
+#   } else {
+#     stay in state1
+#   }
+
+w state0 = ~state
+a idata_rdy = state0 ? 1'b1 : odata_rdy
+a odata_vld = state0 ? idata_vld : 1'b1
+a odata     = state0 ? idata : idata_buf
+w idata_buf_cke = state0 ? (idata_vld & (~odata_rdy)) : (idata_vld & odata_rdy)
+w state_nxt     = state0 ? (idata_vld & (~odata_rdy)) : ((~odata_rdy) | idata_vld)
+m DFFR clk rst state_nxt state
+m DFFE#(W) clk idata_buf_cke idata idata_buf
+endmodule

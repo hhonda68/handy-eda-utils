@@ -1,0 +1,30 @@
+#
+# Utility modules for StreamFlowC-to-RTL conversion
+#
+# Copyright (c) 2010 the handy-eda-utils developer(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+#
+################################################################
+#
+# Dual-Port RAM with 1 Write-Port and 1 Read-Port
+#
+module RAM1W1R
+p    W 1 AW 10
+i    CLK
+i    WE
+i AW WA
+i  W WD
+i    RE
+i AW RA
+o  W RD
+l    DEPTH 1<<AW
+reg [W-1:0] RD;
+reg [W-1:0] memarr[0:DEPTH-1];
+always @(posedge CLK) begin
+  if (WE)  memarr[WA] <= WD;
+  if (RE)  RD <= (WE && (RA === WA)) ? {W{1'bx}} : memarr[RA];
+end
+# The "RD" output is undefined for read-during-write (to the same address).
+endmodule
