@@ -7,7 +7,7 @@ o W q
 reg [W-1:0] q;
 always @(posedge clk or posedge rst) begin
   if (rst)  q <= INIT;
-  else      q <= cke ? q : d;
+  else      q <= cke ? d : q;
 end
 endmodule
 
