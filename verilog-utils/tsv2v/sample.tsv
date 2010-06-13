@@ -131,3 +131,38 @@ a    { submod2_param_high submod2_param_low } = { param area volume }
 w  8 mid@ = submod1 ( clk rst submod1_param a@ )
 m submod2 clk rst submod2_param_high submod2_param_low mid@ b@ x@ y@
 endmodule
+
+module filescope_call_test
+i 8 a
+w 8 a0 = $submod ( a )
+w 8 a1 = $submod#(8'd10) ( a0 )
+w 8 a2 = $submod:u_inst ( a1 )
+w 8 a3 = $submod#(10):u_inst ( a2 )
+w 8 a4 = $Submod ( a3 )
+w 8 a5 = $Submod#(8'd10) ( a4 )
+w 8 a6 = $Submod:u_inst ( a5 )
+w 8 a7 = $Submod#(10):u_inst ( a6 )
+w 8 b[0-7]
+m $submod a7 b0
+m $submod#(8'd10) b0 b1
+m $submod:u_inst b1 b2
+m $submod#(8'd10):u_inst b2 b3
+m $Submod b3 b4
+m $Submod#(8'd10) b4 b5
+m $Submod:u_inst b5 b6
+m $Submod#(8'd10):u_inst b6 b7
+o 8 y = b7
+endmodule
+
+# filescope def test
+module $submod
+p   C 8'd1
+i 8 a
+o 8 y = a + C
+endmodule
+module $Submod
+p   C 8'd1
+i 8 a
+o 8 y = a - C
+endmodule
+
