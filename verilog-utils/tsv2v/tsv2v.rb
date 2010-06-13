@@ -258,7 +258,7 @@ def convert(line)
       (type != "a")  or fail "syntax error"
       width = " [#{arr[0]}-1:0] "
       arr.shift
-    elsif ((type != "a") && (arr[0] !~ /^\w+$/)) then
+    elsif ((type != "a") && (arr[0] !~ /^\w+@?$/)) then
       width = " [(#{arr[0]})-1:0] "
       arr.shift
     else
