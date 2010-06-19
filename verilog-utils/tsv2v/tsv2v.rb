@@ -107,8 +107,8 @@ end
 def wrap_line(line)
   ans = []
   while (line.size > MaxLineLen) do
-    ix = line.rindex(?,, MaxLineLen-1)
-    ix  or fail "cannot wrap line at comma"
+    ix = line.rindex(?,, MaxLineLen-1) || line.index(?,, MaxLineLen)
+    ix  or break
     ans.push(line[0..ix])
     line = "  " + line[ix+1..-1]
   end
