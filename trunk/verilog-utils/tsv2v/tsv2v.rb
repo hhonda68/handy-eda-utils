@@ -43,7 +43,7 @@
 #   m SUBMOD ARG0 ARG1 ...
 #
 #       SUBMOD ... (\$)?(\w+)(#\(.+\))?(:\w+)?
-#          $1 : file-scope specifier (optional)
+#          $1 : prefixed-submodule flag (optional)
 #          $2 : submodule name
 #          $3 : parameters (optional)
 #          $4 : instance name (optional)
@@ -153,7 +153,7 @@ def print_module
   ModInfo.instseq.clear
 end
 
-def prepend_optional_filescope_prefix(name)
+def prepend_optional_prefix(name)
   # e.g.
   #   when ModInfo.topname = "FooBar",
   #      "$Baz" --> "FooBarBaz"
@@ -174,7 +174,7 @@ def instance_name(submod)
 end
 
 def append_instance_name(submod)
-  submod = prepend_optional_filescope_prefix(submod)
+  submod = prepend_optional_prefix(submod)
   ans = submod.sub(/:(\w+)$/){" "+$1}
   if (ans == submod) then
     submod =~ /^\w+/
@@ -390,11 +390,11 @@ begin
     when /^module ((\$)?\w+)$/
       ModInfo.name.nil?  or fail "module declaration within another module definition"
       if ($2) then
-        ModInfo.topname  or fail "file-scope submodule definition w/o preceding parent module definition"
+        ModInfo.topname  or fail "prefixed submodule definition w/o preceding parent module definition"
       else
         ModInfo.topname ||= $1
       end
-      ModInfo.name = prepend_optional_filescope_prefix($1)
+      ModInfo.name = prepend_optional_prefix($1)
     when /^[a-z]\s/
       convert(line)
     when /^endmodule\s*$/

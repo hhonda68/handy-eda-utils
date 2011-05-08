@@ -132,7 +132,7 @@ w  8 mid@ = submod1 ( clk rst submod1_param a@ )
 m submod2 clk rst submod2_param_high submod2_param_low mid@ b@ x@ y@
 endmodule
 
-module filescope_call_test
+module prefixed_submodule_call_test
 i 8 a
 w 8 a0 = $submod ( a )
 w 8 a1 = $submod#(8'd10) ( a0 )
@@ -154,7 +154,7 @@ m $Submod#(8'd10):u_inst b6 b7
 o 8 y = b7
 endmodule
 
-# filescope def test
+# prefixed-submodule def test
 module $submod
 p   C 8'd1
 i 8 a
