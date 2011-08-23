@@ -166,3 +166,26 @@ i 8 a
 o 8 y = a - C
 endmodule
 
+module ranged_multiple_instantiation_test
+p   N 2
+i 8*N a
+w 8*N a0 = $submod[0:N-1] ( a )
+w 8*N a1 = $submod#(8'd10)[0:N-1] ( a0 )
+w 8*N a2 = $submod:u_inst[0:N-1] ( a1 )
+w 8*N a3 = $submod#(10):u_inst[0:N-1] ( a2 )
+w 8*N a4 = $Submod[0:N-1] ( a3 )
+w 8*N a5 = $Submod#(8'd10)[0:N-1] ( a4 )
+w 8*N a6 = $Submod:u_inst[0:N-1] ( a5 )
+w 8*N a7 = $Submod#(10):u_inst[0:N-1] ( a6 )
+w 8*N b[0-7]
+m $submod[0:N-1] a7 b0
+m $submod#(8'd10)[0:N-1] b0 b1
+m $submod:u_inst[0:N-1] b1 b2
+m $submod#(8'd10):u_inst[0:N-1] b2 b3
+m $Submod[0:N-1] b3 b4
+m $Submod#(8'd10)[0:N-1] b4 b5
+m $Submod:u_inst[0:N-1] b5 b6
+m $Submod#(8'd10):u_inst[0:N-1] b6 b7
+o 8*N y = b7
+endmodule
+
