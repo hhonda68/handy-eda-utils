@@ -42,11 +42,12 @@
 #   a { PART0 PART1 ... } = OTHER_VERBATIM_EXPR
 #   m SUBMOD ARG0 ARG1 ...
 #
-#       SUBMOD ... (\$)?(\w+)(#\(.+\))?(:\w+)?
+#       SUBMOD ... (\$)?(\w+)(#\(.+\))?(:\w+)?(\[\S+:\S+\])?
 #          $1 : prefixed-submodule flag (optional)
 #          $2 : submodule name
 #          $3 : parameters (optional)
 #          $4 : instance name (optional)
+#          $5 : range for multiple instantiation (optional)
 #
 # Preprocess before conversion
 #   1. If a line matches /^#/ or /^\s+#\s/, delete the whole line.
@@ -174,13 +175,19 @@ def instance_name(submod)
 end
 
 def append_instance_name(submod)
+  if (submod =~ /\[\S+:\S+\]$/) then
+    submod = $`
+    range = $&
+  else
+    range = ""
+  end
   submod = prepend_optional_prefix(submod)
   ans = submod.sub(/:(\w+)$/){" "+$1}
   if (ans == submod) then
     submod =~ /^\w+/
     ans = submod + " " + instance_name($&)
   end
-  ans
+  ans + range
 end
 
 class Integer
