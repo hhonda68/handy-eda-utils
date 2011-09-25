@@ -189,3 +189,13 @@ m $Submod#(8'd10):u_inst[0:N-1] b6 b7
 o 8*N y = b7
 endmodule
 
+module longline_instantiation_test
+i loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong_name_input[0-3]
+o a[0-7] loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong_name_output[0-3]
+w loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong_name_wire[0-3] b[0-7]
+w c[0-7] loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong_name_wire[4-7] c[8-15]
+m submod0 loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong_name_input
+m submod1 loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong_name_input[0-3]
+m submod2 a[0-3] loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong_name_input[0-3]
+m submod3 a[0-3] loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong_name_input[0-3] b[0-3]
+endmodule
