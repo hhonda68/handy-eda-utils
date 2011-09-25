@@ -95,7 +95,8 @@ def prettyprint(indent, headstr, commalist, tailstr)
     indent2 = indent + 2
     indentstr2 = " "*indent2
     while (indent2+commalist.length > MaxLineLen) do
-      ix = commalist.rindex(?,, MaxLineLen-indent2-1)
+      ix = commalist.rindex(?,, MaxLineLen-indent2-1) || commalist.index(?,, MaxLineLen-indent2)
+      ix  or break
       ans.push([indentstr2, commalist[0..ix]].to_s)
       commalist = commalist[(ix+1)..-1]
     end
