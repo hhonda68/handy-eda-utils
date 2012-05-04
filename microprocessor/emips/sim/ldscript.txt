@@ -1,0 +1,51 @@
+/*
+ * EMIPS : Embedding MIPS Microprocessor
+ *
+ * Copyright (c) 2012 the handy-eda-utils developer(s).
+ * Distributed under the MIT License.
+ * (See accompanying file COPYING or copy at
+ *  http://www.opensource.org/licenses/mit-license.php.)
+ */
+
+SECTIONS {
+  .text 0x80000000 : AT (0x00000000) {
+    __IMEM_START = .;
+    __text_start = .;
+    *(.text)
+    __text_end = .;
+    __IMEM_END = .;
+  }
+  .data 0x00000000 : AT ( LOADADDR(.text) + SIZEOF(.text) ) {
+    __DMEM_START = .;
+    __DMEM_INIT_START = .;
+    . += 4;
+    __rodata_start = .;
+    *(.rodata .rodata.*)
+    __rodata_end = .;
+    __data_start = .;
+    *(.data .data.*)
+    __data_end = .;
+    _gp = . + 0x8000;
+    __sdata_start = .;
+    *(.sdata .sdata.*)
+    __sdata_end = .;
+    __DMEM_INIT_END = .;
+  }
+  .bss __DMEM_INIT_END : {
+    __DMEM_ZERO_START = .;
+    __sbss_start = .;
+    *(.sbss .sbss.*)
+    __sbss_end = .;
+    __scommon_start = .;
+    *(.scommon)
+    __scommon_end = .;
+    __bss_start = .;
+    *(.bss .bss.*)
+    __bss_end = .;
+    __common_start = .;
+    *(COMMON)
+    __common_end = .;
+    __DMEM_ZERO_END = .;
+    __DMEM_END = .;
+  }
+}

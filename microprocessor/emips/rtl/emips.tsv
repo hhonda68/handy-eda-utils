@@ -1,0 +1,649 @@
+#
+# EMIPS : Embedding MIPS Microprocessor
+#
+# Copyright (c) 2012 the handy-eda-utils developer(s).
+# Distributed under the MIT License.
+# (See accompanying file COPYING or copy at
+#  http://www.opensource.org/licenses/mit-license.php.)
+
+module emips
+p     IAW 10			# Instruction memory Address Width (word address)
+p     DAW 16			# Data memory Address Width (byte address)
+p     INITPFX "emips"		# prefix of IMEM/DMEM initialization data filename
+i     clk rst
+o     copwe	# COP0 write enable
+o     copre     # COP0 read enable
+o   5 copaddr	# COP0 address
+o  32 copwdata	# COP0 write data
+i  32 coprdata	# COP0 read data
+i     copbusy	# COP0 busy
+
+w     mulbusy
+w     cke = !(mulbusy || copbusy)
+
+l     IMEM {INITPFX,"-imem.hex"}
+
+w IAW npc npc_nxt
+w IAW imaddr = rst ? {IAW{1'b0}} : npc_nxt
+w  32 insn_fetch insn_exec
+m $dffe#(IAW)           clk     cke imaddr npc
+m $rom#(IAW,32,IMEM)    clk     cke imaddr insn_fetch
+m $dffre#(32)           clk rst cke insn_fetch insn_exec
+
+w   5 rsnr_fetch rtnr_fetch
+a     { rsnr_fetch rtnr_fetch } = insn_fetch[25:16]
+
+w   5 wbknr
+w  32 wbk
+w     wbknr_nez = (wbknr != 5'd0)
+w     gpr_we = cke & wbknr_nez
+w  32 rfrs rfrt rs rt
+m $ram#(5,32) clk gpr_we wbknr wbk cke rsnr_fetch rfrs
+m $ram#(5,32) clk gpr_we wbknr wbk cke rtnr_fetch rfrt
+
+w   6 opcode funct
+w   5 rsnr rtnr rdnr sa
+w  16 imm
+a     { opcode rsnr rtnr imm } = insn_exec
+a     { rdnr sa funct } = imm
+
+w   2 npcsel
+w  32 aluans sftans mulans
+w IAW npcinc   = npc + {{(IAW-1){1'b0}},1'b1}
+w  32 npcinc32 = { {(30-IAW){1'b0}} npcinc 2'b00 }
+
+w DAW dmaddr
+w   5 wbknr_nxt
+w   3 wbksel	# 0/1/2/3/4 = alu/sft/mul/npcinc/cop0
+w  32 dmdata
+
+m $fwd                            rsnr rtnr wbknr rfrs rfrt wbk rs rt
+m $branch                         opcode rtnr funct rs rt npcsel
+m $npccalc#(IAW)                  npc imm[IAW-1:0] rs[IAW+2-1:2] npcsel npc_nxt
+m $alu#(DAW)                      opcode rs rt imm aluans dmaddr
+m $sft                            funct[2:0] rt rs[4:0] sa sftans
+m $mul                clk rst     opcode funct rs rt mulans mulbusy
+m $wbksel                         opcode rsnr rtnr rdnr funct rs[31] wbknr_nxt wbksel
+m $dmem#(DAW,INITPFX) clk     cke opcode dmaddr rt dmdata
+
+w 128 wbkval_nxt_cand = { aluans sftans mulans npcinc32 }
+w  32 wbkval_nxt0 = $sel#(2,32) ( ~wbksel[1:0] wbkval_nxt_cand )
+w  32 wbkval_nxt = wbksel[2] ? coprdata : wbkval_nxt0
+
+w  32 wbkval
+w     wbkload
+m $dffre#(5)  clk rst cke wbknr_nxt  wbknr
+m $dffre#(32) clk rst cke wbkval_nxt wbkval
+m $dffre#(1)  clk rst cke opcode[5]  wbkload
+a     wbk = wbkload ? dmdata : wbkval
+
+a     copre = opcode[4] && (~rsnr[2])
+a     copwe = opcode[4] &&   rsnr[2]
+a     copaddr = rdnr
+a     copwdata = rt
+endmodule
+
+module $alu
+p     DAW 16
+i   6 opcode
+i  32 rs rt
+i  16 imm
+o  32 ans
+o DAW dmaddr
+
+# ADDU  rd,rs,rt        rd=rs+rt                    000000  rs      rt      rd      00000   100001
+# SUBU  rd,rs,rt        rd=rs-rt                    000000  rs      rt      rd      00000   100011
+# AND   rd,rs,rt        rd=rs&rt                    000000  rs      rt      rd      00000   100100
+# OR    rd,rs,rt        rd=rs|rt                    000000  rs      rt      rd      00000   100101
+# XOR   rd,rs,rt        rd=rs^rt                    000000  rs      rt      rd      00000   100110
+# NOR   rd,rs,rt        rd=~(rs|rt)                 000000  rs      rt      rd      00000   100111
+# SLT   rd,rs,rt        rd=rs<rt                    000000  rs      rt      rd      00000   101010
+# SLTU  rd,rs,rt        rd=rs<rt                    000000  rs      rt      rd      00000   101011
+# 
+# ADDIU rt,rs,imm       rt=rs+simm                  001001  rs      rt      imm
+# SLTI  rt,rs,imm       rt=rs<simm                  001010  rs      rt      imm
+# SLTIU rt,rs,imm       rt=rs<uimm                  001011  rs      rt      imm
+# ANDI  rt,rs,imm       rt=rs&uimm                  001100  rs      rt      imm
+# ORI   rt,rs,imm       rt=rs|uimm                  001101  rs      rt      imm
+# XORI  rt,rs,imm       rt=rs^uimm                  001110  rs      rt      imm
+# LUI   rt,imm          rt=imm<<16                  001111  00000   rt      imm
+# 
+# LB    rt,offset(rs)   rt=*(char*)(offset+rs)      100000  rs      rt      offset
+# LBU   rt,offset(rs)   rt=*(Uchar*)(offset+rs)     100100  rs      rt      offset
+# LH    rt,offset(rs)   rt=*(short*)(offset+rs)     100001  rs      rt      offset
+# LHU   rt,offset(rs)   rt=*(Ushort*)(offset+rs)    100101  rs      rt      offset
+# LW    rt,offset(rs)   rt=*(int*)(offset+rs)       100011  rs      rt      offset
+# SB    rt,offset(rs)   *(char*)(offset+rs)=rt      101000  rs      rt      offset
+# SH    rt,offset(rs)   *(short*)(offset+rs)=rt     101001  rs      rt      offset
+# SW    rt,offset(rs)   *(int*)(offset+rs)=rt       101011  rs      rt      offset
+
+################################################################
+
+# Selecting "IMM" operand
+#
+# opcode  insn  type
+# ------------------
+# 001001  ADDIU  S
+# 001010  SLTI   S
+# 001011  SLTIU  U
+# 001100  ANDI   U
+# 001101  ORI    U
+# 001110  XORI   U
+# 001111  LUI    H
+#
+# 100000  LB     S
+# 100100  LBU    S
+# 100001  LH     S
+# 100101  LHU    S
+# 100011  LW     S
+# 101000  SB     S
+# 101001  SH     S
+# 101011  SW     S
+
+w    use_imm = opcode[5] || opcode[3]
+w    imm_lui = (opcode[2:0] == 3'b111)
+w    imm_unsigned = (~opcode[5]) && (opcode[2] || opcode[1:0]==2'b11)
+w 16 imm_hi = imm_lui ? ~imm   : {16{(~imm_unsigned)&imm[15]}}
+w 16 imm_lo = imm_lui ? ~16'h0 : imm
+w 32 imm32 = { imm_hi imm_lo }
+
+w 32 lhs = rs
+w 32 rhs = use_imm ? imm32 : rt
+
+################################################################
+
+# Selecting ADD/SUB
+#
+# opcode  funct    insn    type
+# ------------------------------
+# 000000  100001   ADDU     ADD
+# 000000  100011   SUBU     SUB
+# 000000  101010   SLT      SUB
+# 000000  101011   SLTU     SUB
+# 		   	   
+# 001001           ADDIU    ADD
+# 001010           SLTI     SUB
+# 001011           SLTIU    SUB
+# 		   	   
+# 100000           LB       ADD
+# 100100           LBU      ADD
+# 100001           LH       ADD
+# 100101           LHU      ADD
+# 100011           LW       ADD
+# 101000           SB       ADD
+# 101001           SH       ADD
+# 101011           SW       ADD
+
+w  6 funct = imm[5:0]
+w    do_subtract = (~opcode[5]) && (opcode[3] ? opcode[1] : funct[1])
+w 33 lhs33 = { 1'b0 lhs }
+w 33 rhs33 = { 1'b0 (rhs^{32{do_subtract}}) }
+w 33 ci33  = { 32'h0 do_subtract }
+w    adder_co
+w 32 adder_ans
+a    { adder_co adder_ans } = lhs33 + rhs33 + ci33
+a    dmaddr = adder_ans[DAW-1:0]
+
+################################################################
+
+# Selecting Logical Operation
+#
+#  opcode  funct    insn   operation
+# -----------------------------------
+#  000000  100100   AND     AND
+#  000000  100101   OR      OR
+#  000000  100110   XOR     XOR
+#  000000  100111   NOR     NOR
+#  001100           ANDI    AND
+#  001101           ORI     OR
+#  001110           XORI    XOR
+#  001111           LUI     NOR
+
+w  2 logicop_sel = opcode[3] ? opcode[1:0] : funct[1:0]
+w 32 logicop_ans = logicop_sel[1] ? (logicop_sel[0] ? ~(lhs|rhs) : (lhs^rhs)) : (logicop_sel[0] ? (lhs|rhs) : (lhs&rhs))
+
+################################################################
+
+# Calculating SLTxx answer
+#
+# opcode   funct   insn   type
+# -------------------------------------------
+# 000000   101010  SLT    signed less-than
+# 000000   101011  SLTU   unsigned less-than
+# 001010           SLTI   signed less-than
+# 001011           SLTIU  unsigned less-than
+#
+
+w    slt_flg_unsigned = ~adder_co
+w    slt_flg_signed   = (lhs[31]==rhs[31]) ? adder_ans[31] : lhs[31]
+w    slt_flg          = (opcode[3]?opcode[0]:funct[0]) ? slt_flg_unsigned : slt_flg_signed
+w 32 slt_ans = { 31'h0 slt_flg }
+
+################################################################
+
+# Selecting "ans" output
+#
+# opcode  funct   insn   ans
+# -----------------------------------
+# 000000  100001  ADDU   adder_ans
+# 000000  100011  SUBU   adder_ans
+# 000000  100100  AND    logicop_ans
+# 000000  100101  OR     logicop_ans
+# 000000  100110  XOR    logicop_ans
+# 000000  100111  NOR    logicop_ans
+# 000000  101010  SLT    slt_ans
+# 000000  101011  SLTU   slt_ans
+# 001001          ADDIU  adder_ans
+# 001010          SLTI   slt_ans
+# 001011          SLTIU  slt_ans
+# 001100          ANDI   logicop_ans
+# 001101          ORI    logicop_ans
+# 001110          XORI   logicop_ans
+# 001111          LUI    logicop_ans
+
+w    use_logicop = opcode[3] ? opcode[2] : funct[2]
+w    use_slt     = opcode[3] ? opcode[1] : funct[3]
+a    ans = use_logicop ? logicop_ans : (use_slt ? slt_ans : adder_ans)
+
+endmodule
+
+module $sft
+i  3 funct	# "funct" field
+i 32 rt
+i  5 rs
+i  5 sa		# "sa" field
+o 32 ans
+#
+# funct   operation    opcode
+# ---------------------------
+#  000    rt << sa     SLL
+#  010    rt >> sa     SRL
+#  011    rt >> sa     SRA
+#  100    rt << rs     SLLV
+#  110    rt >> rs     SRLV
+#  111    rt >> rs     SRAV
+#
+w    var rgt arith
+a    { var rgt arith } = funct
+w  5 sh = var ? rs : sa
+w  5 sft_rhs = ({5{~rgt}} ^ sh) + {4'b0000,~rgt}	# rgt ? sh : -sh
+w 32 sft_lhs_hi = rgt ? {32{arith&rt[31]}} : rt
+w 32 sft_lhs_lo = (rgt || (sh==5'h0)) ? rt : 32'h0
+w 64 sft_lhs = { sft_lhs_hi sft_lhs_lo }
+w 64 sft_ans = sft_lhs >> sft_rhs
+a    ans = sft_ans[31:0]
+endmodule
+
+module $mul
+i    clk rst
+i  6 opcode
+i  6 funct
+i 32 rs rt
+o 32 hilo
+o    hilo_busy
+################ YET (not synthesizable) ################
+
+# opcode  funct   insn
+# -----------------------
+# 000000  x10x00  MFHI  
+# 000000  x10x10  MFLO  
+# 000000  x11x00  MULT  
+# 000000  x11x01  MULTU 
+# 000000  x11x10  DIV   
+# 000000  x11x11  DIVU  
+
+w    rs_negative = (~funct[0]) && rs[31]
+w    rt_negative = (~funct[0]) && rt[31]
+w 64 rs64 = { {32{rs_negative}} rs }
+w 64 rt64 = { {32{rt_negative}} rt }
+w 64 mul64 = rs64 * rt64
+
+#  rs   rt   quo  rem
+# --------------------
+# +22 = +7 * +3 +  +1
+# -22 = +7 * -3 +  -1
+# +22 = -7 * -3 +  +1
+# -22 = -7 * +3 +  -1
+w 32 rs_mag = rs_negative ? -rs : rs
+w 32 rt_mag = rt_negative ? -rt : rt
+w 32 rt_mag_adj = rt_mag | {31'h0,(rt==32'h0)}   # avoid div-by-zero error
+w 32 unsigned_quo = rs_mag / rt_mag_adj
+w 32 unsigned_rem = rs_mag % rt_mag_adj
+w    quo_negative = (~funct[0]) && (rs[31] ^ rt[31])
+w    rem_negative = rs_negative
+w 32 quo = quo_negative ? -unsigned_quo : unsigned_quo
+w 32 rem = rem_negative ? -unsigned_rem : unsigned_rem
+
+w 32 hi lo
+w 32 hi_nxt = funct[1] ? rem : mul64[63:32]
+w 32 lo_nxt = funct[1] ? quo : mul64[31:0]
+w    hilo_cke = (opcode == 6'h0) && (funct[4:3] == 2'b11)
+m $dffe#(32) clk hilo_cke hi_nxt hi
+m $dffe#(32) clk hilo_cke lo_nxt lo
+a    hilo = funct[1] ? lo : hi
+a    hilo_busy = 1'b0
+endmodule
+
+module $branch
+i  6 opcode
+i  5 rtnr
+i  6 funct
+i 32 rs rt
+o  2 npc_sel		# 0/1/2/3 = nPC+4 / nPC+offset*4 / rs / jmptgt*4
+
+# opcode  rtnr    funct   insn    cond     nPC  link
+# ------------------------------------------------------------------------------------------
+# 000000          000000  SLL     
+# 000000          000010  SRL     
+# 000000          000011  SRA     
+# 000000          000100  SLLV    
+# 000000          000110  SRLV    
+# 000000          000111  SRAV    
+# 000000          001000  JR      true     rs
+# 000000          001001  JALR    true     rs    rd
+# 000000          010000  MFHI    
+# 000000          010010  MFLO    
+# 000000          011000  MULT    
+# 000000          011001  MULTU   
+# 000000          011010  DIV     
+# 000000          011011  DIVU    
+# 000000          100001  ADDU    
+# 000000          100011  SUBU    
+# 000000          100100  AND     
+# 000000          100101  OR      
+# 000000          100110  XOR     
+# 000000          100111  NOR     
+# 000000          101010  SLT     
+# 000000          101011  SLTU    
+# 000001  00000           BLTZ    rs<0     +ofs                rs[31]
+# 000001  00001           BGEZ    rs>=0    +ofs                ~rs[31]
+# 000001  10000           BLTZAL  rs<0     +ofs  r31           rs[31]
+# 000001  10001           BGEZAL  rs>=0    +ofs  r31           ~rs[31]
+# 000010                  J       true     tgt
+# 000011                  JAL     true     tgt   r31
+# 000100                  BEQ     rs==rt   +ofs                rs_eq_rt
+# 000101                  BNE     rs!=rt   +ofs                ~rs_eq_rt
+# 000110                  BLEZ    rs<=0    +ofs                rs[31]|rs_eq_rt
+# 000111                  BGTZ    rs>0     +ofs                (~rs[31])&(~rs_eq_rt)
+# 001001                  ADDIU   
+# 001010                  SLTI    
+# 001011                  SLTIU   
+# 001100                  ANDI    
+# 001101                  ORI     
+# 001110                  XORI    
+# 001111                  LUI     
+# 010000          000000  MFC0/MTC0
+# 100000                  LB      
+# 100001                  LH      
+# 100011                  LW      
+# 100100                  LBU     
+# 100101                  LHU     
+# 101000                  SB      
+# 101001                  SH      
+# 101011                  SW      
+
+w    rs_neg        = rs[31]
+w    rs_eq_rt      = (rs == rt)
+w    judge         = ((opcode[2]&&rs_eq_rt) || (((~opcode[2])||opcode[1])&&rs_neg)) ^ (opcode[2]?opcode[0]:rtnr[0])
+w    opcode_lt8    = (opcode[5:3] == 3'b000)
+w    funct_jr      = (funct[5:3] == 3'b001)
+w    taken         = opcode_lt8 && ((opcode[2:0]==3'b000) ? funct_jr : ((opcode[2:1]==2'b01) || judge))
+a    npc_sel       = taken ? ((opcode[2:0]==3'b000) ? 2'd2 : ((opcode[2:1]==2'b01) ? 2'd3 : 2'd1)) : 2'd0
+endmodule
+
+module $npccalc
+p     IAW 10
+i IAW npc ofstgt rs	# rs[IAW+2-1:2]
+i   2 sel		# 0/1/2/3 = nPC+4 / nPC+offset*4 / rs / jmptgt*4
+o IAW ans
+w IAW lhs = sel[1] ? (sel[0] ? {IAW{1'b0}} : rs) : npc
+w IAW rhs = sel[0] ? ofstgt : {{(IAW-1){1'b0}},(~sel[1])}
+a     ans = lhs + rhs
+endmodule
+
+module $wbksel
+i  6 opcode
+i  5 rsnr
+i  5 rtnr
+i  5 rdnr
+i  6 funct
+i    rs_sign
+o  5 wbknr
+o  3 wbksel	# 0/1/2/3/4 = alu/sft/mul/npcinc/cop0
+
+# opcode  rsnr    rtnr    funct    insn   wbkval  wbknr
+# -------------------------------------------------------
+# 000000                  000000   SLL     sft     rd
+# 000000                  000010   SRL     sft     rd
+# 000000                  000011   SRA     sft     rd
+# 000000                  000100   SLLV    sft     rd
+# 000000                  000110   SRLV    sft     rd
+# 000000                  000111   SRAV    sft     rd
+# 000000                  001000   JR              rd=0
+# 000000                  001001   JALR    npcinc  rd
+# 000000                  010000   MFHI    mul     rd
+# 000000                  010010   MFLO    mul     rd
+# 000000                  011000   MULT            rd=0
+# 000000                  011001   MULTU           rd=0
+# 000000                  011010   DIV             rd=0
+# 000000                  011011   DIVU            rd=0
+# 000000                  100001   ADDU    alu     rd
+# 000000                  100011   SUBU    alu     rd
+# 000000                  100100   AND     alu     rd
+# 000000                  100101   OR      alu     rd
+# 000000                  100110   XOR     alu     rd
+# 000000                  100111   NOR     alu     rd
+# 000000                  101010   SLT     alu     rd
+# 000000                  101011   SLTU    alu     rd
+# 000001          00000            BLTZ    
+# 000001          00001            BGEZ    
+# 000001          10000            BLTZAL  npcinc  r31 [if rs_sign]
+# 000001          10001            BGEZAL  npcinc  r31 [if !rs_sign]
+# 000010                           J       
+# 000011                           JAL     npcinc  r31
+# 000100                           BEQ     
+# 000101                           BNE     
+# 000110                           BLEZ    
+# 000111                           BGTZ    
+# 001001                           ADDIU   alu     rt
+# 001010                           SLTI    alu     rt
+# 001011                           SLTIU   alu     rt
+# 001100                           ANDI    alu     rt
+# 001101                           ORI     alu     rt
+# 001110                           XORI    alu     rt
+# 001111                           LUI     alu     rt
+# 010000  00000                    MFC0    cop0    rt
+# 010000  00100                    MTC0    
+# 100000                           LB      (mem)   rt
+# 100001                           LH      (mem)   rt
+# 100011                           LW      (mem)   rt
+# 100100                           LBU     (mem)   rt
+# 100101                           LHU     (mem)   rt
+# 101000                           SB      
+# 101001                           SH      
+# 101011                           SW      
+w    wbk_we = opcode[5] \
+              ? (~opcode[3]) \
+              : (opcode[4] \
+                 ? (~rsnr[2]) \
+                 : (opcode[3] || ((~opcode[2]) && (opcode[0] ? (opcode[1]||(rtnr[4]&&(rs_sign^rtnr[0]))) : (~opcode[1])))))
+a    wbknr = wbk_we ? ((opcode[5:3]!=3'b000) ? rtnr : (opcode[0] ? 5'd31 : rdnr)) : 5'd0
+a    wbksel = opcode[4] \
+              ? 3'd4 \
+              : (opcode[3] \
+                 ? 3'd0 \
+                 : ((opcode[1:0]!=2'b00) ? 3'd3 : (funct[5] ? 3'd0 : (funct[4] ? 3'd2 : funct[3] ? 3'd3 : 3'd1))))
+endmodule
+
+module $dmem
+p DAW      16
+p INITPFX  "emips"
+i     clk cke
+i   6 opcode
+i DAW addr
+i  32 wdata
+o  32 rdata
+
+# opcode  insn
+# -------------
+# 100000   LB 
+# 100001   LH 
+# 100011   LW 
+# 100100   LBU
+# 100101   LHU
+# 101000   SB 
+# 101001   SH 
+# 101011   SW 
+
+w  8 wdata[0-3]			# wdata0=MSB, wdata3=LSB
+a    { wdata[0-3] } = wdata
+w  8 memwdata3 = wdata3
+w  8 memwdata2 = (opcode[1:0]!=2'b00) ? wdata2 : wdata3
+w  8 memwdata1 = opcode[1] ? wdata1 : wdata3
+w  8 memwdata0 = opcode[1] ? wdata0 : (opcode[0] ? wdata2 : wdata3)
+w    store_insn = cke && opcode[5] && opcode[3]
+w    memwe0 = store_insn && (opcode[1] || ((~addr[1]) && (opcode[0] || (~addr[0]))))
+w    memwe1 = store_insn && (opcode[1] || ((~addr[1]) && (opcode[0] ||   addr[0] )))
+w    memwe2 = store_insn && (opcode[1] || (  addr[1]  && (opcode[0] || (~addr[0]))))
+w    memwe3 = store_insn && (opcode[1] || (  addr[1]  && (opcode[0] ||   addr[0] )))
+w    memre = cke && opcode[5] && (~opcode[3])
+w  8 memrdata[0-3]
+w  2 memraddrlo
+w  3 memrtype
+l    DMEM0 {INITPFX,"-dmem0.hex"}	# byte address 4n+0 : most significant byte in 32bit word
+l    DMEM1 {INITPFX,"-dmem1.hex"}
+l    DMEM2 {INITPFX,"-dmem2.hex"}
+l    DMEM3 {INITPFX,"-dmem3.hex"}	# byte address 4n+3 : least significant byte in 32bit word
+m $rum#(DAW-2,8,DMEM0) clk memwe0 addr[DAW-1:2] memwdata0 memre addr[DAW-1:2] memrdata0
+m $rum#(DAW-2,8,DMEM1) clk memwe1 addr[DAW-1:2] memwdata1 memre addr[DAW-1:2] memrdata1
+m $rum#(DAW-2,8,DMEM2) clk memwe2 addr[DAW-1:2] memwdata2 memre addr[DAW-1:2] memrdata2
+m $rum#(DAW-2,8,DMEM3) clk memwe3 addr[DAW-1:2] memwdata3 memre addr[DAW-1:2] memrdata3
+m $dffe#(5)            clk memre {addr[1:0],opcode[2:0]} {memraddrlo,memrtype}
+#  memrtype  memraddrlo   rdata
+#  ------------------------------------
+#     000        00      {s0,s0,s0,d0}
+#     000        01      {s1,s1,s1,d1}
+#     000        10      {s2,s2,s2,d2}
+#     000        11      {s3,s3,s3,d3}
+#     001        0x      {s0,s0,d0,d1}
+#     001        1x      {s2,s2,d2,d3}
+#     011        xx      {d0,d1,d2,d3}
+#     100        00      {00,00,00,d0}
+#     100        01      {00,00,00,d1}
+#     100        10      {00,00,00,d2}
+#     100        11      {00,00,00,d3}
+#     101        0x      {00,00,d0,d1}
+#     101        1x      {00,00,d2,d3}
+w  8 ext0 = {8{(~memrtype[2])&&memrdata0[7]}}
+w  8 ext1 = {8{(~memrtype[2])&&memrdata1[7]}}
+w  8 ext2 = {8{(~memrtype[2])&&memrdata2[7]}}
+w  8 ext3 = {8{(~memrtype[2])&&memrdata3[7]}}
+w 32 extw = { ext[0-3] }
+w  8 extb = $sel#(2,8) ( ~memraddrlo extw )
+w 32 memrdata = { memrdata[0-3] }
+w  2 rdata3_sel = memraddrlo | memrtype[1:0]
+w  8 rdata3 = $sel#(2,8) ( ~rdata3_sel memrdata )
+w  8 rdata2 = memrtype[0] ? ((memrtype[1]|(~memraddrlo[1])) ? memrdata2 : memrdata0) : extb
+w  8 rdata1 = memrtype[1] ? memrdata1 : extb
+w  8 rdata0 = memrtype[1] ? memrdata0 : extb
+a    rdata = { rdata[0-3] }
+endmodule
+
+module $fwd
+i  5 rsnr rtnr wbknr
+i 32 rfrs rfrt wbk
+o 32 rs rt
+w    rsfwd = (rsnr == wbknr)
+w    rtfwd = (rtnr == wbknr)
+w    rszero = (rsnr == 5'd0)
+w    rtzero = (rtnr == 5'd0)
+a    rs = rszero ? 32'd0 : (rsfwd ? wbk : rfrs)
+a    rt = rtzero ? 32'd0 : (rtfwd ? wbk : rfrt)
+endmodule
+
+module $ram
+p     AW 8
+p     DW 8
+i     CLK
+i     WE
+i  AW WA
+i  DW WD
+i     RE
+i  AW RA
+o  DW RD
+l     DEPTH (1<<AW)
+reg [DW-1:0] mem[0:DEPTH-1];
+reg [DW-1:0] RD;
+always @(posedge CLK) begin
+  if (WE)  mem[WA] = WD;
+  if (RE)  RD <= mem[RA];
+end
+endmodule
+
+module $rum
+p     AW 8
+p     DW 8
+p     INITFILE "initfile.hex"
+i     CLK
+i     WE
+i  AW WA
+i  DW WD
+i     RE
+i  AW RA
+o  DW RD
+l     DEPTH (1<<AW)
+reg [DW-1:0] mem[0:DEPTH-1];
+reg [DW-1:0] RD;
+initial $readmemh(INITFILE, mem);
+always @(posedge CLK) begin
+  if (WE)  mem[WA] = WD;
+  if (RE)  RD <= mem[RA];
+end
+endmodule
+
+module $rom
+p     AW 8
+p     DW 8
+p     INITFILE "initfile.hex"
+i    CLK
+i    RE
+i AW RA
+o DW RD
+l    DEPTH (1<<AW)
+reg [DW-1:0] mem[0:DEPTH-1];
+reg [DW-1:0] RD;
+initial $readmemh(INITFILE, mem);
+always @(posedge CLK) begin
+  if (RE)  RD <= mem[RA];
+end
+endmodule
+
+module $sel
+p    SW 1 OW 1
+l N  1<<SW
+l IW N*OW
+i SW sel
+i IW idata
+o OW odata = idata[OW*sel +: OW]
+endmodule
+
+module $dffre
+p   W 1
+p W INIT {W{1'b0}}
+i   clk rst cke
+i W d
+o W q
+reg [W-1:0] q;
+always @(posedge clk) begin
+  if (rst)  q <= INIT;
+  else      q <= cke ? d : q;
+end
+endmodule
+
+module $dffe
+p   W 1
+i   clk cke
+i W d
+o W q = $dffre#(W) ( clk 1'b0 cke d )
+endmodule
+
