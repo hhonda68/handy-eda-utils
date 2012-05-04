@@ -49,7 +49,7 @@ a     { rdnr sa funct } = imm
 
 w   2 npcsel
 w  32 aluans sftans mulans
-w IAW npcinc   = npc + {{(IAW-1){1'b0}},1'b1}
+w IAW npcinc   = npc + 1'b1
 w  32 npcinc32 = { {(30-IAW){1'b0}} npcinc 2'b00 }
 
 w DAW dmaddr
@@ -178,10 +178,10 @@ w  6 funct = imm[5:0]
 w    do_subtract = (~opcode[5]) && (opcode[3] ? opcode[1] : funct[1])
 w 33 lhs33 = { 1'b0 lhs }
 w 33 rhs33 = { 1'b0 (rhs^{32{do_subtract}}) }
-w 33 ci33  = { 32'h0 do_subtract }
+w    ci    = do_subtract
 w    adder_co
 w 32 adder_ans
-a    { adder_co adder_ans } = lhs33 + rhs33 + ci33
+a    { adder_co adder_ans } = lhs33 + rhs33 + ci
 a    dmaddr = adder_ans[DAW-1:0]
 
 ################################################################
@@ -279,9 +279,8 @@ i    clk rst
 i  6 opcode
 i  6 funct
 i 32 rs rt
-o 32 hilo
-o    hilo_busy
-################ YET (not synthesizable) ################
+o 32 ans
+o    ans_busy
 
 # opcode  funct   insn
 # -----------------------
@@ -320,8 +319,9 @@ w 32 lo_nxt = funct[1] ? quo : mul64[31:0]
 w    hilo_cke = (opcode == 6'h0) && (funct[4:3] == 2'b11)
 m $dffe#(32) clk hilo_cke hi_nxt hi
 m $dffe#(32) clk hilo_cke lo_nxt lo
-a    hilo = funct[1] ? lo : hi
-a    hilo_busy = 1'b0
+a    ans = funct[1] ? lo : hi
+a    ans_busy = 1'b0
+
 endmodule
 
 module $branch
