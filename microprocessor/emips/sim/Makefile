@@ -18,6 +18,7 @@ EMIPS_DAW := 16
 #PROG := hello
 #PROG := pi
 PROG := atan
+#PROG := muldiv
 
 all: tb.vvp $(PROG).dis $(PROG).adr emips-imem.hex emips-dmem0.hex
 	@

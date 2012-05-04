@@ -282,6 +282,9 @@ i 32 rs rt
 o 32 ans
 o    ans_busy
 
+#`define EMIPS_MUL_BEHAVIOR
+`ifdef EMIPS_MUL_BEHAVIOR
+
 # opcode  funct   insn
 # -----------------------
 # 000000  x10x00  MFHI  
@@ -321,6 +324,65 @@ m $dffe#(32) clk hilo_cke hi_nxt hi
 m $dffe#(32) clk hilo_cke lo_nxt lo
 a    ans = funct[1] ? lo : hi
 a    ans_busy = 1'b0
+
+`else
+
+w    mulop_req = (opcode == 6'd0) && funct[4]
+
+w  2 state   # 0/1/2/3 = idle/mul_loop/div_setup/div_loop
+a    ans_busy = (state != 2'd0) && mulop_req
+
+w  5 loopcount
+w  5 loopcount_inc
+w    loopcount_co
+a    { loopcount_co loopcount_inc } = {1'b0,loopcount} + 1'b1
+w    loopcount_cke = state[0]
+m $dffre#(5) clk rst loopcount_cke loopcount_inc loopcount
+
+w  2 st0_state_nxt  = (mulop_req && funct[3]) ? (funct[1] ? (((~funct[0])&&rs[31]) ? 2'd2 : 2'd3) : 2'd1) : 2'd0
+w  2 st13_state_nxt = loopcount_co ? 2'd0 : state
+w  2 st2_state_nxt  = 2'd3
+w  2 state_nxt = state[0] ? st13_state_nxt : (state[1] ? st2_state_nxt : st0_state_nxt)
+m $dffr#(2) clk rst state_nxt state
+
+w 32 hi lo rhs
+w    muldiv_signed lhs_msb
+w    rhs_cke = (state == 2'd0) && (st0_state_nxt != 2'd0)
+w    muldiv_signed_cke = rhs_cke || ((state==2'd1) && loopcount_co)
+w    muldiv_signed_nxt = (~state[0]) ? (~funct[0]) : 1'b0
+m $dffe#(32) clk rhs_cke           rt                rhs
+m $dffe#(1)  clk rhs_cke           rs[31]            lhs_msb
+m $dffe#(1)  clk muldiv_signed_cke muldiv_signed_nxt muldiv_signed
+w    hi_cke = state[0] || ((~state[1]) && (st0_state_nxt != 2'd0))
+w    lo_cke = (state != 2'd0) || (st0_state_nxt != 2'd0)
+w 33 adder_lhs = (state == 2'd3) \
+                  ? {hi,lo[31]} \
+                  : ((state[0]||((~state[1])&&(~funct[1]))) ? {muldiv_signed&&hi[31],hi} : {1'b0,lo})
+w    adder_lhs_negate = (~state[0]) && (state[1] || (muldiv_signed && (lhs_msb ^ (funct[1]&rhs[31]))))
+w 33 adder_rhs = { muldiv_signed&&rhs[31] rhs }
+w    adder_rhs_enable = state[0] && (state[1] || lo[0])
+w    adder_rhs_negate = state[1] ? ((~muldiv_signed) || (~rhs[31])) : (muldiv_signed && loopcount_co)
+w 33 adder_lhs_final = adder_lhs ^ {33{adder_lhs_negate}}
+w 33 adder_rhs_final = ((adder_rhs ^ {33{adder_rhs_negate}}) & {33{adder_rhs_enable}})
+w    adder_ci_final  = adder_lhs_negate | (adder_rhs_enable & adder_rhs_negate)
+w 33 adder_ans = adder_lhs_final + adder_rhs_final + adder_ci_final
+
+w 32 st0_lo_nxt = rs
+w 32 st1_lo_nxt = { adder_ans[0] lo[31:1] }
+w 32 st2_lo_nxt = adder_ans[31:0]
+w 32 st3_lo_nxt = { lo[30:0] (~adder_ans[32]) }
+w 128 lo_nxt_cand = { st[0-3]_lo_nxt }
+w 32 lo_nxt = $sel#(2,32) ( ~state lo_nxt_cand )
+w 32 st0_hi_nxt = 32'h0
+w 32 st1_hi_nxt = adder_ans[32:1]
+w 32 st3_hi_nxt = adder_ans[32] ? {hi[30:0],lo[31]} : adder_ans[31:0]
+w 32 hi_nxt = state[0] ? (state[1] ? st3_hi_nxt : st1_hi_nxt) : st0_hi_nxt
+m $dffe#(32) clk lo_cke lo_nxt lo
+m $dffe#(32) clk hi_cke hi_nxt hi
+
+a    ans = adder_ans[31:0]
+
+`endif
 
 endmodule
 
@@ -647,3 +709,9 @@ i W d
 o W q = $dffre#(W) ( clk 1'b0 cke d )
 endmodule
 
+module $dffr
+p   W 1
+i   clk rst
+i W d
+o W q = $dffre#(W) ( clk rst 1'b1 d )
+endmodule
