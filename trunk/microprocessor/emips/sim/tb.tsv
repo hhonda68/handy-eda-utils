@@ -53,8 +53,8 @@ initial begin :finish_on_exit
 end
 
 initial begin :finish_on_timeout
-  #(100000*CYC);
-  write_time;  $display("Simulated 100000 cycles.");
+  #(1000000*CYC);
+  write_time;  $display("Simulated 1000000 cycles.");
   $finish;
 end
 
