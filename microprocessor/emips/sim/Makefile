@@ -85,7 +85,7 @@ emips-dmem0.hex: $(PROG)-dmem0.hex Makefile
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 %.dis: %.elf
-	$(CCPFX)-objdump -d $< > $@~ && mv $@~ $@
+	$(CCPFX)-objdump -d $< > $@~ && $(RUBY) checkinsn.rb $@~ && mv $@~ $@ 
 
 %.adr: %.elf
 	$(CCPFX)-nm -n $< > $@~ && mv $@~ $@
