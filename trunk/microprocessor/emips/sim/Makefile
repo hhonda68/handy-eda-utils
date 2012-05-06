@@ -24,7 +24,7 @@ all: tb.vvp $(PROG).dis $(PROG).adr emips-imem.hex emips-dmem0.hex
 	@
 
 tb.vvp: rtl tb.v $(V)
-	iverilog -y ../rtl -o tb.vvp tb.v
+	iverilog -DEMIPS_RTLSIM -y ../rtl -o tb.vvp tb.v
 
 $(V): %.v: %.tsv
 	@echo '[Generating $@ ...]'
