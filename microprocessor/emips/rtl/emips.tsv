@@ -686,7 +686,19 @@ l N  1<<SW
 l IW N*OW
 i SW sel
 i IW idata
-o OW odata = idata[OW*sel +: OW]
+o OW odata
+`ifdef EMIPS_RTLSIM
+a    odata = idata[OW*sel +: OW]
+`else
+wire [OW-1:0] cand[0:N-1];
+genvar i;
+generate
+for (i=0; i<N; i=i+1) begin :reassign
+  assign cand[i] = idata[OW*i +: OW];
+end
+endgenerate
+a    odata = cand[sel]
+`endif
 endmodule
 
 module $dffre
