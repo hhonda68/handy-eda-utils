@@ -59,7 +59,7 @@ w  32 dmdata
 
 m $fwd                            rsnr rtnr wbknr rfrs rfrt wbk rs rt
 m $branch                         opcode rtnr funct rs rt npcsel
-m $npccalc#(IAW)                  npc imm[IAW-1:0] rs[IAW+2-1:2] npcsel npc_nxt
+m $npccalc#(IAW)                  npc npcinc imm[IAW-1:0] rs[IAW+2-1:2] npcsel npc_nxt
 m $alu#(DAW)                      opcode rs rt imm aluans dmaddr
 m $sft                            funct[2:0] rt rs[4:0] sa sftans
 m $mul                clk rst     opcode funct rs rt mulans mulbusy
@@ -455,12 +455,12 @@ endmodule
 
 module $npccalc
 p     IAW 10
-i IAW npc ofstgt rs	# rs[IAW+2-1:2]
-i   2 sel		# 0/1/2/3 = nPC+4 / nPC+offset*4 / rs / jmptgt*4
+i IAW npc npcinc ofstgt rs	# rs[IAW+2-1:2]
+i   2 sel			# 0/1/2/3 = nPC+4 / nPC+offset*4 / rs / jmptgt*4
 o IAW ans
-w IAW lhs = sel[1] ? (sel[0] ? {IAW{1'b0}} : rs) : npc
-w IAW rhs = sel[0] ? ofstgt : {{(IAW-1){1'b0}},(~sel[1])}
-a     ans = lhs + rhs
+w IAW npcofs = npc + ofstgt
+w IAW*4 cand = { npcinc npcofs rs ofstgt }
+a     ans = $sel#(2,IAW) ( ~sel cand )
 endmodule
 
 module $wbksel
