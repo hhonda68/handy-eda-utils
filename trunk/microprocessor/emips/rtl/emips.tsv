@@ -36,10 +36,21 @@ a     { rsnr_fetch rtnr_fetch } = insn_fetch[25:16]
 w   5 wbknr
 w  32 wbk
 w     wbknr_nez = (wbknr != 5'd0)
-w     gpr_we = cke & wbknr_nez
 w  32 rfrs rfrt rs rt
+`ifdef EMIPS_RTLSIM
+w     gpr_we = cke & wbknr_nez
 m $ram#(5,32) clk gpr_we wbknr wbk cke rsnr_fetch rfrs
 m $ram#(5,32) clk gpr_we wbknr wbk cke rtnr_fetch rfrt
+`else
+// Use Altera MegaFunction
+//   * MLAB, single clock Simple-Dual-Port, width=32, depth=32
+//   * registered rdaddr,wraddr,wrdata
+//   * unregistered rddata (i.e., NEW_DATA when READ_DURING_WRITE)
+//   * clock enable
+//   * module emips_altmf_gpr(clock,data,enable,rdaddress,wraddress,wren,q);
+m $altmf_gpr clk wbk cke rsnr_fetch wbknr wbknr_nez rfrs
+m $altmf_gpr clk wbk cke rtnr_fetch wbknr wbknr_nez rfrt
+`endif
 
 w   6 opcode funct
 w   5 rsnr rtnr rdnr sa
@@ -623,6 +634,7 @@ a    rs = rszero ? 32'd0 : (rsfwd ? wbk : rfrs)
 a    rt = rtzero ? 32'd0 : (rtfwd ? wbk : rfrt)
 endmodule
 
+`ifdef EMIPS_RTLSIM
 module $ram
 p     AW 8
 p     DW 8
@@ -641,6 +653,7 @@ always @(posedge CLK) begin
   if (RE)  RD <= mem[RA];
 end
 endmodule
+`endif
 
 module $rum
 p     AW 8
@@ -654,11 +667,12 @@ i     RE
 i  AW RA
 o  DW RD
 l     DEPTH (1<<AW)
+(* ramstyle = "no_rw_check" *)
 reg [DW-1:0] mem[0:DEPTH-1];
 reg [DW-1:0] RD;
 initial $readmemh(INITFILE, mem);
 always @(posedge CLK) begin
-  if (WE)  mem[WA] = WD;
+  if (WE)  mem[WA] <= WD;
   if (RE)  RD <= mem[RA];
 end
 endmodule
