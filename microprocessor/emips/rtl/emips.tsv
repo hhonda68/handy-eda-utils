@@ -278,9 +278,9 @@ o 32 ans
 #  110    rt >> rs     SRLV
 #  111    rt >> rs     SRAV
 #
-w    var rgt arith
-a    { var rgt arith } = funct
-w  5 sh = var ? rs : sa
+w    vari rgt arith
+a    { vari rgt arith } = funct
+w  5 sh = vari ? rs : sa
 w  5 sft_rhs = ({5{~rgt}} ^ sh) + {4'b0000,~rgt}	# rgt ? sh : -sh
 w 32 sft_lhs_hi = rgt ? {32{arith&rt[31]}} : rt
 w 32 sft_lhs_lo = (rgt || (sh==5'h0)) ? rt : 32'h0
