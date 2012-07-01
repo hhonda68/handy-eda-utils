@@ -37,19 +37,23 @@ w   5 wbknr
 w  32 wbk
 w     wbknr_nez = (wbknr != 5'd0)
 w  32 rfrs rfrt rs rt
-`ifdef EMIPS_RTLSIM
 w     gpr_we = cke & wbknr_nez
+`ifdef EMIPS_RTLSIM
 m $ram#(5,32) clk gpr_we wbknr wbk cke rsnr_fetch rfrs
 m $ram#(5,32) clk gpr_we wbknr wbk cke rtnr_fetch rfrt
 `else
-// Use Altera MegaFunction
-//   * MLAB, single clock Simple-Dual-Port, width=32, depth=32
-//   * registered rdaddr,wraddr,wrdata
-//   * unregistered rddata (i.e., NEW_DATA when READ_DURING_WRITE)
-//   * clock enable
-//   * module emips_altmf_gpr(clock,data,enable,rdaddress,wraddress,wren,q);
-m $altmf_gpr clk wbk cke rsnr_fetch wbknr wbknr_nez rfrs
-m $altmf_gpr clk wbk cke rtnr_fetch wbknr wbknr_nez rfrt
+// Altera MLAB needs explicit bypass logic
+w  32 rfrs_raw rfrt_raw wbk_reg
+m $altera_mlab#(5,32) clk gpr_we wbknr wbk cke rsnr_fetch rfrs_raw
+m $altera_mlab#(5,32) clk gpr_we wbknr wbk cke rtnr_fetch rfrt_raw
+w     bypass_rfrs = (wbknr == rsnr_fetch)
+w     bypass_rfrt = (wbknr == rtnr_fetch)
+w     bypass_rfrs_reg bypass_rfrt_reg
+m $dffe#(32) clk gpr_we wbk         wbk_reg
+m $dffre     clk gpr_we bypass_rfrs bypass_rfrs_reg
+m $dffre     clk gpr_we bypass_rfrt bypass_rfrt_reg
+a     rfrs = bypass_rfrs_reg ? wbk_reg : rfrs_raw
+a     rfrt = bypass_rfrt_reg ? wbk_reg : rfrt_raw
 `endif
 
 w   6 opcode funct
@@ -652,6 +656,27 @@ always @(posedge CLK) begin
   if (WE)  mem[WA] = WD;
   if (RE)  RD <= mem[RA];
 end
+endmodule
+`else
+module $altera_mlab
+p     AW 8
+p     DW 8
+i     CLK
+i     WE
+i  AW WA
+i  DW WD
+i     RE
+i  AW RA
+o  DW RD
+l     DEPTH (1<<AW)
+(* ramstyle = "MLAB,no_rw_check" *)
+reg [DW-1:0] mem[0:DEPTH-1];
+reg [AW-1:0] RA_reg;
+always @(posedge CLK) begin
+  if (WE)  mem[WA] <= WD;
+  if (RE)  RA_reg <= RA;
+end
+a RD = mem[RA_reg]
 endmodule
 `endif
 
