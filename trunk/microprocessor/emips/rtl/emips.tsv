@@ -43,17 +43,17 @@ m $ram#(5,32) clk gpr_we wbknr wbk cke rsnr_fetch rfrs
 m $ram#(5,32) clk gpr_we wbknr wbk cke rtnr_fetch rfrt
 `else
 // Altera MLAB needs explicit bypass logic
-w  32 rfrs_raw rfrt_raw wbk_reg
-m $altera_mlab#(5,32) clk gpr_we wbknr wbk cke rsnr_fetch rfrs_raw
-m $altera_mlab#(5,32) clk gpr_we wbknr wbk cke rtnr_fetch rfrt_raw
-w     bypass_rfrs = (wbknr == rsnr_fetch)
-w     bypass_rfrt = (wbknr == rtnr_fetch)
-w     bypass_rfrs_reg bypass_rfrt_reg
-m $dffe#(32) clk gpr_we wbk         wbk_reg
-m $dffre     clk gpr_we bypass_rfrs bypass_rfrs_reg
-m $dffre     clk gpr_we bypass_rfrt bypass_rfrt_reg
-a     rfrs = bypass_rfrs_reg ? wbk_reg : rfrs_raw
-a     rfrt = bypass_rfrt_reg ? wbk_reg : rfrt_raw
+w  32 rfrs_mlab rfrt_mlab wbk_new
+m $altera_mlab#(5,32) clk gpr_we wbknr wbk cke rsnr_fetch rfrs_mlab
+m $altera_mlab#(5,32) clk gpr_we wbknr wbk cke rtnr_fetch rfrt_mlab
+w     rs_new_nxt = wbknr_nez & (wbknr == rsnr_fetch)
+w     rt_new_nxt = wbknr_nez & (wbknr == rtnr_fetch)
+w     rs_new rt_new
+m $dffre      clk rst cke     rs_new_nxt rs_new
+m $dffre      clk rst cke     rt_new_nxt rt_new
+m $dffe#(32)  clk     gpr_cke wbk        wbk_new
+a     rfrs = rs_new ? wbk_new : rfrs_mlab
+a     rfrt = rt_new ? wbk_new : rfrt_mlab
 `endif
 
 w   6 opcode funct
