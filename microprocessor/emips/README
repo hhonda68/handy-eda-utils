@@ -1,0 +1,371 @@
+
+EMIPS : Embedding MIPS Microprocessor
+
+Copyright (c) 2012 the handy-eda-utils developer(s).
+Distributed under the MIT License.
+(See accompanying file COPYING or copy at
+ http://www.opensource.org/licenses/mit-license.php.)
+
+[1] Overview
+[2] ISA
+  [2.1] Supported Instructions
+  [2.2] Unsupported Instructions
+[3] Module Specification
+[4] Implementation
+  [4.1] Overall Design
+  [4.2] Detailed Submodule Structure
+
+
+============
+[1] Overview
+============
+
+EMIPS is a soft processor core which supports minimal subset of MIPS I (TM) ISA.
+
+Its objective is NOT to serve as a master controller of an SoC system,
+but to implement a complex FSM module embedded inside a hardware IP.
+
+Features:
+  * Does not support insn/data cache.
+  * Does not support standard COP0 status/control registers.
+  * Does not support interrupts and exceptions.
+  * Does not support external insn/data memory.
+  * Performs I/O via external COP0 registers.
+  * Achieves CPI=1 for all instructions except COP0/multiply/divide instructions.
+  * Consumes 1000 ALUTs (+ Block RAMs for insn/data memory) on StratixIII.
+  * Runs at 120MHz on StratixIII C3 (medium speed grade).
+  * Supports only big endian memory access.
+  * Separates insn and data memories completely (harvard architecture).
+
+=======
+[2] ISA
+=======
+
+----------------------------
+[2.1] Supported Instructions
+----------------------------
+
+**************** Arithmetic Logic Unit ****************
+ADDIU   rt,rs,imm       rt=rs+imm                       001001  rs      rt      imm
+ADDU    rd,rs,rt        rd=rs+rt                        000000  rs      rt      rd      00000   100001
+AND     rd,rs,rt        rd=rs&rt                        000000  rs      rt      rd      00000   100100
+ANDI    rt,rs,imm       rt=rs&imm                       001100  rs      rt      imm
+LUI     rt,imm          rt=imm<<16                      001111  rs      rt      imm
+NOR     rd,rs,rt        rd=~(rs|rt)                     000000  rs      rt      rd      00000   100111
+OR      rd,rs,rt        rd=rs|rt                        000000  rs      rt      rd      00000   100101
+ORI     rt,rs,imm       rt=rs|imm                       001101  rs      rt      imm
+SLT     rd,rs,rt        rd=rs<rt                        000000  rs      rt      rd      00000   101010
+SLTI    rt,rs,imm       rt=rs<imm                       001010  rs      rt      imm
+SLTIU   rt,rs,imm       rt=rs<imm                       001011  rs      rt      imm
+SLTU    rd,rs,rt        rd=rs<rt                        000000  rs      rt      rd      00000   101011
+SUBU    rd,rs,rt        rd=rs-rt                        000000  rs      rt      rd      00000   100011
+XOR     rd,rs,rt        rd=rs^rt                        000000  rs      rt      rd      00000   100110
+XORI    rt,rs,imm       rt=rs^imm                       001110  rs      rt      imm
+**************** Shifter ****************
+SLL     rd,rt,sa        rd=rt<<sa                       000000  00000   rt      rd      sa      000000
+SLLV    rd,rt,rs        rd=rt<<rs                       000000  rs      rt      rd      00000   000100
+SRA     rd,rt,sa        rd=rt>>sa                       000000  00000   rt      rd      sa      000011
+SRAV    rd,rt,rs        rd=rt>>rs                       000000  rs      rt      rd      00000   000111
+SRL     rd,rt,sa        rd=rt>>sa                       000000  00000   rt      rd      sa      000010
+SRLV    rd,rt,rs        rd=rt>>rs                       000000  rs      rt      rd      00000   000110
+**************** Multiply ****************
+DIV     rs,rt           HI=rs%rt; LO=rs/rt              000000  rs      rt      00000   00000   011010
+DIVU    rs,rt           HI=rs%rt; LO=rs/rt              000000  rs      rt      00000   00000   011011
+MFHI    rd              rd=HI                           000000  00000   00000   rd      00000   010000
+MFLO    rd              rd=LO                           000000  00000   00000   rd      00000   010010
+MULT    rs,rt           HI,LO=rs*rt                     000000  rs      rt      00000   00000   011000
+MULTU   rs,rt           HI,LO=rs*rt                     000000  rs      rt      00000   00000   011001
+**************** Branch ****************
+BEQ     rs,rt,offset    if(rs==rt) pc+=offset*4         000100  rs      rt      offset
+BGEZ    rs,offset       if(rs>=0)  pc+=offset*4         000001  rs      00001   offset
+BGEZAL  rs,offset       if(rs>=0) r31=pc; pc+=offset*4  000001  rs      10001   offset
+BGTZ    rs,offset       if(rs>0)  pc+=offset*4          000111  rs      00000   offset
+BLEZ    rs,offset       if(rs<=0) pc+=offset*4          000110  rs      00000   offset
+BLTZ    rs,offset       if(rs<0)  pc+=offset*4          000001  rs      00000   offset
+BLTZAL  rs,offset       if(rs<0) r31=pc; pc+=offset*4   000001  rs      10000   offset
+BNE     rs,rt,offset    if(rs!=rt) pc+=offset*4         000101  rs      rt      offset
+J       target          pc=pc_upper|(target<<2)         000010  target
+JAL     target          r31=pc; pc=target<<2            000011  target
+JALR    rs              rd=pc; pc=rs                    000000  rs      00000   rd      00000   001001
+JR      rs              pc=rs                           000000  rs      00000   00000   00000   001000
+**************** Coprocessor ****************
+MFC0    rt,rd           rt=CPR[0,rd]                    010000  00000   rt      rd      00000   000000
+MTC0    rt,rd           CPR[0,rd]=rt                    010000  00100   rt      rd      00000   000000
+**************** Memory Access ****************
+LB      rt,offset(rs)   rt=*(char*)(offset+rs)          100000  rs      rt      offset
+LBU     rt,offset(rs)   rt=*(Uchar*)(offset+rs)         100100  rs      rt      offset
+LH      rt,offset(rs)   rt=*(short*)(offset+rs)         100001  rs      rt      offset
+LHU     rt,offset(rs)   rt=*(Ushort*)(offset+rs)        100101  rs      rt      offset
+LW      rt,offset(rs)   rt=*(int*)(offset+rs)           100011  rs      rt      offset
+SB      rt,offset(rs)   *(char*)(offset+rs)=rt          101000  rs      rt      offset
+SH      rt,offset(rs)   *(short*)(offset+rs)=rt         101001  rs      rt      offset
+SW      rt,offset(rs)   *(int*)(offset+rs)=rt           101011  rs      rt      offset
+
+------------------------------
+[2.2] Unsupported Instructions
+------------------------------
+
+ADD ADDI SUB MTHI MTLO SWL SWR LWL LWR SYSCALL BREAK
+
+Does not support SYSCALL,BREAK because they are useless w.r.t. EMIPS's objective.
+
+Does not support ADD,ADDI,SUB because they are useless without exception mechanism.
+
+Does not support SWL,SWR,LWL,LWR because they are patented.
+
+Does not support MTHI,MTLO because they are unnecessary w.r.t. EMIPS's objective.
+
+Note that mips-elf-gcc occasionally performs save/restore operations on HI/LO
+registers using MTHI/MTLO instructions.  In such a case, rewrite your C code
+or try different compilation options.
+
+========================
+[3] Module Specification
+========================
+
+module emips(clk,rst,copwe,copre,copaddr,copwdata,coprdata,copbusy);
+parameter IAW=10;
+parameter DAW=16;
+parameter INITPFX="emips";
+input         clk, rst;
+output        copwe;     // "write enable" for external COP0 register
+output        copre;     // "read  enable" for external COP0 register
+output  [4:0] copaddr;   // write destination or read source COP0 register number
+output [31:0] copwdata;  // write data for external COP0 register
+input  [31:0] coprdata;  // read data from external COP0 register
+input         copbusy;   // stall request from external COP0 register
+...
+endmodule
+
+The "IAW" parameter specifies the instruction memory address width.
+The instruction memory address counts the number of 32-bit instructions.
+For example, IAW=10 means 4KB instruction memory.
+
+The "DAW" parameter specifies the data memory address width.
+The data memory address counts the number of data memory bytes,
+For example, DAW=16 means 64KB data memory.
+
+The "INITPFX" parameter specifies the filename prefix of the initial
+contents of the insn/data memories.  EMIPS initializes its internal
+insn/data memories as follows, so the user must provide five
+initialization files with appropriate filenames.
+
+    localparam SZ_IMEM = (1<<IAW);
+    localparam SZ_DMEM = (1<<DAW);
+    reg [31:0] imem[0:(SZ_IMEM-1)];
+    reg  [7:0] dmem0[0:(SZ_DMEM/4-1)];  // for byte address 4*n+0
+    reg  [7:0] dmem1[0:(SZ_DMEM/4-1)];  // for byte address 4*n+1
+    reg  [7:0] dmem2[0:(SZ_DMEM/4-1)];  // for byte address 4*n+2
+    reg  [7:0] dmem3[0:(SZ_DMEM/4-1)];  // for byte address 4*n+3
+    localparam imem_initfile  = {INITPFX,"-imem.hex"};
+    localparam dmem0_initifle = {INITPFX,"-dmem0.hex"};
+    localparam dmem1_initifle = {INITPFX,"-dmem1.hex"};
+    localparam dmem2_initifle = {INITPFX,"-dmem2.hex"};
+    localparam dmem3_initifle = {INITPFX,"-dmem3.hex"};
+    initial begin
+      $readmemh(imem_initfile, imem);
+      $readmemh(dmem0_initfile, dmem0);
+      $readmemh(dmem1_initfile, dmem1);
+      $readmemh(dmem2_initfile, dmem2);
+      $readmemh(dmem3_initfile, dmem3);
+    end
+
+The "clk" input is the clock input.  EMIPS is completely synchronous,
+uses only positive clock edges, and does not use multicycle paths.
+
+The "rst" input is the active-high synchronous reset input.
+Upon reset, EMIPS clears its program counter.
+
+The "cop*" outputs/inputs are interface signals to/from external COP0
+registers.  The behavior of EMIPS is roughly as follows.
+
+  initial begin
+    copwe = 1'b0;
+    copre = 1'b0;
+    copaddr = 5'hx;
+    copwdata = 32'hx;
+    @(posedge clk);
+    while (rst)  @(posedge clk);
+    forever begin
+      if (EMIPS is executing MTC0 instruction) begin
+        copwe <= 1'b1;
+        copaddr <= destination COP0 register number;
+        copwdata <= source GPR content;
+        @(posedge clk);
+        while (copbusy)  @(posedge clk);
+        copwe <= 1'b0;
+      end else if (EMIPS is executing MFC0 instruction) begin
+        copre <= 1'b1;
+        copaddr <= source COP0 register number;
+        @(posedge clk);
+        while (copbusy)  @(posedge clk);
+        destination GPR content <= coprdata;
+        copre <= 1'b0;
+      end else begin
+        execute the instruction (other than MTC0/MFC0)
+        @(posedge clk);
+        while (copbusy)  @(posedge clk);
+      end
+    end
+  end
+
+Sample timecharts are as follows.
+
+  MTC0 (no stall cycles):
+
+    insn           | ADDU  | MTC0  | SUBU  | LUI   | ORI   |
+    clk           _----____----____----____----____----____-
+    copwe         _________.-------.________________________
+    copaddr       ---------<==N====>------------------------
+    copwdata      ---------<==WD===>------------------------
+    copbusy       __________________________________________
+    write event                   *
+
+  MTC0 (1 stall cycle)
+
+    insn           | ADDU  |     MTC0      | SUBU  | LUI   |
+    clk           _----____----____----____----____----____-
+    copwe         _________.---------------.________________
+    copaddr       ---------<==N============>----------------
+    copwdata      ---------<==WD===========>----------------
+    copbusy       ______________.-------.___________________
+    write event                           *
+
+  MTC0 (2 stall cycles)
+
+    insn           | ADDU  |         MTC0          | SUBU  |
+    clk           _----____----____----____----____----____-
+    copwe         _________.-----------------------.________
+    copaddr       ---------<==N====================>--------
+    copwdata      ---------<==WD===================>--------
+    copbusy       ______________.---------------.___________
+    write event                                   *
+
+
+  MFC0 (no stall cycles):
+
+    insn           | ADDU  | MFC0  | SUBU  | LUI   | ORI   |
+    clk           _----____----____----____----____----____-
+    copre         _________.-------.________________________
+    copaddr       ---------<==N====>------------------------
+    coprdata      --------------<=RD=>----------------------
+    copbusy       __________________________________________
+    read capture                  *
+
+  MFC0 (1 stall cycle)
+
+    insn           | ADDU  |     MFC0      | SUBU  | LUI   |
+    clk           _----____----____----____----____----____-
+    copre         _________.---------------.________________
+    copaddr       ---------<==N============>----------------
+    coprdata      ----------------------<=RD=>--------------
+    copbusy       ______________.-------.___________________
+    read capture                          *
+
+  MFC0 (2 stall cycles)
+
+    insn           | ADDU  |         MFC0          | SUBU  |
+    clk           _----____----____----____----____----____-
+    copre         _________.-----------------------.________
+    copaddr       ---------<==N====================>--------
+    coprdata      ------------------------------<=RD=>------
+    copbusy       ______________.---------------.___________
+    read capture                                  *
+
+  Arbitrary stall (typically useless)
+
+    insn           | ADDU  |     SUBU      | LUI   | ORI   |
+    clk           _----____----____----____----____----____-
+    copwe         __________________________________________
+    copre         __________________________________________
+    copaddr       ------------------------------------------
+    copwdata      ------------------------------------------
+    coprdata      ------------------------------------------
+    copbusy       ______________.-------.___________________
+    insn complete         *               *       *       *
+
+
+Note that, in the "read w/o stall cycles" scenario, EMIPS expects
+asynchronous (zero-cycle) read capability of COP0 registers.
+
+Also note that, when "copbusy" is asserted, EMIPS stalls itself even
+if it is executing a non-COP0 instruction.  However, this behavior is
+typically useless and you will want to assert "copbusy" only when
+EMIPS asserts "copwe" or "copre".
+
+==================
+[4] Implementation
+==================
+
+--------------------
+[4.1] Overall Design
+--------------------
+
+The pipeline of EMIPS consists of 4 stages.
+
+  1. IF : insturcion fetch
+  2. RR : GPR read
+  3. EX : execution (including data memory access)
+  4. WB : GPR writeback
+
+           :             :                                  :
+   <--IF-->:<----RR----->:<--------------EX---------------->:<-----WB----->
+           :             :                                  :
+           :             :                                  :
+           :        +------+              .-----.      +------+   .---.
+      +------+  .-->|  FF  |------------->|     |  .-->|  FF  |-->|   |
+      |      |  |   +------+              |     |  |   +------+   |   |
+      | IMEM |--+        :                |     |  |        :     |SEL|--.
+      |      |  |   +------+              | ALU |--+   +------+   |   |  |
+      +------+  |   |      |      .---.   |     |  |   |      |   |   |  |
+           :    `-->| GPR  |----->|   |   |     |  `-->| DMEM |-->|   |  |
+           :        |      |      |FWD|-->|     |      |      |   `---'  |
+           :        +------+  .-->|   |   `-----'      +------+          |
+           :          A  :    |   `---'                     :            |
+           :          |  :    |                             :            |
+           :          `-------+------------------------------------------'
+           :             :                                  :
+           :             :                                  :
+
+Unlike the classic 5-stage pipeline (IF/ID/EX/MEM/WB), EMIPS performs
+"instruction execution" and "data memory access" in the same stage.
+This architecture results in lower clock frequency than the classic
+5-stage pipeline, but simplifies fowarding logic and achieves CPI=1
+for all instructions except COP0/multiply/divide.
+
+----------------------------------
+[4.2] Detailed Submodule Structure
+----------------------------------
+
+                                 .---------------------------.
+  .------------------------------|            SEL            |
+  |                              `---------------------------'
+  |                               A    A                A  A
+  |                               |    |                |  |
+  |                             .---.  |                |  |
+  |                             | + |  |                |  |
+  |                             `---'  |                |  |
+  |                              A A   |                |  |
+  |   +-----+                    | |   |   .----.       |  |                             .---.
+  +-->| nPC |--------------------+-------->| +4 |--------------------------------------->|   |
+  |   +-----+                      |   |   `----'       |  |                             |   |   +------+
+  |                                |   |                |  +--msb----------------------->|   |   |      |
+  |                   +-----+      |   |                |  |                             |SEL|-->|  FF  |--.
+  |               .-->|  FF |------+---+-----------------------+------------------------>|   |   |      |  |
+  |   +------+    |   +-----+                           |  |   |   .---.                 |   |   +------+  |
+  |   |      |    |                   .---.             |  |   `-->|   |             .-->|   |             |
+  `-->| IMEM |----+            .----->|   |             |  |       |SEL|--.          |   `---'             |   .---.
+      |      |    |   +-----+  |      |SEL|--+-----------------+-->|   |  |   .---.  |                     `-->|   |
+      +------+    |   |     |--'  .-->|   |  |   .---.  |  |   |   `---'  |   |ALU|  |                         |SEL|--.
+                  `-->| GPR |     |   `---'  `-->|   |  |  |   |          `-->|   |  |                     .-->|   |  |
+                      |     |--.  |              |jdg|--'  |   |              |SFT|--+                     |   `---'  |
+                      +-----+  |  |   .---.  .-->|   |     |   |          .-->|   |  |           +------+  |          |
+                         A     `----->|   |  |   `---'     |   |          |   |MUL|  |           |      |  |          |
+                         |        |   |SEL|--+-------------+--------------'   `---'  `---------->| DMEM |--'          |
+                         |        +-->|   |                    |                                 |      |             |
+                         |        |   `---'                    `-------------------------------->|      |             |
+                         |        |                                                              +------+             |
+                         |        |                                                                                   |
+                         `--------+-----------------------------------------------------------------------------------'
+
+T.B.D.
