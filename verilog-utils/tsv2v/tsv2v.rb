@@ -272,7 +272,7 @@ end
 TypeStr = { "i" => "input", "o" => "output", "w" => "wire", "a" => "assign", "p" => "parameter", "l" => "localparam" }
 TypeStr_rdy = { "i" => "output", "o" => "input", "w" => "wire" }
 
-def width_of_compound_handshaking_channel(channels)
+def width_of_bundled_handshaking_channel(channels)
   nr_chan = channels.size
   ModInfo.hskwidth.include?(channels[0]) or fail "unknown handshaking channel #{channels[0]}"
   widthdef = ModInfo.hskwidth[channels[0]]
@@ -459,7 +459,7 @@ def convert(line)
       # @ allchan = { srcchan0 srcchan1 ... srcchanN } 
       nr_chan = arr.size - 5
       allchan, srcchans = arr[1], arr[4..-2]
-      width = width_of_compound_handshaking_channel(srcchans)
+      width = width_of_bundled_handshaking_channel(srcchans)
       convert("w #{nr_chan} #{allchan}_vld #{allchan}_rdy")
       convert("w #{width} #{allchan}")
       convert("a #{allchan}_vld = { " + srcchans.map{|s| s+"_vld"}.join(" ") + " }")
@@ -469,7 +469,7 @@ def convert(line)
       # @ { dstchan0 dstchan1 ... dstchanN } = allchan
       nr_chan = arr.size - 5
       dstchans, allchan = arr[2..-4], arr[-1]
-      width = width_of_compound_handshaking_channel(dstchans)
+      width = width_of_bundled_handshaking_channel(dstchans)
       convert("w #{nr_chan} #{allchan}_vld #{allchan}_rdy")
       convert("w #{width} #{allchan}")
       convert("a { " + dstchans.map{|s| s+"_vld"}.join(" ") + " } = #{allchan}_vld")
