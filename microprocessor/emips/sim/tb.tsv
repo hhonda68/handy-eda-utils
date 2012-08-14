@@ -15,8 +15,8 @@ w    copwe copre copbusy copexit
 w  5 copaddr
 w 32 copwdata coprdata
 
-m emips#(12,16):u_dut clk rst copwe copre copaddr copwdata coprdata copbusy
-m cop0_print:u_cop    clk rst copwe copre copaddr copwdata coprdata copbusy copexit
+m emips#(16):u_dut clk rst copwe copre copaddr copwdata coprdata copbusy
+m cop0_print:u_cop clk rst copwe copre copaddr copwdata coprdata copbusy copexit
 
 l    CYC 10
 

@@ -7,9 +7,8 @@
 #  http://www.opensource.org/licenses/mit-license.php.)
 
 module emips
-p     IAW 10			# Instruction memory Address Width (word address)
-p     DAW 16			# Data memory Address Width (byte address)
-p     INITPFX "emips"		# prefix of IMEM/DMEM initialization data filename
+p     AW 10			# internal memory address width (byte address)
+p     INITPFX "emips-mem"	# prefix of internal memory initialization data filename
 i     clk rst
 o     copwe	# COP0 write enable
 o     copre     # COP0 read enable
@@ -18,17 +17,19 @@ o  32 copwdata	# COP0 write data
 i  32 coprdata	# COP0 read data
 i     copbusy	# COP0 busy
 
+l     IAW AW-2	# instruction memory address width (word address)
+l     DAW AW	# data memory addresss width (byte address)
+
 w     mulbusy
 w     cke = !(mulbusy || copbusy)
 
-l     IMEM {INITPFX,"-imem.hex"}
-
 w IAW npc npc_nxt
-w IAW imaddr = rst ? {IAW{1'b0}} : npc_nxt
+w IAW imaddr = rst ? {IAW{1'b0}} : npc_nxt	# instruction memory read address
+w  32 imdata					# instruction memory read data
+m $dffe#(IAW) clk cke imaddr npc
 w  32 insn_fetch insn_exec
-m $dffe#(IAW)           clk     cke imaddr npc
-m $rom#(IAW,32,IMEM)    clk     cke imaddr insn_fetch
-m $dffre#(32)           clk rst cke insn_fetch insn_exec
+a     insn_fetch = imdata
+m $dffre#(32) clk rst cke insn_fetch insn_exec
 
 w   5 rsnr_fetch rtnr_fetch
 a     { rsnr_fetch rtnr_fetch } = insn_fetch[25:16]
@@ -79,7 +80,7 @@ m $alu#(DAW)                      opcode rs rt imm aluans dmaddr
 m $sft                            funct[2:0] rt rs[4:0] sa sftans
 m $mul                clk rst     opcode funct rs rt mulans mulbusy
 m $wbksel                         opcode rsnr rtnr rdnr funct rs[31] wbknr_nxt wbksel
-m $dmem#(DAW,INITPFX) clk     cke opcode dmaddr rt dmdata
+m $mem#(AW,INITPFX)   clk     cke imaddr imdata opcode dmaddr rt dmdata
 
 w 128 wbkval_nxt_cand = { aluans sftans mulans npcinc32 }
 w  32 wbkval_nxt0 = $sel#(2,32) ( ~wbksel[1:0] wbkval_nxt_cand )
@@ -552,51 +553,56 @@ a    wbksel = opcode[4] \
                  : ((opcode[1:0]!=2'b00) ? 3'd3 : (funct[5] ? 3'd0 : (funct[4] ? 3'd2 : funct[3] ? 3'd3 : 3'd1))))
 endmodule
 
-module $dmem
-p DAW      16
-p INITPFX  "emips"
+module $mem
+p     AW       16
+p     INITPFX  "emips-mem"
+l     IAW      AW-2
+l     DAW      AW
 i     clk cke
-i   6 opcode
-i DAW addr
-i  32 wdata
-o  32 rdata
+i IAW imaddr
+o  32 imdata
+i   6 dmopcode
+i DAW dmaddr
+i  32 dmwdata
+o  32 dmrdata
 
-# opcode  insn
+# dmopcode  insn
 # -------------
-# 100000   LB 
-# 100001   LH 
-# 100011   LW 
-# 100100   LBU
-# 100101   LHU
-# 101000   SB 
-# 101001   SH 
-# 101011   SW 
+# 100000     LB 
+# 100001     LH 
+# 100011     LW 
+# 100100     LBU
+# 100101     LHU
+# 101000     SB 
+# 101001     SH 
+# 101011     SW 
 
-w  8 wdata[0-3]			# wdata0=MSB, wdata3=LSB
-a    { wdata[0-3] } = wdata
-w  8 memwdata3 = wdata3
-w  8 memwdata2 = (opcode[1:0]!=2'b00) ? wdata2 : wdata3
-w  8 memwdata1 = opcode[1] ? wdata1 : wdata3
-w  8 memwdata0 = opcode[1] ? wdata0 : (opcode[0] ? wdata2 : wdata3)
-w    store_insn = cke && opcode[5] && opcode[3]
-w    memwe0 = store_insn && (opcode[1] || ((~addr[1]) && (opcode[0] || (~addr[0]))))
-w    memwe1 = store_insn && (opcode[1] || ((~addr[1]) && (opcode[0] ||   addr[0] )))
-w    memwe2 = store_insn && (opcode[1] || (  addr[1]  && (opcode[0] || (~addr[0]))))
-w    memwe3 = store_insn && (opcode[1] || (  addr[1]  && (opcode[0] ||   addr[0] )))
-w    memre = cke && opcode[5] && (~opcode[3])
-w  8 memrdata[0-3]
-w  2 memraddrlo
-w  3 memrtype
-l    DMEM0 {INITPFX,"-dmem0.hex"}	# byte address 4n+0 : most significant byte in 32bit word
-l    DMEM1 {INITPFX,"-dmem1.hex"}
-l    DMEM2 {INITPFX,"-dmem2.hex"}
-l    DMEM3 {INITPFX,"-dmem3.hex"}	# byte address 4n+3 : least significant byte in 32bit word
-m $rum#(DAW-2,8,DMEM0) clk memwe0 addr[DAW-1:2] memwdata0 memre addr[DAW-1:2] memrdata0
-m $rum#(DAW-2,8,DMEM1) clk memwe1 addr[DAW-1:2] memwdata1 memre addr[DAW-1:2] memrdata1
-m $rum#(DAW-2,8,DMEM2) clk memwe2 addr[DAW-1:2] memwdata2 memre addr[DAW-1:2] memrdata2
-m $rum#(DAW-2,8,DMEM3) clk memwe3 addr[DAW-1:2] memwdata3 memre addr[DAW-1:2] memrdata3
-m $dffe#(5)            clk memre {addr[1:0],opcode[2:0]} {memraddrlo,memrtype}
-#  memrtype  memraddrlo   rdata
+w  8 dmwdata[0-3]			# wdata0=MSB, wdata3=LSB
+a    { dmwdata[0-3] } = dmwdata
+w  8 memwdata3 = dmwdata3
+w  8 memwdata2 = (dmopcode[1:0]!=2'b00) ? dmwdata2 : dmwdata3
+w  8 memwdata1 = dmopcode[1] ? dmwdata1 : dmwdata3
+w  8 memwdata0 = dmopcode[1] ? dmwdata0 : (dmopcode[0] ? dmwdata2 : dmwdata3)
+w    store_insn = cke && dmopcode[5] && dmopcode[3]
+w    dmwe0 = store_insn && (dmopcode[1] || ((~dmaddr[1]) && (dmopcode[0] || (~dmaddr[0]))))
+w    dmwe1 = store_insn && (dmopcode[1] || ((~dmaddr[1]) && (dmopcode[0] ||   dmaddr[0] )))
+w    dmwe2 = store_insn && (dmopcode[1] || (  dmaddr[1]  && (dmopcode[0] || (~dmaddr[0]))))
+w    dmwe3 = store_insn && (dmopcode[1] || (  dmaddr[1]  && (dmopcode[0] ||   dmaddr[0] )))
+w    dmre = cke && dmopcode[5] && (~dmopcode[3])
+w  8 imdata[0-3] memrdata[0-3]
+w  2 dmraddrlo
+w  3 dmrtype
+l    MEM0 {INITPFX,"0.hex"}	# byte address 4n+0 : most significant byte in 32bit word
+l    MEM1 {INITPFX,"1.hex"}
+l    MEM2 {INITPFX,"2.hex"}
+l    MEM3 {INITPFX,"3.hex"}	# byte address 4n+3 : least significant byte in 32bit word
+m $dpram#(AW-2,8,MEM0) clk imaddr 1'b0 8'd0 cke imdata0 dmaddr[DAW-1:2] dmwe0 memwdata0 dmre memrdata0
+m $dpram#(AW-2,8,MEM1) clk imaddr 1'b0 8'd0 cke imdata1 dmaddr[DAW-1:2] dmwe1 memwdata1 dmre memrdata1
+m $dpram#(AW-2,8,MEM2) clk imaddr 1'b0 8'd0 cke imdata2 dmaddr[DAW-1:2] dmwe2 memwdata2 dmre memrdata2
+m $dpram#(AW-2,8,MEM3) clk imaddr 1'b0 8'd0 cke imdata3 dmaddr[DAW-1:2] dmwe3 memwdata3 dmre memrdata3
+a    imdata = { imdata[0-3] }
+m $dffe#(5)            clk dmre {dmaddr[1:0],dmopcode[2:0]} {dmraddrlo,dmrtype}
+#   dmrtype  dmraddrlo   dmrdata
 #  ------------------------------------
 #     000        00      {s0,s0,s0,d0}
 #     000        01      {s1,s1,s1,d1}
@@ -611,19 +617,19 @@ m $dffe#(5)            clk memre {addr[1:0],opcode[2:0]} {memraddrlo,memrtype}
 #     100        11      {00,00,00,d3}
 #     101        0x      {00,00,d0,d1}
 #     101        1x      {00,00,d2,d3}
-w  8 ext0 = {8{(~memrtype[2])&&memrdata0[7]}}
-w  8 ext1 = {8{(~memrtype[2])&&memrdata1[7]}}
-w  8 ext2 = {8{(~memrtype[2])&&memrdata2[7]}}
-w  8 ext3 = {8{(~memrtype[2])&&memrdata3[7]}}
+w  8 ext0 = {8{(~dmrtype[2])&&memrdata0[7]}}
+w  8 ext1 = {8{(~dmrtype[2])&&memrdata1[7]}}
+w  8 ext2 = {8{(~dmrtype[2])&&memrdata2[7]}}
+w  8 ext3 = {8{(~dmrtype[2])&&memrdata3[7]}}
 w 32 extw = { ext[0-3] }
-w  8 extb = $sel#(2,8) ( ~memraddrlo extw )
+w  8 extb = $sel#(2,8) ( ~dmraddrlo extw )
 w 32 memrdata = { memrdata[0-3] }
-w  2 rdata3_sel = memraddrlo | memrtype[1:0]
-w  8 rdata3 = $sel#(2,8) ( ~rdata3_sel memrdata )
-w  8 rdata2 = memrtype[0] ? ((memrtype[1]|memraddrlo[1]) ? memrdata2 : memrdata0) : extb
-w  8 rdata1 = memrtype[1] ? memrdata1 : extb
-w  8 rdata0 = memrtype[1] ? memrdata0 : extb
-a    rdata = { rdata[0-3] }
+w  2 dmrdata3_sel = dmraddrlo | dmrtype[1:0]
+w  8 dmrdata3 = $sel#(2,8) ( ~dmrdata3_sel memrdata )
+w  8 dmrdata2 = dmrtype[0] ? ((dmrtype[1]|dmraddrlo[1]) ? memrdata2 : memrdata0) : extb
+w  8 dmrdata1 = dmrtype[1] ? memrdata1 : extb
+w  8 dmrdata0 = dmrtype[1] ? memrdata0 : extb
+a    dmrdata = { dmrdata[0-3] }
 endmodule
 
 module $fwd
@@ -680,44 +686,87 @@ a RD = mem[RA_reg]
 endmodule
 `endif
 
-module $rum
-p     AW 8
+module $dpram
+p     AW 16
 p     DW 8
 p     INITFILE "initfile.hex"
 i     CLK
-i     WE
-i  AW WA
-i  DW WD
-i     RE
-i  AW RA
-o  DW RD
+i  AW A0
+i     WE0
+i  DW WD0
+i     RE0
+o  DW RD0
+i  AW A1
+i     WE1
+i  DW WD1
+i     RE1
+o  DW RD1
+`ifdef EMIPS_RTLSIM
+l     DEPTH (1<<AW)
+reg [DW-1:0] mem[0:DEPTH-1];
+reg [DW-1:0] RD0, RD1;
+initial $readmemh(INITFILE, mem);
+always @(posedge CLK) begin
+  if (WE0)  mem[A0] <= WD0;
+  if (RE0)  RD0 <= mem[A0];
+  /*synthesis translate_off*/
+  if (RE0 & WE0)  RD0 <= {DW{1'bx}};
+  /*synthesis translate_on*/
+end
+always @(posedge CLK) begin
+  if (WE1)  mem[A1] <= WD1;
+  if (RE1)  RD1 <= mem[A1];
+  /*synthesis translate_off*/
+  if (RE1 & WE1)  RD1 <= {DW{1'bx}};
+  /*synthesis translate_on*/
+end
+`else
+w  AW ABAK[0-1] AADJ[0-1]
+w     CS0 = RE0 | WE0
+w     CS1 = RE1 | WE1
+m $dffe#(AW) CLK CS0 A0 ABAK0
+m $dffe#(AW) CLK CS1 A1 ABAK1
+a     AADJ0 = CS0 ? A0 : ABAK0
+a     AADJ1 = CS1 ? A1 : ABAK1
+m $inferrable_dpram#(AW,DW,INITFILE) CLK AADJ0 WE0 WD0 RD0 AADJ1 WE1 WD1 RD1
+`endif
+endmodule
+
+`ifndef EMIPS_RTLSIM
+module $inferrable_dpram
+p     AW 16
+p     DW 8
+p     INITFILE "initfile.hex"
+i     CLK
+i  AW A0
+i     WE0
+i  DW WD0
+o  DW RD0
+i  AW A1
+i     WE1
+i  DW WD1
+o  DW RD1
 l     DEPTH (1<<AW)
 (* ramstyle = "no_rw_check" *)
 reg [DW-1:0] mem[0:DEPTH-1];
-reg [DW-1:0] RD;
+reg [DW-1:0] RD0, RD1;
 initial $readmemh(INITFILE, mem);
 always @(posedge CLK) begin
-  if (WE)  mem[WA] <= WD;
-  if (RE)  RD <= mem[RA];
+  RD0 <= mem[A0];
+  if (WE0) begin
+    RD0 <= WD0;
+    mem[A0] <= WD0;
+  end
 end
-endmodule
-
-module $rom
-p     AW 8
-p     DW 8
-p     INITFILE "initfile.hex"
-i    CLK
-i    RE
-i AW RA
-o DW RD
-l    DEPTH (1<<AW)
-reg [DW-1:0] mem[0:DEPTH-1];
-reg [DW-1:0] RD;
-initial $readmemh(INITFILE, mem);
 always @(posedge CLK) begin
-  if (RE)  RD <= mem[RA];
+  RD1 <= mem[A1];
+  if (WE1) begin
+    RD1 <= WD1;
+    mem[A1] <= WD1;
+  end
 end
 endmodule
+`endif
 
 module $sel
 p    SW 1 OW 1

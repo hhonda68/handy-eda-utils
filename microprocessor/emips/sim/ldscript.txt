@@ -8,20 +8,18 @@
  */
 
 SECTIONS {
-  .text 0x80000000 : AT (0x00000000) {
-    __IMEM_START = .;
+  .text : {
+    __TEXT_START = .;
     __text_start = .;
     *(.text)
     __text_end = .;
-    __IMEM_END = .;
-  }
-  .data 0x00000000 : AT ( LOADADDR(.text) + SIZEOF(.text) ) {
-    __DMEM_START = .;
-    __DMEM_INIT_START = .;
-    . += 4;
     __rodata_start = .;
     *(.rodata .rodata.*)
     __rodata_end = .;
+    __TEXT_END = .;
+  }
+  .data : {
+    __DATA_START = .;
     __data_start = .;
     *(.data .data.*)
     __data_end = .;
@@ -29,10 +27,10 @@ SECTIONS {
     __sdata_start = .;
     *(.sdata .sdata.*)
     __sdata_end = .;
-    __DMEM_INIT_END = .;
+    __DATA_END = .;
   }
-  .bss __DMEM_INIT_END : {
-    __DMEM_ZERO_START = .;
+  .bss : {
+    __BSS_START = .;
     __sbss_start = .;
     *(.sbss .sbss.*)
     __sbss_end = .;
@@ -45,7 +43,6 @@ SECTIONS {
     __common_start = .;
     *(COMMON)
     __common_end = .;
-    __DMEM_ZERO_END = .;
-    __DMEM_END = .;
+    __BSS_END = .;
   }
 }

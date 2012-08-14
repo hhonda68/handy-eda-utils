@@ -35,7 +35,6 @@ Features:
   * Consumes 1000 ALUTs (+ Block RAMs for insn/data memory) on StratixIII.
   * Runs at 120MHz on StratixIII C3 (medium speed grade).
   * Supports only big endian memory access.
-  * Separates insn and data memories completely (harvard architecture).
 
 =======
 [2] ISA
@@ -124,8 +123,7 @@ or try different compilation options.
 ========================
 
 module emips(clk,rst,copwe,copre,copaddr,copwdata,coprdata,copbusy);
-parameter IAW=10;
-parameter DAW=16;
+parameter AW=16;
 parameter INITPFX="emips";
 input         clk, rst;
 output        copwe;     // "write enable" for external COP0 register
@@ -137,37 +135,29 @@ input         copbusy;   // stall request from external COP0 register
 ...
 endmodule
 
-The "IAW" parameter specifies the instruction memory address width.
-The instruction memory address counts the number of 32-bit instructions.
-For example, IAW=10 means 4KB instruction memory.
-
-The "DAW" parameter specifies the data memory address width.
-The data memory address counts the number of data memory bytes,
+The "AW" parameter specifies the internal memory address width.
+The internal memory address counts the number of bytes.
 For example, DAW=16 means 64KB data memory.
 
 The "INITPFX" parameter specifies the filename prefix of the initial
-contents of the insn/data memories.  EMIPS initializes its internal
-insn/data memories as follows, so the user must provide five
-initialization files with appropriate filenames.
+contents of the internal memory.  EMIPS initializes its internal memory
+as follows, so the user must provide four initialization files
+with appropriate filenames.
 
-    localparam SZ_IMEM = (1<<IAW);
-    localparam SZ_DMEM = (1<<DAW);
-    reg [31:0] imem[0:(SZ_IMEM-1)];
-    reg  [7:0] dmem0[0:(SZ_DMEM/4-1)];  // for byte address 4*n+0
-    reg  [7:0] dmem1[0:(SZ_DMEM/4-1)];  // for byte address 4*n+1
-    reg  [7:0] dmem2[0:(SZ_DMEM/4-1)];  // for byte address 4*n+2
-    reg  [7:0] dmem3[0:(SZ_DMEM/4-1)];  // for byte address 4*n+3
-    localparam imem_initfile  = {INITPFX,"-imem.hex"};
-    localparam dmem0_initifle = {INITPFX,"-dmem0.hex"};
-    localparam dmem1_initifle = {INITPFX,"-dmem1.hex"};
-    localparam dmem2_initifle = {INITPFX,"-dmem2.hex"};
-    localparam dmem3_initifle = {INITPFX,"-dmem3.hex"};
+    localparam SZ_MEM = (1<<AW);
+    reg  [7:0] mem0[0:(SZ_MEM/4-1)];  // for byte address 4*n+0
+    reg  [7:0] mem1[0:(SZ_MEM/4-1)];  // for byte address 4*n+1
+    reg  [7:0] mem2[0:(SZ_MEM/4-1)];  // for byte address 4*n+2
+    reg  [7:0] mem3[0:(SZ_MEM/4-1)];  // for byte address 4*n+3
+    localparam mem0_initifle = {INITPFX,"0.hex"};
+    localparam mem1_initifle = {INITPFX,"1.hex"};
+    localparam mem2_initifle = {INITPFX,"2.hex"};
+    localparam mem3_initifle = {INITPFX,"3.hex"};
     initial begin
-      $readmemh(imem_initfile, imem);
-      $readmemh(dmem0_initfile, dmem0);
-      $readmemh(dmem1_initfile, dmem1);
-      $readmemh(dmem2_initfile, dmem2);
-      $readmemh(dmem3_initfile, dmem3);
+      $readmemh(mem0_initfile, mem0);
+      $readmemh(mem1_initfile, mem1);
+      $readmemh(mem2_initfile, mem2);
+      $readmemh(mem3_initfile, mem3);
     end
 
 The "clk" input is the clock input.  EMIPS is completely synchronous,
@@ -332,6 +322,9 @@ Unlike the classic 5-stage pipeline (IF/ID/EX/MEM/WB), EMIPS performs
 This architecture results in lower clock frequency than the classic
 5-stage pipeline, but simplifies fowarding logic and achieves CPI=1
 for all instructions except COP0/multiply/divide.
+
+IMEM (the instruction memory) and DMEM (the internal memory) are
+implemented as one (unified) dual-port memory.
 
 ----------------------------------
 [4.2] Detailed Submodule Structure
