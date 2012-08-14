@@ -51,7 +51,7 @@ w     rt_new_nxt = wbknr_nez & (wbknr == rtnr_fetch)
 w     rs_new rt_new
 m $dffre      clk rst cke     rs_new_nxt rs_new
 m $dffre      clk rst cke     rt_new_nxt rt_new
-m $dffe#(32)  clk     gpr_cke wbk        wbk_new
+m $dffe#(32)  clk     gpr_we  wbk        wbk_new
 a     rfrs = rs_new ? wbk_new : rfrs_mlab
 a     rfrt = rt_new ? wbk_new : rfrt_mlab
 `endif
