@@ -205,3 +205,79 @@ a foo = { bar[19-0] }
 a { foo[0-19] } = bar
 a { foo[0-19] } = { bar[19-0] }
 endmodule
+
+module handshaking_idiom_test1
+i 8   idata@
+o 8   odata@
+@     odata = idata
+a     odata = idata + 8'd1
+endmodule
+
+module handshaking_idiom_test2
+i    a@ b@
+i  8 c@
+i 10 d@
+o 10 y@
+@    y = a b c d
+a    y = {a,b,c} + d
+endmodule
+
+module handshaking_idiom_test3
+i    clk rst
+i  8 a@
+o  9 y0
+o    y1
+o  2 y2
+o  4 y3
+@    y[0-3] = a
+w    allzero = (a == 8'd0)
+w    allone  = (a == 8'd255)
+a    y0 = { allzero a }
+a    y1 = allzero
+a    y2 = { allzero allone }
+a    y3 = a[3:0]
+endmodule
+
+module handshaking_idiom_test4
+l     W 10
+i  8  a[0-9]@
+i  W  b[0-9]@
+i W*2 c[0-9]@
+o  9  x[0-9]@
+o  W  y[0-9]@
+o W*3 z[0-9]@
+@     alla = { a[0-9] }
+@     allb = { b[0-9] }
+@     allc = { c[0-9] }
+@     { x[0-9] } = allx
+@     { y[0-9] } = ally
+@     { z[0-9] } = allz
+m handshaking_idiom_test4_sub[0:9] alla@ allb@ allc@ allx@ ally@ allz@
+endmodule
+
+module handshaking_idiom_test5
+# meaningless operation (only for conversion test)
+p     N 5
+l     W 10
+w   8 a[0-9]@
+w   W b[0-9]@
+w W*2 c[0-9]@
+@     allai = { a[0-9] }
+@     allbi = { b[0-9] }
+@     allci = { c[0-9] }
+@     { a[0-9] } = allao
+@     { b[0-9] } = allbo
+@     { c[0-9] } = allco
+@   8 10 allp[0-2]
+@   W 10 allq0
+@ W*2 10 allr0
+@   8  N allp[3-4]
+@   W  N allq1
+@ W*2  N allr1
+@   8 N+1 allp[5-7]
+@   W N+1 allq2
+@ W*2 N+1 allr2
+@ 10   allp8
+@ N    allq8
+@ N+1  allr8
+endmodule

@@ -73,6 +73,37 @@
 #        w 8 foo@ --> w   foo_vld foo_rdy
 #                     w 8 foo
 #        m submod foo@ --> m submod foo_vld foo_rdy foo
+#   7. Expand "common handshaking idiom" lines
+#        @ dstchan = srcchan
+#           --> a dstchan_vld = srcchan_vld
+#               a srcchan_rdy = dstchan_rdy
+#        @ dstchan = srcchan0 srcchan1 srcchan2 ... srcchanN
+#           --> a dstchan_vld  = srcchan0_vld & srcchan1_vld & srcchan2_vld & ... & srcchanN_vld & 1'b1
+#               a srcchan0_rdy = 1'b1         & srcchan1_vld & srcchan2_vld & ... & srcchanN_vld & dstchan_rdy
+#               a srcchan1_rdy = srcchan0_vld & 1'b1         & srcchan2_vld & ... & srcchanN_vld & dstchan_rdy
+#               a srcchan2_rdy = srcchan0_vld & srcchan1_vld & 1'b1         & ... & srcchanN_vld & dstchan_rdy
+#               ...(ditto)...
+#               a srcchanN_rdy = srcchan0_vld & srcchan1_vld & srcchan2_vld & ... & 1'b1         & dstchan_rdy
+#        @ dstchan0 dstchan1 ... dstchanN = srcchan
+#           --> m FORKHSK#(N+1) clk rst srcchan_vld srcchan_rdy \
+#                   {dstchan0_vld,dstchan1_vld,...,dstchanN_vld} {dstchan0_rdy,dstchan1_rdy,...,dstchanN_rdy}
+#        @ [WIDTH] NUM allchan0 [allchan1 ...]
+#           --> w NUM       allchan0_vld allchan0_rdy [allchan1_vld allchan1_rdy ...]
+#               w WIDTH*NUM allchan0 [allchan1 ...]
+#        @ allchan = { srcchan0 srcchan1 ... srcchanN } 
+#           --> w N+1     allchan_vld allchan_rdy
+#               w W*(N+1) allchan
+#               a         allchan_vld = { srcchan0_vld srcchan1_vld ... srcchanN_vld }
+#               a         { srcchan0_rdy srcchan1_rdy ... srcchanN_rdy } = allchan_rdy
+#               a         allchan = { srcchan0 srcchan1 ... srcchanN }
+#               (Note: all source channels must have the same width)
+#        @ { dstchan0 dstchan1 ... dstchanN } = allchan
+#           --> w N+1     allchan_vld allchan_rdy
+#               w W*(N+1) allchan
+#               a         { dstchan0_vld dstchan1_vld ... dstchanN_vld } = allchan_vld
+#               a         allchan_rdy = { dstchan0_rdy dstchan1_rdy ... dstchanN_rdy }
+#               a         { dstchan0 dstchan1 ... dstchanN } = allchan
+#               (Note: all destination channels must have the same width)
 
 MaxLineLen = 70
 
@@ -81,6 +112,10 @@ def abbrev_instance_name(modulename)
   # FooBarBaz   --> baz
   modulename.sub(/^.*_([a-zA-Z])/){$1}.sub(/^.*[a-z\d]([A-Z])/){$1}.downcase \
     .gsub(/_+/,"_").gsub(/([a-z])_/){$1}.sub(/(.)_$/){$1}
+end
+
+def handshaking_idiom_fork(nr_chan, srcvld, srcrdy, alldstvld, alldstrdy)
+  "m FORKHSK\#(#{nr_chan}) clk rst #{srcvld} #{srcrdy} #{alldstvld} #{alldstrdy}"
 end
 
 ################################################################
@@ -133,7 +168,7 @@ def println(*args)
   end
 end
 
-ModuleInfo = Struct.new(:name, :params, :args, :arglines, :bodylines, :instseq, :topname)
+ModuleInfo = Struct.new(:name, :params, :args, :arglines, :bodylines, :instseq, :topname, :hskwidth)
 ModInfo = ModuleInfo.new
 
 ModInfo.name = nil
@@ -142,7 +177,8 @@ ModInfo.args = []
 ModInfo.arglines = []
 ModInfo.bodylines = []
 ModInfo.instseq = {}
-ModInfo.topname = nil   # name of the first (topmost) module
+ModInfo.topname = nil	# name of the first (topmost) module
+ModInfo.hskwidth = {}	# width of handshaking channels
 
 def print_module
   println(prettyprint(0, "module #{ModInfo.name}(", ModInfo.args.join(","), ");"))
@@ -153,6 +189,7 @@ def print_module
   ModInfo.arglines.clear
   ModInfo.bodylines.clear
   ModInfo.instseq.clear
+  ModInfo.hskwidth.clear
 end
 
 def prepend_optional_prefix(name)
@@ -235,6 +272,27 @@ end
 TypeStr = { "i" => "input", "o" => "output", "w" => "wire", "a" => "assign", "p" => "parameter", "l" => "localparam" }
 TypeStr_rdy = { "i" => "output", "o" => "input", "w" => "wire" }
 
+def width_of_compound_handshaking_channel(channels)
+  nr_chan = channels.size
+  ModInfo.hskwidth.include?(channels[0]) or fail "unknown handshaking channel #{channels[0]}"
+  widthdef = ModInfo.hskwidth[channels[0]]
+  channels[1..-1].each do |s|
+    ModInfo.hskwidth.include?(s) or fail "unknown handshaking channel #{s}"
+    (ModInfo.hskwidth[s] == widthdef)  or fail "non-uniform handshaking channel widths"
+  end
+  case widthdef
+  when " "
+    width = nr_chan.to_s
+  when /^ \[(\d+):0\] $/
+    width = "#{$1.to_i+1}*#{nr_chan}"
+  when /^ \[(.+)-1:0\] $/
+    width = "#{$1}*#{nr_chan}"
+  else
+    fail
+  end
+  width
+end
+
 def convert(line)
   line.sub!(/\s+#.*$/,"")
   while (line.sub!(/\s*\\$/," ")) do
@@ -314,6 +372,7 @@ def convert(line)
           else
             ModInfo.bodylines.push(line_vld, line_rdy, line)
           end
+          ModInfo.hskwidth[sig] = width
         end
         args = arr[4..-2].map{|x| expand_handshake(x)}
         args.push(sig_vld, sig_rdy, sig)
@@ -362,6 +421,7 @@ def convert(line)
           if (name.sub!(/@$/,"")) then
             descs.push([TypeStr[type], " ", name+"_vld"],
                        [TypeStr_rdy[type], " ", name+"_rdy"])
+            ModInfo.hskwidth[name] = width
           end
           descs.push([TypeStr[type], width, name])
         end
@@ -389,6 +449,77 @@ def convert(line)
     submod = append_instance_name(arr[1])
     args = arr[2..-1].map{|x| expand_handshake(x)}
     ModInfo.bodylines.push(prettyprint(0, "#{submod}(", args.join(","), ");"))
+  when "@"
+    if ((arr.size == 4) && (arr[2] == "=")) then
+      # @ dstchan = srcchan
+      dstchan, srcchan = arr[1], arr[3]
+      convert("a #{dstchan}_vld = #{srcchan}_vld")
+      convert("a #{srcchan}_rdy = #{dstchan}_rdy")
+    elsif ((arr.size >= 7) && (arr[2] == "=") && (arr[3] == "{") && (arr[-1] == "}")) then
+      # @ allchan = { srcchan0 srcchan1 ... srcchanN } 
+      nr_chan = arr.size - 5
+      allchan, srcchans = arr[1], arr[4..-2]
+      width = width_of_compound_handshaking_channel(srcchans)
+      convert("w #{nr_chan} #{allchan}_vld #{allchan}_rdy")
+      convert("w #{width} #{allchan}")
+      convert("a #{allchan}_vld = { " + srcchans.map{|s| s+"_vld"}.join(" ") + " }")
+      convert("a { " + srcchans.map{|s| s+"_rdy"}.join(" ") + " } = #{allchan}_rdy")
+      convert("a #{allchan} = { " + srcchans.join(" ") + " }")
+    elsif ((arr.size >= 7) && (arr[1] == "{") && (arr[-3] == "}") && (arr[-2] == "=")) then
+      # @ { dstchan0 dstchan1 ... dstchanN } = allchan
+      nr_chan = arr.size - 5
+      dstchans, allchan = arr[2..-4], arr[-1]
+      width = width_of_compound_handshaking_channel(dstchans)
+      convert("w #{nr_chan} #{allchan}_vld #{allchan}_rdy")
+      convert("w #{width} #{allchan}")
+      convert("a { " + dstchans.map{|s| s+"_vld"}.join(" ") + " } = #{allchan}_vld")
+      convert("a #{allchan}_rdy = { " + dstchans.map{|s| s+"_rdy"}.join(" ") + " }")
+      convert("a { " + dstchans.join(" ") + " } = #{allchan}")
+    elsif ((arr.size >= 5) && arr[2] == "=") then
+      # @ dstchan = srcchan0 srcchan1 srcchan2 ... srcchanN
+      nr_chan = arr.size - 3
+      dstchan, srcchans = arr[1], arr[3..-1]
+      srcvlds = srcchans.map{|s| s+"_vld"}
+      ModInfo.bodylines.push(prettyprint(0, "assign #{dstchan}_vld = &{", srcvlds.join(","), "};"))
+      nr_chan.times do |i|
+        other_srcvlds = (srcvlds[0,i]+srcvlds[-nr_chan+1+i,nr_chan-1-i]).join(",")
+        ModInfo.bodylines.push(prettyprint(0, "assign #{srcchans[i]}_rdy = &{", other_srcvlds+",#{dstchan}_rdy", "};"))
+      end
+    elsif ((arr.size >= 5) && arr[-2] == "=") then
+      # @ dstchan0 dstchan1 ... dstchanN = srcchan
+      nr_chan = arr.size - 3
+      dstchans, srcchan = arr[1..-3], arr[-1]
+      alldstvld = "{" + dstchans.map{|s| s+"_vld"}.join(",") + "}"
+      alldstrdy = "{" + dstchans.map{|s| s+"_rdy"}.join(",") + "}"
+      convert(handshaking_idiom_fork(nr_chan, srcchan+"_vld", srcchan+"_rdy", alldstvld, alldstrdy))
+    elsif (arr.size >= 3) then
+      # @ [WIDTH] NUM allchan0 [allchan1 ...]
+      if ((arr[1] =~ /^\d+$/) || ModInfo.params.include?(arr[1])) then
+        width = arr[1]
+      elsif (arr[1] !~ /^\w+$/) then
+        width = "(" + arr[1] + ")"
+      else
+        fail "syntax error"
+      end
+      if ((arr[2] =~ /^\d+$/) || ModInfo.params.include?(arr[2])) then
+        ix = 3
+        width += "*" + arr[2]
+        nr_chan = arr[2]
+      elsif (arr[2] !~ /^\w+$/) then
+        ix = 3
+        width += "*(" + arr[2] + ")"
+        nr_chan = arr[2]
+      else
+        ix = 2
+        width = nr_chan = arr[1]
+      end
+      (arr.size > ix)  or fail "syntax error"
+      allchans = arr[ix..-1]
+      convert("w #{nr_chan} " + allchans.map{|s| s+"_vld "+s+"_rdy"}.join(" "))
+      convert("w #{width} " + allchans.join(" "))
+    else
+      fail "syntax error"
+    end          
   else
     fail "syntax error"
   end
@@ -409,7 +540,7 @@ begin
         ModInfo.topname ||= $1
       end
       ModInfo.name = prepend_optional_prefix($1)
-    when /^[a-z]\s/
+    when /^[a-z@]\s/
       convert(line)
     when /^endmodule\s*$/
       if (ModInfo.name) then
