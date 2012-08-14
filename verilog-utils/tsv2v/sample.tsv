@@ -199,3 +199,9 @@ m submod1 loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong_na
 m submod2 a[0-3] loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong_name_input[0-3]
 m submod3 a[0-3] loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong_name_input[0-3] b[0-3]
 endmodule
+
+module long_concatenation_assignment_test
+a foo = { bar[19-0] }
+a { foo[0-19] } = bar
+a { foo[0-19] } = { bar[19-0] }
+endmodule
