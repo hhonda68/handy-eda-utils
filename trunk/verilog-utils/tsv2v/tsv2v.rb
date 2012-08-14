@@ -319,13 +319,19 @@ def convert(line)
         args.push(sig_vld, sig_rdy, sig)
         ModInfo.bodylines.push(prettyprint(0, "#{submod}(", args.join(","), ");"))
       else
-        line = TypeStr[type] + width + sig
-        if (type == "o") then
-          ModInfo.args.push(sig)
-          ModInfo.arglines.push(line+";")
-          type = "a"
-          width = " "
+        if (sig[0] == ?{ && sig[-1] == ?}) then
+          lines = prettyprint(0, TypeStr[type]+width+"{", sig[1..-2], "}")
+          line = lines.pop
+          ModInfo.bodylines.push(lines)  unless lines.empty?
+        else
           line = TypeStr[type] + width + sig
+          if (type == "o") then
+            ModInfo.args.push(sig)
+            ModInfo.arglines.push(line+";")
+            type = "a"
+            width = " "
+            line = TypeStr[type] + width + sig
+          end
         end
         if (arr.size >= 5 && arr[2] == "{" && arr[-1] == "}") then
           ModInfo.bodylines.push(prettyprint(0, line+" = {", arr[3..-2].map{|x| expand_handshake(x)}.join(","), "};"))
