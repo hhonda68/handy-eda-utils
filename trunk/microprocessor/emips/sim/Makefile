@@ -12,26 +12,25 @@ TSV2V := $(RUBY) ../../../verilog-utils/tsv2v/tsv2v.rb
 TSV := $(wildcard *.tsv)
 V := $(patsubst %.tsv,%.v,$(TSV))
 
-EMIPS_IAW := 12
-EMIPS_DAW := 16
+EMIPS_AW := 16
 
 #PROG := hello
 #PROG := pi
-PROG := atan
-#PROG := muldiv
+#PROG := atan
+PROG := muldiv
 
-all: tb.vvp $(PROG).dis $(PROG).adr emips-imem.hex emips-dmem0.hex
+all: tb.vvp $(PROG).dis $(PROG).adr emips-mem0.hex
 	@
 
 tb.vvp: rtl tb.v $(V)
-	iverilog -DEMIPS_RTLSIM -y ../rtl -o tb.vvp tb.v
+	iverilog -DEMIPS_RTLSIM_XXX -y ../rtl -o tb.vvp tb.v
 
 $(V): %.v: %.tsv
 	@echo '[Generating $@ ...]'
 	@$(TSV2V) $< > $@~ && chmod -w $@~ && rm -f $@ && mv $@~ $@
 
 CCPFX   := mips-elf
-CC      := $(CCPFX)-gcc -mcode-readable=no -mno-check-zero-division -msoft-float
+CC      := $(CCPFX)-gcc -mno-check-zero-division -msoft-float
 CFLAGS  := -O2 -Wall -fomit-frame-pointer
 LDFLAGS := -nostdlib -T ldscript.txt
 LDLIBS  := -lgcc
@@ -43,31 +42,18 @@ endef
 $(PROG).elf: boot.o $(PROG).o ldscript.txt
 	$(LINK)
 
-emips-imem.hex: $(PROG)-imem.hex Makefile
-	@echo '[Copying $< to $@ ...]'
-	@cp $< $@
+emips-mem0.hex: $(PROG)-mem0.hex Makefile
+	@echo '[Copying $(PROG)-mem*.hex to emips-mem*.hex ...]'
+	@cp $(PROG)-mem3.hex emips-mem3.hex && \
+	 cp $(PROG)-mem2.hex emips-mem2.hex && \
+	 cp $(PROG)-mem1.hex emips-mem1.hex && \
+	 cp $(PROG)-mem0.hex emips-mem0.hex
 
-emips-dmem0.hex: $(PROG)-dmem0.hex Makefile
-	@echo '[Copying $(PROG)-dmem*.hex to emips-dmem*.hex ...]'
-	@cp $(PROG)-dmem3.hex emips-dmem3.hex && \
-	 cp $(PROG)-dmem2.hex emips-dmem2.hex && \
-	 cp $(PROG)-dmem1.hex emips-dmem1.hex && \
-	 cp $(PROG)-dmem0.hex emips-dmem0.hex
-
-%-imem.hex: %-imem.bin
+%-mem0.hex: %-mem.bin
 	@echo '[Generating $@ ...]'
-	@sz=`stat -c "%s" $<` && cap=$$((4<<$(EMIPS_IAW))) && \
+	@sz=`stat -c "%s" $<` && cap=$$((1<<$(EMIPS_AW))) && \
 	 if [ "$$((sz>cap))" = "1" ] ; then \
-	   echo "IMEM size overflow" ; false ; \
-	 else \
-	   head -c $$((cap-sz)) /dev/zero | cat $< - | od -v -A n -t x1 -w4 | sed 's/ //g' > $@~ && mv $@~ $@ ; \
-	 fi
-
-%-dmem0.hex: %-dmem.bin
-	@echo '[Generating $@ ...]'
-	@sz=`stat -c "%s" $<` && cap=$$((1<<$(EMIPS_DAW))) && \
-	 if [ "$$((sz>cap))" = "1" ] ; then \
-	   echo "DMEM size overflow" ; false ; \
+	   echo "memory size overflow" ; false ; \
 	 else \
 	   head -c $$((cap-sz)) /dev/zero | cat $< - | od -v -A n -t x1 -w4 > $@~ && \
 	   sed 's/^ \(..\) .. .. ../\1/' $@~ > $@~0~ && \
@@ -90,11 +76,8 @@ emips-dmem0.hex: $(PROG)-dmem0.hex Makefile
 %.adr: %.elf
 	$(CCPFX)-nm -n $< > $@~ && mv $@~ $@
 
-%-imem.bin: %.elf
-	$(CCPFX)-objcopy -j .text -O binary $< $@
-
-%-dmem.bin: %.elf
-	$(CCPFX)-objcopy -j .data -O binary $< $@
+%-mem.bin: %.elf
+	$(CCPFX)-objcopy -O binary $< $@
 
 run: tb.vvp
 	vvp tb.vvp
