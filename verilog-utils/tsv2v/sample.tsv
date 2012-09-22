@@ -132,6 +132,22 @@ w  8 mid@ = submod1 ( clk rst submod1_param a@ )
 m submod2 clk rst submod2_param_high submod2_param_low mid@ b@ x@ y@
 endmodule
 
+module pack_wo_test
+i  8 a[0-7]
+o  8 { ya[0-7] } = submod1 ( a[0-7] )
+o  8 { yb[0-7] } = { a[0-7] }
+o  8 { yc[0-7] } = {a0,a1,a2,a3,a4,a5,a6,a7} ^ {a1,a2,a3,a4,a5,a6,a7,a0}
+o    { yd[0-7] } = submod2 ( a[0-7] )
+o    { ye[0-7] } = { a0[0-7][0] }
+o    { yf[0-7] } = a0 ^ a1
+w  8 { wa[0-7] } = submod1 ( a[0-7] )
+w  8 { wb[0-7] } = { a[0-7] }
+w  8 { wc[0-7] } = {a0,a1,a2,a3,a4,a5,a6,a7} ^ {a1,a2,a3,a4,a5,a6,a7,a0}
+w    { wd[0-7] } = submod2 ( a[0-7] )
+w    { we[0-7] } = { a0[0] a1[0] a2[0] a3[0] a4[0] a5[0] a6[0] a7[0] }
+w    { wf[0-7] } = a0 ^ a1
+endmodule
+
 module prefixed_submodule_call_test
 i 8 a
 w 8 a0 = $submod ( a )
@@ -201,9 +217,16 @@ m submod3 a[0-3] loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
 endmodule
 
 module long_concatenation_assignment_test
+o 8 { afo[0-19] } = bar
+o 8 { bfo[0-19] } = { bar[19-0] }
+o 8 { cfo[0-19] } = submod ( bar[19-0] )
+w 8 { dfo[0-19] } = bar
+w 8 { efo[0-19] } = { bar[19-0] }
+w 8 { ffo[0-19] } = submod ( bar[19-0] )
 a foo = { bar[19-0] }
 a { foo[0-19] } = bar
 a { foo[0-19] } = { bar[19-0] }
+a { foo[0-19] } = submod ( bar[19-0] )
 endmodule
 
 module handshaking_idiom_test1
