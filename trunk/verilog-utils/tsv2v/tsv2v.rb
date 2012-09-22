@@ -37,6 +37,12 @@
 #   a TARGET = SUBMOD ( ARG0 ARG1 ... )
 #   a TARGET = { PART0 PART1 ... }
 #   a TARGET = OTHER_VERBATIM_EXPR
+#   o [WIDTH] { NAME0 NAME1 ... } = SUBMOD ( ARG0 ARG1 ... )
+#   o [WIDTH] { NAME0 NAME1 ... } = { PART0 PART1 ... }
+#   o [WIDTH] { NAME0 NAME1 ... } = OTHER_VERBATIM_EXPR
+#   w [WIDTH] { NAME0 NAME1 ... } = SUBMOD ( ARG0 ARG1 ... )
+#   w [WIDTH] { NAME0 NAME1 ... } = { PART0 PART1 ... }
+#   w [WIDTH] { NAME0 NAME1 ... } = OTHER_VERBATIM_EXPR
 #   a { PART0 PART1 ... } = SUBMOD ( ARG0 ARG1 ... )
 #   a { PART0 PART1 ... } = { PART10 PART11 ... }
 #   a { PART0 PART1 ... } = OTHER_VERBATIM_EXPR
@@ -334,20 +340,27 @@ def convert(line)
     if (arr[0] =~ /^\d+$/) then
       (type != "a")  or fail "syntax error"
       width = " [#{arr[0].to_i-1}:0] "
-      arr.shift
+      typewidth = type + " " + arr.shift
     elsif (ModInfo.params.include?(arr[0])) then
       (type != "a")  or fail "syntax error"
       width = " [#{arr[0]}-1:0] "
-      arr.shift
-    elsif ((type != "a") && (arr[0] !~ /^\w+@?$/)) then
+      typewidth = type + " " + arr.shift
+    elsif ((type != "a") && (arr[0] != "{") && (arr[0] !~ /^\w+@?$/)) then
       width = " [(#{arr[0]})-1:0] "
-      arr.shift
+      typewidth = type + " " + arr.shift
     else
       width = " "
+      typewidth = type
     end
     if (arr[0] == "{") then
+      (type != "i")  or fail "syntax error"
       ix = (0...arr.size).find{|i| arr[i] == "}"}
-      (ix && (ix >= 2)) or fail "syntax error"
+      (ix && (ix >= 2) && (ix < arr.size-2) && (arr[ix+1] == "=")) or fail "syntax error"
+      unless (type == "a") then
+        convert(typewidth + " " + arr[1..ix-1].join(" "))
+        type = "a"
+        width = " "
+      end
       arr[0..ix] = "{" + arr[1..ix-1].join(",") + "}"
     end
     if (arr.size >= 2 && arr[1] == "=") then
@@ -380,20 +393,21 @@ def convert(line)
       else
         if (sig[0] == ?{ && sig[-1] == ?}) then
           lines = prettyprint(0, TypeStr[type]+width+"{", sig[1..-2], "}")
-          line = lines.pop
-          ModInfo.bodylines.push(lines)  unless lines.empty?
         else
-          line = TypeStr[type] + width + sig
-          if (type == "o") then
-            ModInfo.args.push(sig)
-            ModInfo.arglines.push(line+";")
-            type = "a"
-            width = " "
-            line = TypeStr[type] + width + sig
-          end
+          lines = [ TypeStr[type]+width+sig ]
+        end
+        if (type == "o") then
+          ModInfo.args.push(sig)
+          (lines.size == 1)  or fail "internal error"
+          ModInfo.arglines.push(lines[0]+";")
+          len = (TypeStr[type]+width).size
+          type = "a"
+          width = " "
+          lines[0][0,len] = TypeStr[type]+width
         end
         if (arr.size >= 5 && arr[2] == "{" && arr[-1] == "}") then
-          ModInfo.bodylines.push(prettyprint(0, line+" = {", arr[3..-2].map{|x| expand_handshake(x)}.join(","), "};"))
+          lines[-1] = prettyprint(0, lines[-1]+" = {", arr[3..-2].map{|x| expand_handshake(x)}.join(","), "};")
+          ModInfo.bodylines.push(lines)
         elsif (arr.size >= 5 && arr[3] == "(" && arr[-1] == ")") then
           args = arr[4..-2].map{|x| expand_handshake(x)}
           args.push(sig)
@@ -401,13 +415,15 @@ def convert(line)
           # o 8 foo = submod ( arg0 arg1 ... )
           submod = append_instance_name(arr[2])
           if (type == "w") then
-            ModInfo.bodylines.push(line+";")
+            lines[-1] << ";"
+            ModInfo.bodylines.push(lines)
           end
           ModInfo.bodylines.push(prettyprint(0, "#{submod}(", args.join(","), ");"))
         else
           # o   foo = EXPR
           # o 8 foo = EXPR
-          ModInfo.bodylines.push(line + " " + arr[1..-1].join(" ") + ";")
+          lines[-1] << (" " + arr[1..-1].join(" ") + ";")
+          ModInfo.bodylines.push(lines)
         end
       end
     else
