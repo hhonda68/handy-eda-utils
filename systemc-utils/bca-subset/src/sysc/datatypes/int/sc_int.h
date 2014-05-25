@@ -132,7 +132,7 @@ template <typename S, int W> struct sc_int_bitref {
   obj_type& m_obj;
   const int m_pos;
   sc_inline sc_int_bitref(obj_type& obj, int pos) : m_obj(obj), m_pos(pos) {}
-  sc_inline const sc_int_bitref& operator=(bool val) const { m_obj.set_bit(m_pos, val);  return *this; }
+  sc_inline const sc_int_bitref& operator=(unsigned int val) const { m_obj.set_bit(m_pos, val&1);  return *this; }
   sc_inline const sc_int_bitref& operator=(const sc_int_bitref& rhs) const { return operator=(static_cast<bool>(rhs)); }
   template <typename T> sc_inline const sc_int_bitref& operator&=(T val) const { return *this = *this & val; }
   template <typename T> sc_inline const sc_int_bitref& operator|=(T val) const { return *this = *this | val; }
