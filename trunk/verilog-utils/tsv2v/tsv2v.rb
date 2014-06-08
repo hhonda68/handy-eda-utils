@@ -61,7 +61,8 @@
 #   3. If the line matches /\s+#.*$/, delete $&.
 #   4. If the line matches /\s*\\$/,
 #        replace $& with " " and append the next line and goto step 3.
-#   5. Expand "ranged name field"s (matching /^\w+(\[(\d+([-,]\d+)+)\]\w*)+@?$/).
+#   5. Substitute /\btrue\b/ and /\bfalse\b/ to "1'b1" and "1'b0", respectively.
+#   6. Expand "ranged name field"s (matching /^\w+(\[(\d+([-,]\d+)+)\]\w*)+@?$/).
 #        foo[0-3]      --> foo0 foo1 foo2 foo3
 #        foo[3-0]bar   --> foo3bar foo2bar foo1bar foo0bar
 #        a[0-15]       --> a0 a1 a2 ... a13 a14 a15
@@ -69,7 +70,7 @@
 #        a[0,2,4-6]    --> a0 a2 a4 a5 a6
 #        a[0-2][5-7]   --> a05 a06 a07 a15 a16 a17 a25 a26 a27
 #        a[0-2]b[5-7]c --> a0b5c a0b6c a0b7c a1b5c a1b6c a1b7c a2b5c a2b6c a2b7c
-#   6. Expand "handshake channel field"s (matching /^\w+@$/)
+#   7. Expand "handshake channel field"s (matching /^\w+@$/)
 #        i 8 foo@ --> i   foo_vld
 #                     o   foo_rdy
 #                     i 8 foo
@@ -79,7 +80,7 @@
 #        w 8 foo@ --> w   foo_vld foo_rdy
 #                     w 8 foo
 #        m submod foo@ --> m submod foo_vld foo_rdy foo
-#   7. Expand "common handshaking idiom" lines
+#   8. Expand "common handshaking idiom" lines
 #        @ dstchan = srcchan
 #           --> a dstchan_vld = srcchan_vld
 #               a srcchan_rdy = dstchan_rdy
@@ -307,6 +308,8 @@ def convert(line)
     line += $_
     line.sub!(/\s+#.*$/,"")
   end
+  line.gsub!(/\btrue\b/,"1'b1")
+  line.gsub!(/\bfalse\b/,"1'b0")
   arr = expand_ranges(line)
   case arr[0]
   when "p","l"

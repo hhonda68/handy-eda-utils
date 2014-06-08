@@ -304,3 +304,13 @@ w W*2 c[0-9]@
 @ N    allq8
 @ N+1  allr8
 endmodule
+
+module true_false_substitution_test
+# meaningless operation (only for conversion test)
+i  foo[0-4]
+o  bar[0-2]
+a  bar0 = foo0 ? false : true
+a  bar1 = foo1?false:true
+a  bar2 = foo2 ? (foo3 ? false : true) : (foo4 ? true : false)
+endmodule
+
